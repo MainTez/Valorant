@@ -24,7 +24,7 @@ One paragraph per layer. Canonical configs: [`package.json`](../../package.json)
 - **HenrikDev Valorant API** — player accounts, match history, MMR, MMR history. Wrapped in `lib/henrik/` and exposed via proxy routes at `app/api/henrik/*`. Responses cached in the `henrik_cache` table (see [[0004-henrik-proxy-cache-strategy]]). Key never leaves the server.
 - **OpenRouter** — free-tier LLM (default `meta-llama/llama-3.1-8b-instruct:free`) for the coach-summary prose in AI insights. Called from `lib/insights/llm.ts` with a 12-second abort timeout. Degrades to rules-only prose when `OPENROUTER_API_KEY` is missing. See [[0001-hybrid-ai-insights-engine]] and [[0002-openrouter-over-openai]].
 - **Google OAuth** (via Supabase Auth provider config) — sole sign-in method.
-- **Vercel Cron** — scheduled endpoints `/api/cron/refresh-stats` (every 6h) and `/api/cron/regenerate-insights` (daily 04:00 UTC). Gated by a `CRON_SECRET` bearer token.
+- **Vercel Cron** — scheduled endpoints `/api/cron/refresh-stats` (daily 03:00 UTC) and `/api/cron/regenerate-insights` (daily 04:00 UTC). Vercel's Hobby plan caps crons at once per day, so both run nightly and the 03:00 refresh seeds the 04:00 insights regen with fresh data. Gated by a `CRON_SECRET` bearer token.
 
 ## Key libraries
 

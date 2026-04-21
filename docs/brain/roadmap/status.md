@@ -52,7 +52,7 @@ Snapshot of what's shipped / stubbed / missing after the greenfield build in com
 
 ## Infrastructure
 
-- ✅ `vercel.json` cron: `/api/cron/refresh-stats` every 6h (`0 */6 * * *`); `/api/cron/regenerate-insights` daily at 04:00 UTC.
+- ✅ `vercel.json` cron: `/api/cron/refresh-stats` daily at 03:00 UTC (`0 3 * * *`); `/api/cron/regenerate-insights` daily at 04:00 UTC. Vercel Hobby plan caps crons at once per day — a sub-daily schedule (originally `0 */6 * * *`) fails deployment with *"Hobby accounts are limited to daily cron jobs."*
 - ✅ `CRON_SECRET` bearer-token gating on `/api/cron/*` routes.
 - ⚠️ No Vercel deployment yet; env vars not wired in prod.
 - ⚠️ Google OAuth client not yet configured (Supabase redirect URL pending real project).

@@ -40,7 +40,7 @@ updated: 2026-04-21
 - ✅ Per-team data isolation is enforced in Postgres via RLS on every team-scoped table.
 - ✅ HenrikDev stats (account, matches, MMR, history) flow through a server-side proxy with TTL cache in `henrik_cache`; the API key never ships to the browser.
 - ✅ AI insights combine [[0001-hybrid-ai-insights-engine|the rule engine]] with an optional [[0002-openrouter-over-openai|OpenRouter LLM]]; degrades gracefully to rules-only if `OPENROUTER_API_KEY` is missing.
-- ✅ Vercel cron regenerates stats every 6h and insights nightly.
+- ✅ Vercel cron regenerates stats and insights nightly (03:00 + 04:00 UTC; Hobby plan is daily-only).
 - ⚠️ Live Supabase project and Google OAuth client are not yet wired up.
 - ⚠️ Real team rosters (Riot IDs) are not yet populated.
 - ❌ No tests, no CI, no mobile polish, no in-app event creation UI for the calendar.

@@ -66,5 +66,5 @@ Edge cases:
 
 ## Cron: refresh stats + regenerate insights
 
-- `/api/cron/refresh-stats` runs every 6h (Vercel cron). Gated by `Authorization: Bearer ${CRON_SECRET}`. Walks every tracked `player_profile`, pulls latest Henrik data, updates the cached snapshot + `tracked_stats`.
+- `/api/cron/refresh-stats` runs daily at 03:00 UTC (Vercel cron — Hobby plan caps crons at once per day). Gated by `Authorization: Bearer ${CRON_SECRET}`. Walks every tracked `player_profile`, pulls latest Henrik data, updates the cached snapshot + `tracked_stats`. Intra-day freshness comes from the per-endpoint TTL cache on on-demand requests (see [[0004-henrik-proxy-cache-strategy]]).
 - `/api/cron/regenerate-insights` runs nightly at 04:00 UTC. Regenerates `ai_predictions` for every tracked player via the same engine + LLM pipeline.

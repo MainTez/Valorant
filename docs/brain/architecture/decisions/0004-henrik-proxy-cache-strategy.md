@@ -33,7 +33,7 @@ Where to put the cache? In-memory per-serverless-instance caches evaporate betwe
    - `mmr` — 2 minutes (RR moves game-by-game; we want close-to-live)
    - `mmrHistory` — 15 minutes (history changes slower than current MMR)
 4. **Normalization at ingest time.** `lib/henrik/normalize.ts` flattens Henrik's deeply-nested response into the shapes in `types/domain.ts` (`NormalizedAccount`, `NormalizedMMR`, `NormalizedMatch`, `NormalizedMmrHistoryEntry`). The cache stores the _normalized_ payload.
-5. **Cron-driven refresh.** `/api/cron/refresh-stats` runs every 6h (Vercel cron) and proactively refreshes every tracked `player_profile`'s snapshot into `tracked_stats` and the `player_profiles.last_synced_at` column.
+5. **Cron-driven refresh.** `/api/cron/refresh-stats` runs daily at 03:00 UTC (Vercel cron) and proactively refreshes every tracked `player_profile`'s snapshot into `tracked_stats` and the `player_profiles.last_synced_at` column. Intra-day freshness comes from the per-endpoint TTL cache on on-demand requests — the cron is just there to make sure the nightly `regenerate-insights` run at 04:00 UTC sees up-to-date data and so the dashboard has a warm snapshot before anyone logs in. Originally this was `0 */6 * * *` (every 6h) but Vercel's Hobby plan caps crons at once per day; dropping to daily is fine because the TTL cache handles in-session freshness.
 
 ## Consequences
 
