@@ -38,8 +38,10 @@ select t.id, 'weekly_focus', 'Mid Control',
   true
 from public.teams t;
 
--- Admin whitelist entry (for the initial user). Adjust email to match the team owner.
+-- Admin whitelist — both owners get admin access on Surf'n Bulls.
+-- Add more entries (players, coaches, Molgarians members) as needed.
 insert into public.whitelist (email, team_id, role)
 values
-  ('vegard.laland@gmail.com', '00000000-0000-0000-0000-000000000001', 'admin')
+  ('vegard.laland@gmail.com', '00000000-0000-0000-0000-000000000001', 'admin'),
+  ('danilebnen@gmail.com',    '00000000-0000-0000-0000-000000000001', 'admin')
 on conflict (email) do nothing;
