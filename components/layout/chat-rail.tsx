@@ -39,6 +39,7 @@ interface Props {
   activeChannelSlug: string;
   initialMessages: RailMessage[];
   currentUserId: string;
+  teamId: string;
 }
 
 const DRAWER_HIDDEN_STORAGE_KEY = "chat-rail-hidden";
@@ -55,11 +56,11 @@ export function ChatRail({
   activeChannelSlug,
   initialMessages,
   currentUserId,
+  teamId,
 }: Props) {
   const supabaseRef = useRef(createSupabaseBrowserClient());
   const rootRef = useRef<HTMLDivElement>(null);
   const drawerPanelRef = useRef<HTMLElement>(null);
-  const onlineRef = useRef<HTMLDivElement>(null);
   const messageViewportRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const hydratedChannelRef = useRef(false);
@@ -71,10 +72,14 @@ export function ChatRail({
   const [railHidden, setRailHidden] = useState(false);
   const [storageReady, setStorageReady] = useState(false);
   const [loadingChannel, setLoadingChannel] = useState(false);
+  const [onlineIds, setOnlineIds] = useState<string[]>([]);
 
   const activeChannel =
     channels.find((channel) => channel.slug === selectedChannelSlug) ?? channels[0];
-  const online = members.filter((member) => member.status === "online");
+  const onlineIdSet = new Set(onlineIds);
+  const online = members.filter(
+    (member) => onlineIdSet.has(member.id) || member.status === "online",
+  );
 
   useEffect(() => {
     setSelectedChannelSlug(activeChannelSlug);
@@ -156,6 +161,41 @@ export function ChatRail({
   }, [activeChannel, members]);
 
   useEffect(() => {
+    if (!teamId) return;
+
+    const supabase = supabaseRef.current;
+    const presenceChannel = supabase.channel(`presence:team:${teamId}`, {
+      config: {
+        presence: { key: currentUserId },
+      },
+    });
+
+    presenceChannel
+      .on("presence", { event: "sync" }, () => {
+        const state = presenceChannel.presenceState<{ user_id: string }>();
+        const ids = Object.values(state)
+          .flatMap((entries) => entries.map((entry) => entry.user_id))
+          .filter(Boolean);
+
+        setOnlineIds(Array.from(new Set(ids)));
+      })
+      .subscribe(async (status) => {
+        if (status !== "SUBSCRIBED") return;
+        setOnlineIds((previous) =>
+          previous.includes(currentUserId) ? previous : [...previous, currentUserId],
+        );
+        await presenceChannel.track({
+          user_id: currentUserId,
+          online_at: new Date().toISOString(),
+        });
+      });
+
+    return () => {
+      void supabase.removeChannel(presenceChannel);
+    };
+  }, [currentUserId, teamId]);
+
+  useEffect(() => {
     if (!activeChannel) return;
 
     const supabase = supabaseRef.current;
@@ -200,10 +240,20 @@ export function ChatRail({
     };
   }, [activeChannel, members]);
 
-  useEffect(() => {
+  function scrollMessagesToBottom(behavior: ScrollBehavior = "smooth") {
     if (railHidden) return;
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages.length, railHidden]);
+
+    requestAnimationFrame(() => {
+      const viewport = messageViewportRef.current;
+      if (!viewport) return;
+      viewport.scrollTo({ top: viewport.scrollHeight, behavior });
+      bottomRef.current?.scrollIntoView({ behavior });
+    });
+  }
+
+  useEffect(() => {
+    scrollMessagesToBottom(activeChannel ? "auto" : "smooth");
+  }, [messages.length, railHidden, activeChannel?.id]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -283,69 +333,9 @@ export function ChatRail({
           "-=0.34",
         );
 
-      const cleanups: Array<() => void> = [];
-      const hoverNodes = gsap.utils.toArray<HTMLElement>("[data-hover-tilt]");
-
-      hoverNodes.forEach((node) => {
-        const xTo = gsap.quickTo(node, "x", { duration: 0.38, ease: "power3.out" });
-        const yTo = gsap.quickTo(node, "y", { duration: 0.38, ease: "power3.out" });
-        const rotateTo = gsap.quickTo(node, "rotation", {
-          duration: 0.38,
-          ease: "power3.out",
-        });
-        const scaleTo = gsap.quickTo(node, "scale", {
-          duration: 0.38,
-          ease: "power3.out",
-        });
-
-        const handleMove = (event: PointerEvent) => {
-          const bounds = node.getBoundingClientRect();
-          const offsetX = event.clientX - (bounds.left + bounds.width / 2);
-          const offsetY = event.clientY - (bounds.top + bounds.height / 2);
-          xTo(bounds.width > 0 ? offsetX * 0.025 : 0);
-          yTo(bounds.height > 0 ? offsetY * 0.025 : 0);
-          rotateTo(bounds.width > 0 ? offsetX * 0.02 : 0);
-          scaleTo(1.01);
-        };
-
-        const resetNode = () => {
-          xTo(0);
-          yTo(0);
-          rotateTo(0);
-          scaleTo(1);
-        };
-
-        node.addEventListener("pointermove", handleMove);
-        node.addEventListener("pointerleave", resetNode);
-        node.addEventListener("pointercancel", resetNode);
-        cleanups.push(() => {
-          node.removeEventListener("pointermove", handleMove);
-          node.removeEventListener("pointerleave", resetNode);
-          node.removeEventListener("pointercancel", resetNode);
-        });
-      });
-
-      if (onlineRef.current) {
-        gsap.to("[data-online-card]", {
-          y: (index) => -index * 8,
-          scale: (index) => 1 - index * 0.025,
-          opacity: (index) => 1 - Math.min(index * 0.05, 0.18),
-          ease: "none",
-          stagger: 0.04,
-          scrollTrigger: {
-            trigger: onlineRef.current,
-            start: "top bottom-=120",
-            end: "bottom center",
-            scrub: 0.6,
-          },
-        });
-      }
-
-      return () => {
-        cleanups.forEach((cleanup) => cleanup());
-      };
+      return () => undefined;
     },
-    { scope: rootRef, dependencies: [online.length], revertOnUpdate: true },
+    { scope: rootRef },
   );
 
   async function send(event: React.FormEvent) {
@@ -353,8 +343,19 @@ export function ChatRail({
     const trimmed = draft.trim();
     if (!trimmed || !activeChannel) return;
 
+    const optimisticId = `optimistic-${Date.now()}`;
+    const optimisticMessage: RailMessage = {
+      id: optimisticId,
+      author_id: currentUserId,
+      body: trimmed,
+      created_at: new Date().toISOString(),
+      author: authorForMessage(members, currentUserId),
+    };
+
     setPending(true);
     setDraft("");
+    setMessages((previous) => [...previous, optimisticMessage].slice(-50));
+    scrollMessagesToBottom();
 
     try {
       const response = await fetch("/api/chat/send", {
@@ -363,9 +364,51 @@ export function ChatRail({
         body: JSON.stringify({ channelId: activeChannel.id, body: trimmed }),
       });
 
+      const payload = (await response.json().catch(() => null)) as {
+        data?: {
+          id: string;
+          author_id: string;
+          body: string;
+          created_at: string;
+        };
+      } | null;
+      const confirmedMessage = payload?.data;
+
       if (!response.ok) {
+        setMessages((previous) =>
+          previous.filter((message) => message.id !== optimisticId),
+        );
         setDraft(trimmed);
+        return;
       }
+
+      if (confirmedMessage) {
+        setMessages((previous) => {
+          const withoutOptimistic = previous.filter(
+            (message) => message.id !== optimisticId,
+          );
+
+          if (withoutOptimistic.some((message) => message.id === confirmedMessage.id)) {
+            return withoutOptimistic;
+          }
+
+          return [
+            ...withoutOptimistic,
+            {
+              id: confirmedMessage.id,
+              author_id: confirmedMessage.author_id,
+              body: confirmedMessage.body,
+              created_at: confirmedMessage.created_at,
+              author: authorForMessage(members, confirmedMessage.author_id),
+            },
+          ].slice(-50);
+        });
+      }
+    } catch {
+      setMessages((previous) =>
+        previous.filter((message) => message.id !== optimisticId),
+      );
+      setDraft(trimmed);
     } finally {
       setPending(false);
     }
@@ -633,11 +676,7 @@ export function ChatRail({
             </div>
           </div>
 
-          <div
-            ref={onlineRef}
-            data-rail-shell
-            className="surface relative overflow-hidden p-4"
-          >
+          <div data-rail-shell className="surface relative overflow-hidden p-4">
             <div className="pointer-events-none absolute inset-x-6 top-0 h-16 bg-[radial-gradient(circle_at_top,var(--accent-dim),transparent_72%)] opacity-70" />
 
             <div className="relative flex items-center justify-between">

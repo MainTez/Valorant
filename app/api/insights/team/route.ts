@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth/get-session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import type { AiPredictionRow, PlayerProfileRow } from "@/types/domain";
+import { buildTeamStatsBundle } from "@/lib/stats/team";
+import type {
+  AiPredictionRow,
+  PlayerProfileRow,
+  TrackedStatRow,
+  UserRow,
+} from "@/types/domain";
 
 export const runtime = "nodejs";
 
@@ -10,55 +16,50 @@ export async function GET() {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const supabase = await createSupabaseServerClient();
-  const { data: profiles } = await supabase
-    .from("player_profiles")
-    .select("*")
-    .eq("team_id", session.team.id);
+  const [{ data: profiles }, { data: members }] = await Promise.all([
+    supabase
+      .from("player_profiles")
+      .select("*")
+      .eq("team_id", session.team.id),
+    supabase
+      .from("users")
+      .select("riot_name, riot_tag")
+      .eq("team_id", session.team.id),
+  ]);
 
   const list = (profiles ?? []) as PlayerProfileRow[];
-  if (list.length === 0) {
-    return NextResponse.json({
-      data: {
-        teamId: session.team.id,
-        players: [],
-        averages: null,
-      },
-    });
-  }
+  const rosterLinkedCount = ((members ?? []) as Array<Partial<UserRow>>).filter(
+    (member) => member.riot_name && member.riot_tag,
+  ).length;
+  const ids = list.map((profile) => profile.id);
 
-  const ids = list.map((p) => p.id);
-  const { data: predRows } = await supabase
-    .from("ai_predictions")
-    .select("*")
-    .in("player_profile_id", ids)
-    .order("generated_at", { ascending: false });
+  const [{ data: predRows }, { data: trackedRows }] = ids.length
+    ? await Promise.all([
+        supabase
+          .from("ai_predictions")
+          .select("*")
+          .in("player_profile_id", ids)
+          .order("generated_at", { ascending: false }),
+        supabase
+          .from("tracked_stats")
+          .select("*")
+          .in("player_profile_id", ids)
+          .order("played_at", { ascending: false }),
+      ])
+    : [
+        { data: [] as AiPredictionRow[] },
+        { data: [] as TrackedStatRow[] },
+      ];
 
-  const byPlayer = new Map<string, AiPredictionRow>();
-  for (const r of (predRows ?? []) as AiPredictionRow[]) {
-    if (!byPlayer.has(r.player_profile_id)) byPlayer.set(r.player_profile_id, r);
-  }
-
-  const players = list.map((p) => ({
-    profile: p,
-    prediction: byPlayer.get(p.id) ?? null,
-  }));
-
-  const nums = (key: keyof PlayerProfileRow) =>
-    list
-      .map((p) => (p[key] as number | null) ?? null)
-      .filter((v): v is number => typeof v === "number");
-
-  const avg = (arr: number[]) =>
-    arr.length ? Number((arr.reduce((a, b) => a + b, 0) / arr.length).toFixed(2)) : null;
-
-  const averages = {
-    headshot_pct: avg(nums("headshot_pct")),
-    kd_ratio: avg(nums("kd_ratio")),
-    acs: avg(nums("acs")),
-    win_rate: avg(nums("win_rate")),
-  };
+  const teamStats = buildTeamStatsBundle({
+    teamId: session.team.id,
+    profiles: list,
+    trackedStats: (trackedRows ?? []) as TrackedStatRow[],
+    predictions: (predRows ?? []) as AiPredictionRow[],
+    rosterLinkedCount,
+  });
 
   return NextResponse.json({
-    data: { teamId: session.team.id, players, averages },
+    data: teamStats,
   });
 }

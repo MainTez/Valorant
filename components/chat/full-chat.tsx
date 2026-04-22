@@ -38,13 +38,18 @@ export function FullChat({
   initialMessages,
   currentUserId,
 }: Props) {
-  const supabase = createSupabaseBrowserClient();
+  const supabaseRef = useRef(createSupabaseBrowserClient());
   const active = channels.find((c) => c.slug === activeSlug) ?? channels[0];
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [draft, setDraft] = useState("");
   const [pending, setPending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const viewportRef = useRef<HTMLDivElement>(null);
   const membersById = Object.fromEntries(members.map((m) => [m.id, m]));
+
+  useEffect(() => {
+    setMessages(initialMessages);
+  }, [initialMessages]);
 
   useEffect(() => {
     if (!active) return;
@@ -56,7 +61,7 @@ export function FullChat({
 
   useEffect(() => {
     if (!active) return;
-    const ch = supabase
+    const ch = supabaseRef.current
       .channel(`full:${active.id}`)
       .on(
         "postgres_changes",
@@ -73,27 +78,63 @@ export function FullChat({
       )
       .subscribe();
     return () => {
-      void supabase.removeChannel(ch);
+      void supabaseRef.current.removeChannel(ch);
     };
-  }, [active, supabase]);
+  }, [active]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    requestAnimationFrame(() => {
+      const viewport = viewportRef.current;
+      if (viewport) {
+        viewport.scrollTo({ top: viewport.scrollHeight, behavior: "smooth" });
+      }
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    });
   }, [messages.length]);
 
   async function send(e: React.FormEvent) {
     e.preventDefault();
     const body = draft.trim();
     if (!body || !active) return;
+    const optimisticId = `optimistic-${Date.now()}`;
+    const optimisticMessage: Message = {
+      id: optimisticId,
+      channel_id: active.id,
+      author_id: currentUserId,
+      body,
+      created_at: new Date().toISOString(),
+    };
     setPending(true);
     setDraft("");
+    setMessages((prev) => [...prev, optimisticMessage]);
     try {
       const res = await fetch("/api/chat/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ channelId: active.id, body }),
       });
-      if (!res.ok) setDraft(body);
+
+      const payload = (await res.json().catch(() => null)) as { data?: Message } | null;
+      const confirmedMessage = payload?.data;
+
+      if (!res.ok) {
+        setMessages((prev) => prev.filter((message) => message.id !== optimisticId));
+        setDraft(body);
+        return;
+      }
+
+      if (confirmedMessage) {
+        setMessages((prev) => {
+          const withoutOptimistic = prev.filter((message) => message.id !== optimisticId);
+          if (withoutOptimistic.some((message) => message.id === confirmedMessage.id)) {
+            return withoutOptimistic;
+          }
+          return [...withoutOptimistic, confirmedMessage];
+        });
+      }
+    } catch {
+      setMessages((prev) => prev.filter((message) => message.id !== optimisticId));
+      setDraft(body);
     } finally {
       setPending(false);
     }
@@ -137,7 +178,10 @@ export function FullChat({
             </p>
           ) : null}
         </div>
-        <div className="flex-1 min-h-0 overflow-y-auto scrollbar-slim px-5 py-4 flex flex-col gap-3">
+        <div
+          ref={viewportRef}
+          className="flex-1 min-h-0 overflow-y-auto scrollbar-slim px-5 py-4 flex flex-col gap-3"
+        >
           {messages.length === 0 ? (
             <p className="text-sm text-[color:var(--color-muted)] text-center mt-10">
               No messages yet. Kick it off.
