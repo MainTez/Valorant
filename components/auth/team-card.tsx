@@ -1,9 +1,9 @@
 "use client";
 
+import Image from "next/image";
 import { TEAMS, type TeamMeta, type TeamSlug } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { glowButtonClasses } from "@/components/auth/glow-button";
-import { MolgariansCrest, SurfNBullsCrest } from "@/components/auth/team-crests";
 
 const PANEL_CUT = "polygon(8% 0, 92% 0, 100% 8%, 100% 92%, 92% 100%, 8% 100%, 0 92%, 0 8%)";
 
@@ -97,11 +97,25 @@ export function TeamCard({
             selected ? "scale-100 opacity-100" : "scale-[0.96] opacity-95",
           )}
         >
-          {team.slug === "molgarians" ? (
-            <MolgariansCrest className="max-h-[18rem] w-full max-w-[15rem]" />
-          ) : (
-            <SurfNBullsCrest className="max-h-[17rem] w-full max-w-[15rem]" />
-          )}
+          <div className="relative flex w-full items-center justify-center">
+            <Image
+              src={
+                team.slug === "molgarians"
+                  ? "/teams/molgarians-logo.png"
+                  : "/teams/surf-n-bulls-logo.png"
+              }
+              alt={`${team.name} logo`}
+              width={team.slug === "molgarians" ? 687 : 552}
+              height={team.slug === "molgarians" ? 899 : 758}
+              priority
+              className={cn(
+                "h-auto object-contain drop-shadow-[0_0_30px_rgba(0,0,0,0.75)]",
+                team.slug === "molgarians"
+                  ? "max-h-[18rem] w-full max-w-[15rem]"
+                  : "max-h-[17rem] w-full max-w-[14rem]",
+              )}
+            />
+          </div>
         </div>
 
         <div className="mt-2 text-center">

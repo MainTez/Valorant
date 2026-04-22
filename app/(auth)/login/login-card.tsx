@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useRef, useState, type FormEvent } from "react";
+import { use, useEffect, useRef, useState } from "react";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
@@ -25,9 +25,9 @@ function firstParam(value: string | string[] | undefined) {
 function searchErrorMessage(errorCode: string | null) {
   switch (errorCode) {
     case "not_whitelisted":
-      return "This email is not on the approved roster yet. Use Request Access below.";
+      return "This Gmail account is not on the approved roster yet. Use Request Access below.";
     case "oauth_failed":
-      return "The sign-in flow did not complete. Try again from the login page.";
+      return "The Google sign-in flow did not complete. Try again from the login page.";
     case "server_config":
       return "Authentication reached the app, but the server is missing required Supabase configuration.";
     case "callback_failed":
@@ -38,21 +38,6 @@ function searchErrorMessage(errorCode: string | null) {
       return "This account is approved for a different team than the one currently selected.";
     default:
       return null;
-  }
-}
-
-function bootstrapErrorMessage(errorCode: unknown) {
-  switch (errorCode) {
-    case "team_required":
-      return "Choose your team before logging in.";
-    case "not_whitelisted":
-      return "This email is not approved for roster access yet.";
-    case "team_mismatch":
-      return "This account belongs to a different team.";
-    case "unauthorized":
-      return "Your session was not ready after authentication. Try again.";
-    default:
-      return "We could not finish team access verification. Try again.";
   }
 }
 
@@ -67,14 +52,11 @@ export function LoginCard({
 
   const rootRef = useRef<HTMLDivElement>(null);
   const [team, setTeam] = useState<TeamSlug | null>(queryTeam);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [localErr, setLocalErr] = useState<string | null>(null);
   const [ignoreSearchError, setIgnoreSearchError] = useState(false);
   const [assistMessage, setAssistMessage] = useState<string | null>(
-    "Select your team first, then log in with your approved account.",
+    "Select your team first, then continue with your approved Gmail account.",
   );
 
   useEffect(() => {
@@ -188,40 +170,17 @@ export function LoginCard({
   const selectedTeam = team ? TEAMS[team] : null;
   const errorMessage =
     localErr ?? (!ignoreSearchError ? searchErrorMessage(queryError) : null);
-  const canSubmit = Boolean(team && email.trim() && password);
+  const canSubmit = Boolean(team);
 
   function handleTeamSelect(nextTeam: TeamSlug) {
     setIgnoreSearchError(true);
     setTeam(nextTeam);
     setLocalErr(null);
-    setAssistMessage(`${TEAMS[nextTeam].name} selected. Continue with your approved credentials.`);
+    setAssistMessage(`${TEAMS[nextTeam].name} selected. Continue with Google to enter the hub.`);
   }
 
-  function handleForgotPassword() {
-    setIgnoreSearchError(true);
-    setLocalErr(null);
-    setAssistMessage(
-      email.trim()
-        ? "Password resets are currently handled by team admins. Use Request Access below if you need one."
-        : "Enter your approved email first, then use Request Access if you need an admin reset.",
-    );
-  }
-
-  function handleEmailChange(value: string) {
-    setIgnoreSearchError(true);
-    setLocalErr(null);
-    setEmail(value);
-  }
-
-  function handlePasswordChange(value: string) {
-    setIgnoreSearchError(true);
-    setLocalErr(null);
-    setPassword(value);
-  }
-
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!team || !email.trim() || !password) return;
+  async function handleSubmit() {
+    if (!team) return;
 
     setLoading(true);
     setIgnoreSearchError(true);
@@ -230,60 +189,24 @@ export function LoginCard({
 
     try {
       const supabase = createSupabaseBrowserClient();
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password,
+      const origin =
+        typeof window !== "undefined"
+          ? window.location.origin
+          : process.env.NEXT_PUBLIC_APP_URL;
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${origin}/auth/callback?team=${team}`,
+          queryParams: { access_type: "offline", prompt: "consent" },
+        },
       });
 
       if (error) {
-        setLocalErr(
-          error.message === "Invalid login credentials"
-            ? "Invalid email or password."
-            : error.message,
-        );
+        setLocalErr(error.message);
         return;
       }
-
-      const accessToken = data.session?.access_token;
-      if (!accessToken) {
-        setLocalErr("Authentication succeeded, but no session token was returned.");
-        return;
-      }
-
-      const response = await fetch("/api/auth/bootstrap", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({ team }),
-      });
-
-      const payload = (await response.json().catch(() => ({}))) as {
-        error?: string;
-        team?: string;
-      };
-
-      if (!response.ok) {
-        await supabase.auth.signOut();
-        if (payload.error === "team_mismatch" && payload.team) {
-          const assignedTeam = teamBySlug(payload.team)?.name;
-          setLocalErr(
-            assignedTeam
-              ? `This account is approved for ${assignedTeam}, not ${TEAMS[team].name}.`
-              : bootstrapErrorMessage(payload.error),
-          );
-          return;
-        }
-
-        setLocalErr(bootstrapErrorMessage(payload.error));
-        return;
-      }
-
-      setAssistMessage(`${TEAMS[team].name} verified. Redirecting to the hub...`);
-      window.location.assign("/dashboard");
     } catch (error) {
-      setLocalErr(error instanceof Error ? error.message : "Login failed.");
+      setLocalErr(error instanceof Error ? error.message : "Google sign-in failed.");
     } finally {
       setLoading(false);
     }
@@ -300,18 +223,11 @@ export function LoginCard({
 
         <LoginForm
           team={selectedTeam}
-          email={email}
-          password={password}
-          showPassword={showPassword}
           loading={loading}
           canSubmit={canSubmit}
           errorMessage={errorMessage}
           assistMessage={assistMessage}
           requestAccessHref={REQUEST_ACCESS_HREF}
-          onEmailChange={handleEmailChange}
-          onPasswordChange={handlePasswordChange}
-          onTogglePassword={() => setShowPassword((current) => !current)}
-          onForgotPassword={handleForgotPassword}
           onSubmit={handleSubmit}
         />
       </div>

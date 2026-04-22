@@ -1,41 +1,25 @@
 "use client";
 
-import type { FormEvent } from "react";
-import { Eye, EyeOff, Lock, Mail } from "lucide-react";
 import type { TeamMeta } from "@/lib/constants";
 import { cn } from "@/lib/utils";
-import { GlowButton, glowButtonClasses } from "@/components/auth/glow-button";
+import { glowButtonClasses } from "@/components/auth/glow-button";
 
 export function LoginForm({
   team,
-  email,
-  password,
-  showPassword,
   loading,
   canSubmit,
   errorMessage,
   assistMessage,
   requestAccessHref,
-  onEmailChange,
-  onPasswordChange,
-  onTogglePassword,
-  onForgotPassword,
   onSubmit,
 }: {
   team: TeamMeta | null;
-  email: string;
-  password: string;
-  showPassword: boolean;
   loading: boolean;
   canSubmit: boolean;
   errorMessage: string | null;
   assistMessage: string | null;
   requestAccessHref: string;
-  onEmailChange: (value: string) => void;
-  onPasswordChange: (value: string) => void;
-  onTogglePassword: () => void;
-  onForgotPassword: () => void;
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onSubmit: () => void;
 }) {
   const tone = team?.accent ?? "neutral";
 
@@ -49,60 +33,31 @@ export function LoginForm({
         <span className="h-px flex-1 bg-gradient-to-r from-transparent via-[#f3bf4c]/55 to-transparent" />
       </div>
 
-      <form onSubmit={onSubmit} className="mt-7 space-y-4">
-        <label className="metal-input flex h-16 items-center gap-4 rounded-[1rem] px-5">
-          <Mail className="h-5 w-5 shrink-0 text-white/45" />
-          <input
-            value={email}
-            onChange={(event) => onEmailChange(event.target.value)}
-            type="email"
-            autoComplete="email"
-            placeholder="Username or Email"
-            className="h-full w-full bg-transparent text-lg text-white outline-none placeholder:text-white/34"
-          />
-        </label>
+      <div className="mt-7 space-y-4">
+        <p className="text-center text-base text-white/60">
+          Use your whitelisted Gmail account to continue.
+        </p>
 
-        <label className="metal-input flex h-16 items-center gap-4 rounded-[1rem] px-5">
-          <Lock className="h-5 w-5 shrink-0 text-white/45" />
-          <input
-            value={password}
-            onChange={(event) => onPasswordChange(event.target.value)}
-            type={showPassword ? "text" : "password"}
-            autoComplete="current-password"
-            placeholder="Password"
-            className="h-full w-full bg-transparent text-lg text-white outline-none placeholder:text-white/34"
-          />
-          <button
-            type="button"
-            onClick={onTogglePassword}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full text-white/52 transition hover:bg-white/5 hover:text-white"
-            aria-label={showPassword ? "Hide password" : "Show password"}
-          >
-            {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-          </button>
-        </label>
-
-        <div className="pt-3">
-          <GlowButton
-            type="submit"
-            tone={tone}
-            disabled={!canSubmit || loading}
-            active={Boolean(canSubmit)}
-            className="h-[4.4rem] w-full text-[1.05rem] tracking-[0.26em]"
-          >
-            {loading ? "Authenticating" : "Login"}
-          </GlowButton>
-        </div>
-
-        <div className="text-center">
-          <button
-            type="button"
-            onClick={onForgotPassword}
-            className="text-[1.02rem] text-[#f0c45f] transition hover:text-[#ffd98a]"
-          >
-            Forgot Password?
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={onSubmit}
+          disabled={!canSubmit || loading}
+          className={cn(
+            glowButtonClasses({
+              tone,
+              active: Boolean(canSubmit),
+              disabled: !canSubmit || loading,
+              className:
+                "h-[4.4rem] w-full text-[1.02rem] tracking-[0.22em]",
+            }),
+            "gap-4",
+          )}
+        >
+          <span className="relative z-10 flex items-center gap-4">
+            <GoogleMark />
+            <span>{loading ? "Redirecting To Google" : "Continue With Google"}</span>
+          </span>
+        </button>
 
         <div className="min-h-12 space-y-2 pt-2 text-center">
           {errorMessage ? (
@@ -126,10 +81,10 @@ export function LoginForm({
               {team.name} selected
             </span>
           ) : (
-            "Select a team above to activate login"
+            "Select a team above to activate Google sign-in"
           )}
         </div>
-      </form>
+      </div>
 
       <div className="mt-8 border-t border-white/8 pt-8 text-center">
         <p className="text-[0.82rem] uppercase tracking-[0.34em] text-white/36">
@@ -149,5 +104,13 @@ export function LoginForm({
         </div>
       </div>
     </section>
+  );
+}
+
+function GoogleMark() {
+  return (
+    <span className="grid h-9 w-9 place-items-center rounded-full bg-white text-[1.05rem] font-bold text-[#4285f4] shadow-[0_8px_20px_-12px_rgba(255,255,255,0.65)]">
+      G
+    </span>
   );
 }
