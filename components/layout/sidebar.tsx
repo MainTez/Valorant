@@ -59,11 +59,8 @@ export function Sidebar({ team, user }: Props) {
     <aside className="relative z-10 w-[260px] shrink-0 flex flex-col gap-4 p-5 pr-3 border-r border-white/5 bg-[color:var(--color-panel)]/70 backdrop-blur-md min-h-screen sticky top-0">
       <div className="flex flex-col items-center gap-2 py-3">
         <TeamEmblem team={team} size="md" />
-        <div className="text-center leading-tight mt-1">
-          <div className="font-display tracking-[0.25em] text-base">NEXUS</div>
-          <div className="font-display tracking-[0.22em] text-xs accent-text">
-            {meta.shortName}
-          </div>
+        <div className="mt-1 text-center font-display text-base tracking-[0.25em] accent-text">
+          {meta.shortName}
         </div>
       </div>
 
