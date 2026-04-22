@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import {
   Calendar,
   ClipboardList,
@@ -33,11 +34,17 @@ interface Props {
   };
 }
 
+function readActiveChannelSlug() {
+  const matchedCookie = document.cookie.match(/(?:^|; )active_channel=([^;]+)/);
+  return matchedCookie ? decodeURIComponent(matchedCookie[1]) : "general";
+}
+
 const NAV: Array<{
   href: string;
   label: string;
   icon: typeof LayoutDashboard;
   adminOnly?: boolean;
+  matchPrefix?: string;
 }> = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/stats", label: "Stats Tracker", icon: LineChart },
@@ -45,7 +52,7 @@ const NAV: Array<{
   { href: "/matches", label: "Match Log", icon: Swords },
   { href: "/routines", label: "Routines", icon: ListChecks },
   { href: "/tasks", label: "Tasks", icon: ClipboardList },
-  { href: "/chat/general", label: "Team Chat", icon: MessageSquare },
+  { href: "/chat/general", label: "Team Chat", icon: MessageSquare, matchPrefix: "/chat" },
   { href: "/players", label: "Players", icon: Users },
   { href: "/calendar", label: "Calendar", icon: Calendar },
   { href: "/admin/whitelist", label: "Admin", icon: Shield, adminOnly: true },
@@ -54,6 +61,31 @@ const NAV: Array<{
 export function Sidebar({ team, user }: Props) {
   const pathname = usePathname();
   const meta = TEAMS[team];
+  const [chatHref, setChatHref] = useState("/chat/general");
+
+  useEffect(() => {
+    setChatHref(`/chat/${readActiveChannelSlug()}`);
+  }, [pathname]);
+
+  useEffect(() => {
+    const handleActiveChannelChange = (event: Event) => {
+      const nextSlug =
+        (event as CustomEvent<string>).detail ?? readActiveChannelSlug();
+      setChatHref(`/chat/${nextSlug}`);
+    };
+
+    window.addEventListener(
+      "active-channel-change",
+      handleActiveChannelChange as EventListener,
+    );
+
+    return () => {
+      window.removeEventListener(
+        "active-channel-change",
+        handleActiveChannelChange as EventListener,
+      );
+    };
+  }, []);
 
   return (
     <aside className="relative z-10 w-[260px] shrink-0 flex flex-col gap-4 p-5 pr-3 border-r border-white/5 bg-[color:var(--color-panel)]/70 backdrop-blur-md min-h-screen sticky top-0">
@@ -66,14 +98,16 @@ export function Sidebar({ team, user }: Props) {
 
       <nav className="flex flex-col gap-1">
         {NAV.filter((n) => !n.adminOnly || user.role === "admin").map((n) => {
+          const href = n.matchPrefix === "/chat" ? chatHref : n.href;
+          const matchTarget = n.matchPrefix ?? n.href;
           const active =
-            pathname === n.href ||
-            (n.href !== "/dashboard" && pathname.startsWith(n.href));
+            pathname === href ||
+            (matchTarget !== "/dashboard" && pathname.startsWith(matchTarget));
           const Icon = n.icon;
           return (
             <Link
-              key={n.href}
-              href={n.href}
+              key={n.label}
+              href={href}
               className={cn("nav-item", active && "active")}
             >
               <Icon className="h-[18px] w-[18px]" />

@@ -109,7 +109,6 @@ export default async function AppLayout({
           activeChannelSlug={activeChannelSlug}
           initialMessages={messages}
           currentUserId={session.user.id}
-          teamId={session.team.id}
         />
       </div>
     </div>

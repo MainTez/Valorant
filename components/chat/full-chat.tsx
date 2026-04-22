@@ -48,6 +48,14 @@ export function FullChat({
 
   useEffect(() => {
     if (!active) return;
+    document.cookie = `active_channel=${encodeURIComponent(active.slug)}; Path=/; Max-Age=31536000; SameSite=Lax`;
+    window.dispatchEvent(
+      new CustomEvent("active-channel-change", { detail: active.slug }),
+    );
+  }, [active]);
+
+  useEffect(() => {
+    if (!active) return;
     const ch = supabase
       .channel(`full:${active.id}`)
       .on(
