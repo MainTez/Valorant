@@ -19,20 +19,9 @@ export function HeroHeader() {
 
       <p
         data-hero-item
-        className="mt-5 flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-[0.92rem] uppercase tracking-[0.38em] text-white/48 sm:text-[1.05rem]"
+        className="mt-5 max-w-3xl text-center text-[1rem] font-medium leading-relaxed text-white/50 sm:text-[1.12rem]"
       >
-        <span data-tag-word>TWO TEAMS.</span>
-        <span
-          className="inline-block h-3 w-14 rounded-full border border-[#f3bf4c]/35 bg-[linear-gradient(90deg,rgba(243,191,76,0.12),rgba(255,255,255,0.28),rgba(51,184,255,0.18))] bg-cover bg-center shadow-[0_0_18px_rgba(243,191,76,0.2)]"
-          style={{
-            backgroundImage:
-              "linear-gradient(90deg,rgba(243,191,76,0.16),rgba(255,255,255,0.12),rgba(51,184,255,0.2)),url('https://picsum.photos/seed/esport-arena-lights/160/40')",
-          }}
-        />
-        <span data-tag-word className="text-[#f3bf4c]">
-          ONE
-        </span>
-        <span data-tag-word>COMMUNITY.</span>
+        <span data-tag-word>&ldquo;Discipline is what remains when the pressure hits.&rdquo;</span>
       </p>
 
       <div

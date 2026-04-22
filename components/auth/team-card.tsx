@@ -18,8 +18,8 @@ export function TeamCard({
 }) {
   const isGold = team.accent === "gold";
   const borderColor = isGold ? "rgba(243,191,76,0.7)" : "rgba(51,184,255,0.64)";
-  const glowColor = isGold ? "rgba(243,191,76,0.34)" : "rgba(51,184,255,0.28)";
-  const shadowColor = isGold ? "rgba(243,191,76,0.24)" : "rgba(51,184,255,0.22)";
+  const glowColor = isGold ? "rgba(243,191,76,0.34)" : "rgba(51,184,255,0.34)";
+  const shadowColor = isGold ? "rgba(243,191,76,0.24)" : "rgba(51,184,255,0.28)";
 
   return (
     <button
@@ -61,7 +61,7 @@ export function TeamCard({
           "pointer-events-none absolute inset-0 opacity-80 transition duration-500",
           isGold
             ? "bg-[radial-gradient(circle_at_50%_20%,rgba(243,191,76,0.18),transparent_40%),linear-gradient(180deg,transparent_40%,rgba(243,191,76,0.08)_100%)]"
-            : "bg-[radial-gradient(circle_at_50%_20%,rgba(51,184,255,0.18),transparent_40%),linear-gradient(180deg,transparent_40%,rgba(16,71,126,0.18)_100%)]",
+            : "bg-[radial-gradient(circle_at_50%_20%,rgba(51,184,255,0.24),transparent_40%),linear-gradient(180deg,transparent_38%,rgba(16,71,126,0.14)_100%)]",
         )}
       />
       <span
@@ -112,7 +112,7 @@ export function TeamCard({
                 "h-auto object-contain drop-shadow-[0_0_30px_rgba(0,0,0,0.75)]",
                 team.slug === "molgarians"
                   ? "max-h-[18rem] w-full max-w-[15rem]"
-                  : "max-h-[17rem] w-full max-w-[14rem]",
+                  : "max-h-[17rem] w-full max-w-[14rem] brightness-[1.14] contrast-[1.08] saturate-[1.18] drop-shadow-[0_0_36px_rgba(51,184,255,0.32)]",
               )}
             />
           </div>

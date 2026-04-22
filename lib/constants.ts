@@ -30,7 +30,7 @@ export const TEAMS: Record<TeamSlug, TeamMeta> = {
     accentHex: "#33b8ff",
     glowHex: "#1a7ac8",
     motto: "Wave pressure, punish space, stay composed.",
-    pitch: "Dark navy precision with electric-blue energy built for fast reads.",
+    pitch: "Fast pressure, sharp reads, and calm control when the round gets heavy.",
   },
   molgarians: {
     id: TEAM_IDS.molgarians,
@@ -41,7 +41,7 @@ export const TEAMS: Record<TeamSlug, TeamMeta> = {
     accentHex: "#f3bf4c",
     glowHex: "#b98316",
     motto: "Two teams. One community. One elite standard.",
-    pitch: "Black-gold dominance with disciplined setups and championship polish.",
+    pitch: "Disciplined setups, clean comms, and a ruthless finish when it matters.",
   },
 };
 
