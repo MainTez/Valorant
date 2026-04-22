@@ -7,6 +7,10 @@ import {
   normalizeMMR,
 } from "@/lib/henrik/normalize";
 import { normalizeRegion } from "@/lib/henrik/regions";
+import {
+  buildPlayerStatSnapshot,
+  normalizedMatchToMatchSample,
+} from "@/lib/stats/team";
 import type { PlayerProfileRow } from "@/types/domain";
 
 export const runtime = "nodejs";
@@ -27,7 +31,7 @@ export async function GET(request: NextRequest) {
     .not("team_id", "is", null);
 
   const list = (profiles ?? []) as PlayerProfileRow[];
-  const results: Array<{ id: string; ok: boolean; error?: string }> = [];
+  const results: Array<{ id: string; ok: boolean; matches?: number; error?: string }> = [];
 
   for (const p of list) {
     try {
@@ -35,47 +39,60 @@ export async function GET(request: NextRequest) {
       const [acct, mmr, matches] = await Promise.all([
         henrikAccount(p.riot_name, p.riot_tag, { force: true }),
         henrikMMR(p.riot_name, p.riot_tag, region, { force: true }),
-        henrikMatches(p.riot_name, p.riot_tag, region, { force: true, size: 10 }),
+        henrikMatches(p.riot_name, p.riot_tag, region, { force: true, size: 20 }),
       ]);
       const account = normalizeAccount(acct);
       const mmrN = normalizeMMR(mmr);
-      const matchesN = normalizeMatches(matches, { puuid: p.puuid ?? account?.puuid });
+      const matchesN = normalizeMatches(matches, { puuid: account?.puuid ?? p.puuid });
+      const snapshot = buildPlayerStatSnapshot(
+        matchesN.map(normalizedMatchToMatchSample),
+        p,
+      );
+      const trackedRows = matchesN.map((match) => ({
+        player_profile_id: p.id,
+        match_id: match.matchId,
+        played_at: match.startedAt,
+        map: match.map,
+        agent: match.agent,
+        mode: match.mode,
+        result: match.result,
+        score_team: match.scoreTeam,
+        score_opponent: match.scoreOpponent,
+        kills: match.kills,
+        deaths: match.deaths,
+        assists: match.assists,
+        acs: match.acs,
+        adr: match.adr,
+        headshot_pct: match.headshotPct,
+        rr_change: match.rrChange,
+        rank_after: match.rankAfter,
+        raw: match.raw,
+      }));
 
-      const kd =
-        matchesN.length > 0
-          ? matchesN.reduce(
-              (a, m) => a + (m.deaths === 0 ? m.kills : m.kills / Math.max(1, m.deaths)),
-              0,
-            ) / matchesN.length
-          : null;
-      const acs =
-        matchesN.length > 0
-          ? matchesN.reduce((a, m) => a + m.acs, 0) / matchesN.length
-          : null;
-      const hs =
-        matchesN.length > 0
-          ? matchesN.reduce((a, m) => a + m.headshotPct, 0) / matchesN.length
-          : null;
-      const decided = matchesN.filter((m) => m.result === "win" || m.result === "loss");
-      const wins = matchesN.filter((m) => m.result === "win").length;
-      const wr = decided.length ? (wins / decided.length) * 100 : null;
+      if (trackedRows.length > 0) {
+        const { error: trackedError } = await admin
+          .from("tracked_stats")
+          .upsert(trackedRows, { onConflict: "player_profile_id,match_id" });
+        if (trackedError) throw trackedError;
+      }
 
-      await admin
+      const { error: updateError } = await admin
         .from("player_profiles")
         .update({
-          puuid: p.puuid ?? account?.puuid ?? null,
+          puuid: account?.puuid ?? p.puuid ?? null,
           current_rank: mmrN?.currentTier ?? null,
           current_rr: mmrN?.currentRR ?? null,
           peak_rank: mmrN?.peakTier ?? null,
-          headshot_pct: hs != null ? Number(hs.toFixed(2)) : null,
-          kd_ratio: kd != null ? Number(kd.toFixed(3)) : null,
-          acs: acs != null ? Number(acs.toFixed(2)) : null,
-          win_rate: wr != null ? Number(wr.toFixed(2)) : null,
+          headshot_pct: snapshot.metrics.headshotPct,
+          kd_ratio: snapshot.metrics.kdRatio,
+          acs: snapshot.metrics.acs,
+          win_rate: snapshot.metrics.winRate,
           last_synced_at: new Date().toISOString(),
         })
         .eq("id", p.id);
+      if (updateError) throw updateError;
 
-      results.push({ id: p.id, ok: true });
+      results.push({ id: p.id, ok: true, matches: trackedRows.length });
     } catch (err) {
       results.push({
         id: p.id,
