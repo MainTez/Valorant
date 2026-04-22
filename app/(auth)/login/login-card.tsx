@@ -228,7 +228,7 @@ export function LoginCard({
           errorMessage={errorMessage}
           assistMessage={assistMessage}
           requestAccessHref={REQUEST_ACCESS_HREF}
-          onSubmit={handleSubmit}
+          onGoogleSignIn={handleSubmit}
         />
       </div>
     </LoginPageShell>

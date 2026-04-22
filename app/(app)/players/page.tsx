@@ -13,8 +13,9 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Players" };
 
 export default async function PlayersPage() {
-  const { team } = await requireSession();
+  const { team, user } = await requireSession();
   const supabase = await createSupabaseServerClient();
+  const canSeeEmails = user.role === "admin";
 
   const [{ data: users }, { data: profiles }] = await Promise.all([
     supabase
@@ -59,20 +60,27 @@ export default async function PlayersPage() {
               u.riot_name && u.riot_tag
                 ? profilesByRiot.get(`${u.riot_name.toLowerCase()}#${u.riot_tag.toLowerCase()}`)
                 : undefined;
+            const publicName =
+              u.display_name ??
+              (canSeeEmails ? u.email.split("@")[0] : u.riot_name ?? "Team Member");
             return (
               <div key={u.id} className="surface p-5 hover-lift flex flex-col gap-4">
                 <div className="flex items-center gap-3">
                   <Avatar className="h-12 w-12">
                     {u.avatar_url ? (
-                      <AvatarImage src={u.avatar_url} alt={u.display_name ?? u.email} />
+                      <AvatarImage src={u.avatar_url} alt={publicName} />
                     ) : null}
-                    <AvatarFallback>{initials(u.display_name ?? u.email)}</AvatarFallback>
+                    <AvatarFallback>{initials(publicName)}</AvatarFallback>
                   </Avatar>
                   <div className="min-w-0 flex-1">
                     <div className="font-display text-lg tracking-wide truncate">
-                      {u.display_name ?? u.email.split("@")[0]}
+                      {publicName}
                     </div>
-                    <div className="text-xs text-[color:var(--color-muted)] truncate">{u.email}</div>
+                    {canSeeEmails ? (
+                      <div className="text-xs text-[color:var(--color-muted)] truncate">
+                        {u.email}
+                      </div>
+                    ) : null}
                   </div>
                   <Badge variant="outline">{u.role}</Badge>
                 </div>
