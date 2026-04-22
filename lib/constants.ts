@@ -1,38 +1,62 @@
-export const APP_NAME = "Nexus Team Hub";
+export const APP_NAME = "Esport Hub";
 
 export type TeamSlug = "surf-n-bulls" | "molgarians";
+export type TeamAccent = "gold" | "blue";
+
+export const TEAM_IDS = {
+  "surf-n-bulls": "00000000-0000-0000-0000-000000000001",
+  molgarians: "00000000-0000-0000-0000-000000000002",
+} as const;
 
 export interface TeamMeta {
+  id: string;
   slug: TeamSlug;
   name: string;
   shortName: string;
-  accent: "gold" | "red";
+  accent: TeamAccent;
   accentHex: string;
+  glowHex: string;
   motto: string;
+  pitch: string;
 }
 
 export const TEAMS: Record<TeamSlug, TeamMeta> = {
   "surf-n-bulls": {
+    id: TEAM_IDS["surf-n-bulls"],
     slug: "surf-n-bulls",
     name: "Surf'n Bulls",
     shortName: "SNB",
-    accent: "gold",
-    accentHex: "#f3bf4c",
-    motto: "One team. One mind. One goal.",
+    accent: "blue",
+    accentHex: "#33b8ff",
+    glowHex: "#1a7ac8",
+    motto: "Wave pressure, punish space, stay composed.",
+    pitch: "Dark navy precision with electric-blue energy built for fast reads.",
   },
   molgarians: {
+    id: TEAM_IDS.molgarians,
     slug: "molgarians",
     name: "Molgarians",
     shortName: "MLG",
-    accent: "red",
-    accentHex: "#ff4655",
-    motto: "Analytical minds. Tactical planners.",
+    accent: "gold",
+    accentHex: "#f3bf4c",
+    glowHex: "#b98316",
+    motto: "Two teams. One community. One elite standard.",
+    pitch: "Black-gold dominance with disciplined setups and championship polish.",
   },
 };
+
+const TEAMS_BY_ID = Object.fromEntries(
+  Object.values(TEAMS).map((team) => [team.id, team]),
+) as Record<string, TeamMeta>;
 
 export function teamBySlug(slug: string | null | undefined): TeamMeta | null {
   if (!slug) return null;
   return (TEAMS as Record<string, TeamMeta>)[slug] ?? null;
+}
+
+export function teamById(id: string | null | undefined): TeamMeta | null {
+  if (!id) return null;
+  return TEAMS_BY_ID[id] ?? null;
 }
 
 // Valorant rank ladder (index 0..26) used for next-rank prediction

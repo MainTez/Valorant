@@ -1,8 +1,8 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Barlow_Condensed } from "next/font/google";
+import { Geist, Barlow_Condensed } from "next/font/google";
 import "./globals.css";
 
-const inter = Inter({
+const geist = Geist({
   subsets: ["latin"],
   variable: "--font-sans",
   display: "swap",
@@ -17,12 +17,12 @@ const barlow = Barlow_Condensed({
 
 export const metadata: Metadata = {
   title: {
-    default: "Nexus Team Hub",
-    template: "%s · Nexus Team Hub",
+    default: "Esport Hub",
+    template: "%s · Esport Hub",
   },
   description:
-    "Private esports hub for Surf'n Bulls and Molgarians — stats, insights, routines, coordination.",
-  applicationName: "Nexus Team Hub",
+    "Premium esports hub for Molgarians and Surf'n Bulls — roster access, coordination, and match-day tools.",
+  applicationName: "Esport Hub",
   robots: { index: false, follow: false },
 };
 
@@ -38,7 +38,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${inter.variable} ${barlow.variable}`}>
+    <html lang="en" className={`${geist.variable} ${barlow.variable}`}>
       <body className="min-h-screen">{children}</body>
     </html>
   );

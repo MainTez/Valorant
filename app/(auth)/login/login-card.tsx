@@ -1,13 +1,60 @@
 "use client";
 
-import { use, useState } from "react";
-import { Lock, ShieldCheck, AlertTriangle } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { TEAMS } from "@/lib/constants";
-import { TeamEmblem } from "@/components/common/team-emblem";
+import { use, useEffect, useRef, useState, type FormEvent } from "react";
+import { useGSAP } from "@gsap/react";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { LoginPageShell } from "@/components/auth/login-page-shell";
+import { HeroHeader } from "@/components/auth/hero-header";
+import { TeamCards } from "@/components/auth/team-card";
+import { LoginForm } from "@/components/auth/login-form";
+import { TEAMS, teamBySlug, type TeamSlug } from "@/lib/constants";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
-type TeamKey = keyof typeof TEAMS;
+gsap.registerPlugin(useGSAP, ScrollTrigger);
+
+const REQUEST_ACCESS_HREF =
+  "mailto:danilebnen@gmail.com?subject=Esport%20Hub%20Access%20Request";
+
+function firstParam(value: string | string[] | undefined) {
+  if (typeof value === "string") return value;
+  if (Array.isArray(value)) return value[0] ?? null;
+  return null;
+}
+
+function searchErrorMessage(errorCode: string | null) {
+  switch (errorCode) {
+    case "not_whitelisted":
+      return "This email is not on the approved roster yet. Use Request Access below.";
+    case "oauth_failed":
+      return "The sign-in flow did not complete. Try again from the login page.";
+    case "server_config":
+      return "Authentication reached the app, but the server is missing required Supabase configuration.";
+    case "callback_failed":
+      return "Authentication returned to the app, but the server-side callback failed.";
+    case "missing_email":
+      return "Your authentication provider did not return an email address for this account.";
+    case "team_mismatch":
+      return "This account is approved for a different team than the one currently selected.";
+    default:
+      return null;
+  }
+}
+
+function bootstrapErrorMessage(errorCode: unknown) {
+  switch (errorCode) {
+    case "team_required":
+      return "Choose your team before logging in.";
+    case "not_whitelisted":
+      return "This email is not approved for roster access yet.";
+    case "team_mismatch":
+      return "This account belongs to a different team.";
+    case "unauthorized":
+      return "Your session was not ready after authentication. Try again.";
+    default:
+      return "We could not finish team access verification. Try again.";
+  }
+}
 
 export function LoginCard({
   searchParams,
@@ -15,162 +62,259 @@ export function LoginCard({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const params = use(searchParams);
-  const errorCode = typeof params.error === "string" ? params.error : null;
+  const queryError = firstParam(params.error);
+  const queryTeam = teamBySlug(firstParam(params.team))?.slug ?? null;
 
-  const [team, setTeam] = useState<TeamKey>("surf-n-bulls");
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [team, setTeam] = useState<TeamSlug | null>(queryTeam);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [localErr, setLocalErr] = useState<string | null>(null);
+  const [ignoreSearchError, setIgnoreSearchError] = useState(false);
+  const [assistMessage, setAssistMessage] = useState<string | null>(
+    "Select your team first, then log in with your approved account.",
+  );
 
-  async function signInWithGoogle() {
-    setLoading(true);
-    setLocalErr(null);
-    try {
-      const supabase = createSupabaseBrowserClient();
-      const origin =
-        typeof window !== "undefined"
-          ? window.location.origin
-          : process.env.NEXT_PUBLIC_APP_URL;
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: `${origin}/auth/callback?team=${team}`,
-          queryParams: { access_type: "offline", prompt: "consent" },
+  useEffect(() => {
+    setIgnoreSearchError(false);
+  }, [queryError]);
+
+  useEffect(() => {
+    if (queryTeam) {
+      setTeam(queryTeam);
+      return;
+    }
+
+    if (typeof window === "undefined") return;
+    const storedTeam = teamBySlug(window.localStorage.getItem("selectedTeam"))?.slug ?? null;
+    if (storedTeam) {
+      setTeam(storedTeam);
+      setAssistMessage(`${TEAMS[storedTeam].name} restored. Continue with your approved account.`);
+    }
+  }, [queryTeam]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    if (team) {
+      document.body.dataset.team = team;
+      window.localStorage.setItem("selectedTeam", team);
+    } else {
+      delete document.body.dataset.team;
+      window.localStorage.removeItem("selectedTeam");
+    }
+
+    return () => {
+      delete document.body.dataset.team;
+    };
+  }, [team]);
+
+  useGSAP(
+    () => {
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+      const intro = gsap.timeline({ defaults: { ease: "power3.out" } });
+      intro.from("[data-hero-item]", {
+        y: 26,
+        opacity: 0,
+        duration: 0.9,
+        stagger: 0.08,
+      });
+
+      gsap.from("[data-card]", {
+        y: 48,
+        opacity: 0,
+        scale: 0.92,
+        duration: 1.05,
+        stagger: 0.14,
+        ease: "power3.out",
+        scrollTrigger: {
+          trigger: "[data-team-grid]",
+          start: "top 84%",
         },
       });
-      if (error) setLocalErr(error.message);
-    } catch (e) {
-      setLocalErr(e instanceof Error ? e.message : "Sign-in failed");
+
+      gsap.fromTo(
+        "[data-tag-word]",
+        { opacity: 0.14, yPercent: 20 },
+        {
+          opacity: 1,
+          yPercent: 0,
+          stagger: 0.08,
+          ease: "none",
+          scrollTrigger: {
+            trigger: "[data-hero]",
+            start: "top 85%",
+            end: "bottom 45%",
+            scrub: true,
+          },
+        },
+      );
+
+      gsap.fromTo(
+        "[data-crest]",
+        { scale: 0.82, opacity: 0.45 },
+        {
+          scale: 1,
+          opacity: 1,
+          duration: 1.1,
+          ease: "power2.out",
+          stagger: 0.14,
+          scrollTrigger: {
+            trigger: "[data-team-grid]",
+            start: "top 78%",
+            end: "bottom 50%",
+            scrub: 0.45,
+          },
+        },
+      );
+
+      gsap.from("[data-login-form]", {
+        y: 38,
+        opacity: 0,
+        duration: 1,
+        ease: "power3.out",
+        scrollTrigger: {
+          trigger: "[data-login-form]",
+          start: "top 88%",
+        },
+      });
+    },
+    { scope: rootRef },
+  );
+
+  const selectedTeam = team ? TEAMS[team] : null;
+  const errorMessage =
+    localErr ?? (!ignoreSearchError ? searchErrorMessage(queryError) : null);
+  const canSubmit = Boolean(team && email.trim() && password);
+
+  function handleTeamSelect(nextTeam: TeamSlug) {
+    setIgnoreSearchError(true);
+    setTeam(nextTeam);
+    setLocalErr(null);
+    setAssistMessage(`${TEAMS[nextTeam].name} selected. Continue with your approved credentials.`);
+  }
+
+  function handleForgotPassword() {
+    setIgnoreSearchError(true);
+    setLocalErr(null);
+    setAssistMessage(
+      email.trim()
+        ? "Password resets are currently handled by team admins. Use Request Access below if you need one."
+        : "Enter your approved email first, then use Request Access if you need an admin reset.",
+    );
+  }
+
+  function handleEmailChange(value: string) {
+    setIgnoreSearchError(true);
+    setLocalErr(null);
+    setEmail(value);
+  }
+
+  function handlePasswordChange(value: string) {
+    setIgnoreSearchError(true);
+    setLocalErr(null);
+    setPassword(value);
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!team || !email.trim() || !password) return;
+
+    setLoading(true);
+    setIgnoreSearchError(true);
+    setLocalErr(null);
+    setAssistMessage(null);
+
+    try {
+      const supabase = createSupabaseBrowserClient();
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
+
+      if (error) {
+        setLocalErr(
+          error.message === "Invalid login credentials"
+            ? "Invalid email or password."
+            : error.message,
+        );
+        return;
+      }
+
+      const accessToken = data.session?.access_token;
+      if (!accessToken) {
+        setLocalErr("Authentication succeeded, but no session token was returned.");
+        return;
+      }
+
+      const response = await fetch("/api/auth/bootstrap", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ team }),
+      });
+
+      const payload = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        team?: string;
+      };
+
+      if (!response.ok) {
+        await supabase.auth.signOut();
+        if (payload.error === "team_mismatch" && payload.team) {
+          const assignedTeam = teamBySlug(payload.team)?.name;
+          setLocalErr(
+            assignedTeam
+              ? `This account is approved for ${assignedTeam}, not ${TEAMS[team].name}.`
+              : bootstrapErrorMessage(payload.error),
+          );
+          return;
+        }
+
+        setLocalErr(bootstrapErrorMessage(payload.error));
+        return;
+      }
+
+      setAssistMessage(`${TEAMS[team].name} verified. Redirecting to the hub...`);
+      window.location.assign("/dashboard");
+    } catch (error) {
+      setLocalErr(error instanceof Error ? error.message : "Login failed.");
     } finally {
       setLoading(false);
     }
   }
 
-  const errorMessage =
-    localErr ??
-    (errorCode === "not_whitelisted"
-      ? "This email is not on the team whitelist. Contact an admin."
-      : errorCode === "oauth_failed"
-        ? "Sign-in failed. Please try again."
-        : errorCode === "missing_email"
-          ? "Google did not return an email for this account."
-          : null);
-
   return (
-    <div className="w-full max-w-md">
-      <div className="surface-accent p-8 animate-slide-up">
-        <div className="flex items-center gap-2 mb-1">
-          <Lock className="h-4 w-4 accent-text" />
-          <span className="eyebrow">Private Team Hub</span>
-        </div>
-        <h2 className="font-display text-4xl tracking-wider">
-          WELCOME <span className="accent-text">BACK</span>
-        </h2>
-        <p className="mt-3 text-[color:var(--color-muted)]">
-          Choose your team and sign in with your whitelisted email.
-        </p>
+    <LoginPageShell requestAccessHref={REQUEST_ACCESS_HREF}>
+      <div ref={rootRef} className="relative mx-auto flex w-full flex-col items-center">
+        <HeroHeader />
 
-        <div className="mt-6">
-          <div className="eyebrow mb-3 text-center">Select your team</div>
-          <div className="grid grid-cols-2 gap-3">
-            {(Object.keys(TEAMS) as TeamKey[]).map((slug) => {
-              const meta = TEAMS[slug];
-              const active = team === slug;
-              return (
-                <button
-                  key={slug}
-                  data-team={slug}
-                  onClick={() => setTeam(slug)}
-                  className={cn(
-                    "group text-left p-4 rounded-xl border bg-white/[0.02] transition-all",
-                    active
-                      ? "border-[color:var(--accent)] shadow-[0_0_0_1px_var(--accent-soft),0_18px_40px_-20px_rgba(0,0,0,0.6)]"
-                      : "border-white/10 hover:border-[color:var(--accent-soft)]",
-                  )}
-                >
-                  <div className="flex items-center gap-3">
-                    <TeamEmblem team={slug} size="sm" />
-                    <div>
-                      <div className="font-display text-base tracking-wide">
-                        {meta.name}
-                      </div>
-                      <div className="text-[10px] uppercase tracking-widest text-[color:var(--color-muted)]">
-                        {meta.accent} accent
-                      </div>
-                    </div>
-                  </div>
-                  <p className="text-xs text-[color:var(--color-muted)] mt-3 line-clamp-2">
-                    {meta.motto}
-                  </p>
-                </button>
-              );
-            })}
-          </div>
+        <div className="mt-10 w-full">
+          <TeamCards selectedTeam={team} onSelect={handleTeamSelect} />
         </div>
 
-        <div className="my-6 h-px bg-white/5" />
-
-        <button
-          onClick={signInWithGoogle}
-          disabled={loading}
-          className="w-full h-12 rounded-xl border border-[color:var(--accent-soft)] bg-gradient-to-b from-white/5 to-white/[0.02] text-[color:var(--color-text)] flex items-center justify-center gap-3 font-display tracking-[0.1em] text-lg hover:border-[color:var(--accent)] disabled:opacity-50 transition"
-        >
-          <GoogleG />
-          {loading ? "REDIRECTING…" : "SIGN IN WITH GOOGLE"}
-        </button>
-
-        {errorMessage ? (
-          <div className="mt-4 flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">
-            <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
-            <span>{errorMessage}</span>
-          </div>
-        ) : null}
-
-        <div className="mt-6 grid gap-3">
-          <InfoCard icon={<ShieldCheck className="h-4 w-4 accent-text" />}>
-            <div className="font-display tracking-wider uppercase text-sm">
-              Access is restricted to approved members.
-            </div>
-            <p className="text-xs text-[color:var(--color-muted)] mt-1">
-              If you should have access, contact your team captain or admin.
-            </p>
-          </InfoCard>
-          <InfoCard icon={<Lock className="h-4 w-4 accent-text" />}>
-            <div className="font-display tracking-wider uppercase text-sm">
-              Secure. Private. Built for champions.
-            </div>
-            <p className="text-xs text-[color:var(--color-muted)] mt-1">
-              Your data, strats, and comms are locked to your team.
-            </p>
-          </InfoCard>
-        </div>
+        <LoginForm
+          team={selectedTeam}
+          email={email}
+          password={password}
+          showPassword={showPassword}
+          loading={loading}
+          canSubmit={canSubmit}
+          errorMessage={errorMessage}
+          assistMessage={assistMessage}
+          requestAccessHref={REQUEST_ACCESS_HREF}
+          onEmailChange={handleEmailChange}
+          onPasswordChange={handlePasswordChange}
+          onTogglePassword={() => setShowPassword((current) => !current)}
+          onForgotPassword={handleForgotPassword}
+          onSubmit={handleSubmit}
+        />
       </div>
-
-      <p className="text-center text-xs text-[color:var(--color-muted)] mt-6">
-        © {new Date().getFullYear()} Nexus Team Hub. All rights reserved.
-      </p>
-    </div>
-  );
-}
-
-function InfoCard({
-  icon,
-  children,
-}: {
-  icon: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="flex items-start gap-3 rounded-xl border border-white/5 bg-white/[0.02] p-3">
-      <div className="mt-0.5">{icon}</div>
-      <div className="min-w-0">{children}</div>
-    </div>
-  );
-}
-
-function GoogleG() {
-  return (
-    <span className="h-7 w-7 rounded-full bg-white grid place-items-center text-[#4385f4] text-base font-bold select-none">
-      G
-    </span>
+    </LoginPageShell>
   );
 }
