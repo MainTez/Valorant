@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { RankBadge } from "@/components/common/rank-badge";
 import type { NormalizedAccount, NormalizedMMR, NormalizedMatch } from "@/types/domain";
 import { cn } from "@/lib/utils";
+import { filterCoreStatsMatches } from "@/lib/stats/match-filters";
 
 interface Props {
   account: NormalizedAccount | null;
@@ -13,12 +14,15 @@ interface Props {
 }
 
 export function PlayerProfileCard({ account, mmr, matches, region, onTeam }: Props) {
-  const wins = matches.filter((m) => m.result === "win").length;
-  const decided = matches.filter((m) => m.result === "win" || m.result === "loss").length;
+  const eligibleMatches = filterCoreStatsMatches(matches);
+  const wins = eligibleMatches.filter((m) => m.result === "win").length;
+  const decided = eligibleMatches.filter((m) => m.result === "win" || m.result === "loss").length;
   const winRate = decided > 0 ? Math.round((wins / decided) * 100) : null;
-  const acs = matches.length ? Math.round(avg(matches.map((m) => m.acs))) : null;
-  const kd = matches.length ? avg(matches.map((m) => (m.deaths === 0 ? m.kills : m.kills / Math.max(1, m.deaths)))) : null;
-  const hs = matches.length ? avg(matches.map((m) => m.headshotPct)) : null;
+  const acs = eligibleMatches.length ? Math.round(avg(eligibleMatches.map((m) => m.acs))) : null;
+  const kd = eligibleMatches.length
+    ? avg(eligibleMatches.map((m) => (m.deaths === 0 ? m.kills : m.kills / Math.max(1, m.deaths))))
+    : null;
+  const hs = eligibleMatches.length ? avg(eligibleMatches.map((m) => m.headshotPct)) : null;
 
   return (
     <div className="surface-accent relative overflow-hidden">

@@ -5,6 +5,7 @@ import type {
   Result,
   TrackedStatRow,
 } from "@/types/domain";
+import { isCoreStatsMode } from "@/lib/stats/match-filters";
 
 const TEAM_SAMPLE_LIMIT = 10;
 const FORM_WINDOW = 5;
@@ -138,7 +139,8 @@ export function buildPlayerStatSnapshot(
   matches: MatchStatSample[],
   fallback?: Pick<PlayerProfileRow, "headshot_pct" | "kd_ratio" | "acs" | "win_rate"> | null,
 ): PlayerStatSnapshot {
-  const sample = [...matches]
+  const sample = matches
+    .filter((match) => isCoreStatsMode(match.mode))
     .sort((a, b) => parseTime(b.playedAt) - parseTime(a.playedAt))
     .slice(0, TEAM_SAMPLE_LIMIT);
 

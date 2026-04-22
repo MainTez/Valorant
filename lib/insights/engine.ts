@@ -1,6 +1,7 @@
 import { clamp, mean, slope, stdev } from "@/lib/utils";
 import { rankAtIndex, rankIndex } from "@/lib/constants";
 import type { NormalizedMatch, NormalizedMmrHistoryEntry } from "@/types/domain";
+import { filterCoreStatsMatches } from "@/lib/stats/match-filters";
 
 export interface EngineInput {
   matches: NormalizedMatch[];
@@ -29,7 +30,7 @@ export interface EngineOutput {
 }
 
 export function runEngine(input: EngineInput): EngineOutput {
-  const all = [...input.matches].sort(
+  const all = filterCoreStatsMatches(input.matches).sort(
     (a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime(),
   );
   const recent = all.slice(0, 10);

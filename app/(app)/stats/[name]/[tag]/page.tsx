@@ -17,6 +17,7 @@ import { AgentUsage } from "@/components/stats/agent-usage";
 import { MapPerformance } from "@/components/stats/map-performance";
 import { EmptyState } from "@/components/common/empty-state";
 import type { NormalizedMatch } from "@/types/domain";
+import { filterCoreStatsMatches } from "@/lib/stats/match-filters";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -69,6 +70,7 @@ export default async function PlayerStatsPage({ params, searchParams }: Props) {
     name: decodedName,
     tag: decodedTag,
   });
+  const analyticalMatches = filterCoreStatsMatches(matches);
   const history = normalizeMmrHistory(historyRes);
 
   if (!account) {
@@ -86,7 +88,7 @@ export default async function PlayerStatsPage({ params, searchParams }: Props) {
   // Persist/update profile under the team scope so future dashboards show it.
   try {
     const admin = createSupabaseAdminClient();
-    const { kdStat, acsStat, hsStat, wrStat } = aggregate(matches);
+    const { kdStat, acsStat, hsStat, wrStat } = aggregate(analyticalMatches);
     await admin
       .from("player_profiles")
       .upsert(
@@ -133,18 +135,18 @@ export default async function PlayerStatsPage({ params, searchParams }: Props) {
       <PlayerProfileCard
         account={account}
         mmr={mmr}
-        matches={matches}
+        matches={analyticalMatches}
         region={region}
         onTeam={onTeam}
       />
 
       <section className="grid grid-cols-1 xl:grid-cols-[1fr_1fr] gap-4">
-        <FormChart matches={matches} />
-        <AgentUsage matches={matches} />
+        <FormChart matches={analyticalMatches} />
+        <AgentUsage matches={analyticalMatches} />
       </section>
 
       <section>
-        <MapPerformance matches={matches} />
+        <MapPerformance matches={analyticalMatches} />
       </section>
 
       <section>
