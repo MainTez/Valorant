@@ -193,10 +193,11 @@ export function LoginCard({
         typeof window !== "undefined"
           ? window.location.origin
           : process.env.NEXT_PUBLIC_APP_URL;
+      const redirectTo = new URL("/auth/callback", origin).toString();
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${origin}/auth/callback?team=${team}`,
+          redirectTo,
           queryParams: { access_type: "offline", prompt: "consent" },
         },
       });
@@ -207,6 +208,41 @@ export function LoginCard({
       }
     } catch (error) {
       setLocalErr(error instanceof Error ? error.message : "Google sign-in failed.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleVipSubmit() {
+    if (!team) return;
+
+    setLoading(true);
+    setIgnoreSearchError(true);
+    setLocalErr(null);
+    setAssistMessage(`Preparing VIP access for ${TEAMS[team].name}...`);
+
+    try {
+      const res = await fetch("/api/auth/vip-login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ team }),
+      });
+
+      const payload = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        redirectTo?: string;
+      };
+
+      if (!res.ok || !payload.redirectTo) {
+        setLocalErr(payload.error ?? "VIP login failed.");
+        setAssistMessage(null);
+        return;
+      }
+
+      window.location.assign(payload.redirectTo);
+    } catch (error) {
+      setLocalErr(error instanceof Error ? error.message : "VIP login failed.");
+      setAssistMessage(null);
     } finally {
       setLoading(false);
     }
@@ -229,6 +265,7 @@ export function LoginCard({
           assistMessage={assistMessage}
           requestAccessHref={REQUEST_ACCESS_HREF}
           onGoogleSignIn={handleSubmit}
+          onVipSignIn={handleVipSubmit}
         />
       </div>
     </LoginPageShell>

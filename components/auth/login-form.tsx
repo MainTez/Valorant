@@ -1,6 +1,6 @@
 "use client";
 
-import { Chrome, ShieldCheck } from "lucide-react";
+import { Chrome, KeyRound, ShieldCheck } from "lucide-react";
 import type { TeamMeta } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { GlowButton, glowButtonClasses } from "@/components/auth/glow-button";
@@ -13,6 +13,7 @@ export function LoginForm({
   assistMessage,
   requestAccessHref,
   onGoogleSignIn,
+  onVipSignIn,
 }: {
   team: TeamMeta | null;
   loading: boolean;
@@ -21,6 +22,7 @@ export function LoginForm({
   assistMessage: string | null;
   requestAccessHref: string;
   onGoogleSignIn: () => void;
+  onVipSignIn: () => void;
 }) {
   const tone = team?.accent ?? "neutral";
 
@@ -51,6 +53,20 @@ export function LoginForm({
             <Chrome className="h-5 w-5" />
           </span>
           {loading ? "Redirecting" : "Continue With Google"}
+        </GlowButton>
+
+        <GlowButton
+          type="button"
+          tone="neutral"
+          disabled={!canSubmit || loading}
+          active={Boolean(canSubmit)}
+          className="h-[4.2rem] w-full gap-4 border-[#f3bf4c]/18 text-[0.92rem] tracking-[0.24em] text-white/92 hover:text-white"
+          onClick={onVipSignIn}
+        >
+          <span className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#f3bf4c]/28 bg-[#f3bf4c]/10 text-[#f3bf4c]">
+            <KeyRound className="h-4.5 w-4.5" />
+          </span>
+          {loading ? "Redirecting" : "VIP Login"}
         </GlowButton>
 
         <div className="flex items-start justify-center gap-3 rounded-[1rem] border border-white/10 bg-white/[0.03] px-4 py-4 text-center">
