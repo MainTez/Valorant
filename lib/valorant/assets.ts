@@ -46,6 +46,9 @@ const MAP_ASSETS = {
   "The Range": { splash: "https://media.valorant-api.com/maps/ee613ee9-28b7-4beb-9666-08db13bb2244/splash.png", icon: "https://media.valorant-api.com/maps/ee613ee9-28b7-4beb-9666-08db13bb2244/listviewicon.png" },
 } as const;
 
+export type AgentAsset = (typeof AGENT_ASSETS)[keyof typeof AGENT_ASSETS];
+export type MapAsset = (typeof MAP_ASSETS)[keyof typeof MAP_ASSETS];
+
 function normalizeKey(value?: string | null) {
   return (value ?? "")
     .replace(/^\/+|\/+$/g, "")
@@ -55,7 +58,7 @@ function normalizeKey(value?: string | null) {
     .trim();
 }
 
-export function getAgentAsset(agent?: string | null) {
+export function getAgentAsset(agent?: string | null): AgentAsset | null {
   const key = normalizeKey(agent) as keyof typeof AGENT_ASSETS;
   return AGENT_ASSETS[key] ?? null;
 }
@@ -66,7 +69,7 @@ export function getAgentIcon(agent?: string | null) {
   return asset.portrait.replace(/fullportrait\.png$/i, "displayicon.png");
 }
 
-export function getMapAsset(map?: string | null) {
+export function getMapAsset(map?: string | null): MapAsset | null {
   const key = normalizeKey(map) as keyof typeof MAP_ASSETS;
   return MAP_ASSETS[key] ?? null;
 }

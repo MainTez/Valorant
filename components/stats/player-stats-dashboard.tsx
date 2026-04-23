@@ -569,17 +569,21 @@ function MapPill({ map }: { map?: string | null }) {
 
 function MapIconBadge({ map }: { map?: string | null }) {
   const asset = getMapAsset(map);
+  const preview = asset?.splash ?? null;
 
   return (
-    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[18px] border border-[#d6a74a]/14 bg-[linear-gradient(180deg,rgba(33,29,24,0.92)_0%,rgba(14,16,22,0.98)_100%)]">
-      {asset?.icon ? (
-        <Image
-          src={asset.icon}
-          alt={map ?? "Map"}
-          width={38}
-          height={38}
-          className="h-9 w-9 object-contain opacity-95"
-        />
+    <div className="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[18px] border border-[#d6a74a]/14 bg-[linear-gradient(180deg,rgba(33,29,24,0.92)_0%,rgba(14,16,22,0.98)_100%)]">
+      {preview ? (
+        <>
+          <Image
+            src={preview}
+            alt={map ?? "Map"}
+            fill
+            sizes="56px"
+            className="object-cover opacity-92"
+          />
+          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(8,10,14,0.18)_0%,rgba(8,10,14,0.56)_100%)]" />
+        </>
       ) : (
         <MapIcon className="h-5 w-5 text-white/55" />
       )}
