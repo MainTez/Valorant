@@ -54,9 +54,9 @@ export default async function StatsIndexPage() {
 
   return (
     <div className="flex max-w-[1480px] flex-col gap-5">
-      <section className="relative overflow-hidden rounded-[1.6rem] border border-white/7 bg-[linear-gradient(180deg,rgba(19,22,29,0.96)_0%,rgba(10,12,17,0.99)_100%)] px-6 py-6 shadow-[0_28px_72px_-44px_rgba(0,0,0,0.95)]">
+      <section className="relative overflow-hidden rounded-[1.6rem] border border-white/7 bg-[linear-gradient(180deg,rgba(19,22,29,0.96)_0%,rgba(10,12,17,0.99)_100%)] px-6 py-7 shadow-[0_28px_72px_-44px_rgba(0,0,0,0.95)]">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_left_top,rgba(246,196,83,0.18),transparent_30%),radial-gradient(circle_at_right_top,rgba(61,160,255,0.12),transparent_24%),linear-gradient(135deg,transparent_0%,rgba(255,255,255,0.02)_50%,transparent_100%)]" />
-        <div className="relative grid gap-6 xl:grid-cols-[1.05fr_0.95fr] xl:items-end">
+        <div className="relative grid gap-6 xl:grid-cols-[1.02fr_0.98fr] xl:items-end">
           <div>
             <div className="eyebrow text-white/45">Stats Tracker</div>
             <h1 className="mt-2 font-display text-[clamp(2.3rem,3.6vw,4rem)] leading-[0.95] tracking-[0.03em] text-white">
@@ -246,15 +246,15 @@ export default async function StatsIndexPage() {
         <StatsPanel className="xl:col-span-5">
           <div className="mb-4 flex items-end justify-between gap-3">
             <div className="eyebrow">Recently Tracked</div>
-            <div className="text-xs text-white/36">{recentProfiles.length} recent profiles</div>
+            <div className="text-xs text-white/36">{Math.min(recentProfiles.length, 5)} recent profiles</div>
           </div>
           {recentProfiles.length > 0 ? (
             <div className="grid grid-cols-1 gap-3">
-              {recentProfiles.map((profile) => (
+              {recentProfiles.slice(0, 5).map((profile) => (
                 <Link
                   key={profile.id}
                   href={`/stats/${encodeURIComponent(profile.riot_name)}/${encodeURIComponent(profile.riot_tag)}?region=${profile.region ?? "eu"}`}
-                  className="group flex items-center justify-between gap-3 rounded-[1rem] border border-white/7 bg-white/[0.025] px-4 py-3 transition hover:border-[color:var(--accent-soft)]"
+                  className="group flex items-center justify-between gap-4 rounded-[1rem] border border-white/7 bg-white/[0.025] px-4 py-3 transition hover:border-[color:var(--accent-soft)]"
                 >
                   <div className="min-w-0">
                     <div className="truncate font-display text-lg tracking-[0.04em]">
@@ -267,7 +267,11 @@ export default async function StatsIndexPage() {
                         : "Not synced yet"}
                     </div>
                   </div>
-                  <RankBadge rank={profile.current_rank} rr={profile.current_rr ?? undefined} />
+                  <RankBadge
+                    rank={profile.current_rank}
+                    rr={profile.current_rr ?? undefined}
+                    className="min-w-[152px] justify-end"
+                  />
                 </Link>
               ))}
             </div>

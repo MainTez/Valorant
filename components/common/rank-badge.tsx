@@ -1,6 +1,6 @@
 import Image from "next/image";
 import { ShieldHalf } from "lucide-react";
-import { getCompetitiveTierAsset, getRankTheme } from "@/lib/valorant/ranks";
+import { getCompetitiveTierAsset, getRankTheme, resolveTierId } from "@/lib/valorant/ranks";
 import { cn } from "@/lib/utils";
 
 export function RankBadge({
@@ -14,8 +14,9 @@ export function RankBadge({
   rr?: number | null;
   className?: string;
 }) {
-  const asset = getCompetitiveTierAsset(tierId);
-  const theme = getRankTheme(tierId, rank);
+  const resolvedTierId = resolveTierId(tierId, rank);
+  const asset = getCompetitiveTierAsset(resolvedTierId);
+  const theme = getRankTheme(resolvedTierId, rank);
 
   return (
     <div className={cn("flex items-center gap-2.5", className)}>
