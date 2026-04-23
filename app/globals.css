@@ -497,3 +497,13 @@
     transform: translateX(-50%);
   }
 }
+
+@keyframes loader-sweep {
+  0% {
+    transform: translateX(-110%);
+  }
+
+  100% {
+    transform: translateX(230%);
+  }
+}
