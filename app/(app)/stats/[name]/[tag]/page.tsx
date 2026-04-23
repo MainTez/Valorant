@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Sparkles } from "lucide-react";
 import { requireSession } from "@/lib/auth/get-session";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -16,10 +16,10 @@ import {
   normalizeMmrHistory,
 } from "@/lib/henrik/normalize";
 import { defaultRegion, normalizeRegion } from "@/lib/henrik/regions";
-import { EmptyState } from "@/components/common/empty-state";
-import { PlayerTrackerBoard } from "@/components/stats/player-tracker-board";
-import type { NormalizedMatch } from "@/types/domain";
 import { filterCoreStatsMatches } from "@/lib/stats/match-filters";
+import { EmptyState } from "@/components/common/empty-state";
+import { PlayerStatsDashboard } from "@/components/stats/player-stats-dashboard";
+import type { NormalizedMatch } from "@/types/domain";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -128,14 +128,32 @@ export default async function PlayerStatsPage({ params, searchParams }: Props) {
   }
 
   return (
-    <PlayerTrackerBoard
-      account={account}
-      mmr={mmr}
-      matches={matches}
-      history={history}
-      region={region}
-      onTeam={Boolean(rosterUser)}
-    />
+    <div className="flex max-w-[1400px] flex-col gap-5">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="eyebrow">Stats Tracker</div>
+          <Link href="/stats" className="text-sm text-[color:var(--color-muted)] hover:accent-text">
+            Back to search
+          </Link>
+        </div>
+        <Link
+          href={`/insights/${encodeURIComponent(decodedName)}/${encodeURIComponent(decodedTag)}?region=${region}`}
+          className="btn-accent"
+        >
+          <Sparkles className="h-4 w-4" /> AI Insights
+        </Link>
+      </div>
+
+      <PlayerStatsDashboard
+        account={account}
+        mmr={mmr}
+        matches={matches}
+        history={history}
+        region={region}
+        onTeam={Boolean(rosterUser)}
+        insightsHref={`/insights/${encodeURIComponent(decodedName)}/${encodeURIComponent(decodedTag)}?region=${region}`}
+      />
+    </div>
   );
 }
 
