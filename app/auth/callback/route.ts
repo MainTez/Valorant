@@ -4,6 +4,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { findWhitelistEntry, upsertWhitelistedUser } from "@/lib/auth/whitelist";
 import { logAudit } from "@/lib/audit";
 import { teamById, teamBySlug } from "@/lib/constants";
+import type { EmailOtpType } from "@supabase/supabase-js";
 
 function redirectToLogin(origin: string, error: string) {
   return NextResponse.redirect(`${origin}/login?error=${error}`);
@@ -22,19 +23,42 @@ function getCallbackErrorCode(error: unknown) {
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
+  const tokenHash = url.searchParams.get("token_hash");
+  const otpType = url.searchParams.get("type");
   const origin = url.origin;
   const selectedTeam = teamBySlug(url.searchParams.get("team"));
 
-  if (!code) {
+  if (!code && !tokenHash) {
     return redirectToLogin(origin, "oauth_failed");
   }
 
   try {
     const supabase = await createSupabaseServerClient();
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (error) {
-      console.error("[auth/callback] exchange failed:", error.message);
-      return redirectToLogin(origin, "oauth_failed");
+    if (code) {
+      const { error } = await supabase.auth.exchangeCodeForSession(code);
+      if (error) {
+        console.error("[auth/callback] exchange failed:", error.message);
+        return redirectToLogin(origin, "oauth_failed");
+      }
+    } else if (tokenHash) {
+      const type =
+        otpType === "magiclink" ||
+        otpType === "recovery" ||
+        otpType === "invite" ||
+        otpType === "signup" ||
+        otpType === "email"
+          ? (otpType as EmailOtpType)
+          : "magiclink";
+
+      const { error } = await supabase.auth.verifyOtp({
+        token_hash: tokenHash,
+        type,
+      });
+
+      if (error) {
+        console.error("[auth/callback] otp verify failed:", error.message);
+        return redirectToLogin(origin, "oauth_failed");
+      }
     }
 
     const {
