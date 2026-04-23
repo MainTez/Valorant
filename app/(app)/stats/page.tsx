@@ -53,209 +53,247 @@ export default async function StatsIndexPage() {
   });
 
   return (
-    <div className="flex flex-col gap-6 max-w-[1400px]">
-      <header>
-        <div className="eyebrow">Stats Tracker</div>
-        <h1 className="font-display text-3xl tracking-wide mt-1">Track any player</h1>
-        <p className="text-[color:var(--color-muted)] mt-1">
-          Search by Riot name and tag to pull live stats from HenrikDev. Team
-          rosters surface automatically below.
-        </p>
-      </header>
-
-      <PlayerSearch defaultRegion={defaultRegion()} />
-
-      {(teamStats.overview.trackedProfiles > 0 || rosterWithRiot.length > 0) ? (
-        <section className="flex flex-col gap-4">
-          <div className="flex items-end justify-between gap-3">
-            <div>
-              <div className="eyebrow">Team snapshot</div>
-              <p className="text-sm text-[color:var(--color-muted)] mt-1">
-                Aggregated from each tracked player&rsquo;s recent Henrik-backed
-                match history, with profile snapshot fallback when match rows
-                are still thin.
-              </p>
-            </div>
-            {teamStats.overview.lastSyncAt ? (
-              <div className="text-xs text-[color:var(--color-muted)] text-right">
-                Last sync {relativeTime(teamStats.overview.lastSyncAt)}
-              </div>
-            ) : null}
+    <div className="flex max-w-[1480px] flex-col gap-5">
+      <section className="relative overflow-hidden rounded-[1.6rem] border border-white/7 bg-[linear-gradient(180deg,rgba(19,22,29,0.96)_0%,rgba(10,12,17,0.99)_100%)] px-6 py-6 shadow-[0_28px_72px_-44px_rgba(0,0,0,0.95)]">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_left_top,rgba(246,196,83,0.18),transparent_30%),radial-gradient(circle_at_right_top,rgba(61,160,255,0.12),transparent_24%),linear-gradient(135deg,transparent_0%,rgba(255,255,255,0.02)_50%,transparent_100%)]" />
+        <div className="relative grid gap-6 xl:grid-cols-[1.05fr_0.95fr] xl:items-end">
+          <div>
+            <div className="eyebrow text-white/45">Stats Tracker</div>
+            <h1 className="mt-2 font-display text-[clamp(2.3rem,3.6vw,4rem)] leading-[0.95] tracking-[0.03em] text-white">
+              Track any player.
+              <span className="block text-gold-metal">Build a real team snapshot.</span>
+            </h1>
+            <p className="mt-3 max-w-[34rem] text-sm leading-7 text-white/56 sm:text-base">
+              Search by Riot ID to open the new tracker layout, then compare it
+              against your linked roster and recent Henrik-backed team sample.
+            </p>
           </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <TeamMetricCard
-              label="Tracked roster"
-              value={teamStats.overview.trackedProfiles.toString()}
-              detail={
-                teamStats.overview.rosterLinkedCount > 0
-                  ? `${teamStats.overview.rosterLinkedCount} linked · ${formatPercent(teamStats.overview.coveragePct, 0)} coverage`
-                  : "Link Riot IDs to expand team coverage"
-              }
-            />
-            <TeamMetricCard
-              label="Match sample"
-              value={teamStats.overview.sampledMatches.toString()}
-              detail={`${teamStats.overview.playersWithSamples} players with tracked matches`}
-            />
-            <TeamMetricCard
-              label="Form trend"
-              value={formatSignedPercent(teamStats.trend.momentum_pct)}
-              detail={
-                teamStats.trend.recent_win_rate != null
-                  ? `Recent WR ${formatPercent(teamStats.trend.recent_win_rate, 0)}`
-                  : "Need more tracked recent form"
-              }
-            />
-            <TeamMetricCard
-              label="ADR"
-              value={formatWhole(teamStats.combat.adr)}
-              detail={formatKdaLine(teamStats)}
-            />
-            <TeamMetricCard
-              label="Team ACS"
-              value={formatWhole(teamStats.averages.acs)}
-              detail="Equal-weighted across tracked players"
-            />
-            <TeamMetricCard
-              label="Team K/D"
-              value={formatDecimal(teamStats.averages.kd_ratio, 2)}
-              detail="Recent player sample average"
-            />
-            <TeamMetricCard
-              label="Win rate"
-              value={formatPercent(teamStats.averages.win_rate, 0)}
-              detail="Per-player recent win rate average"
-            />
-            <TeamMetricCard
-              label="HS%"
-              value={formatPercent(teamStats.averages.headshot_pct, 0)}
-              detail={`Fresh syncs ${teamStats.overview.syncedRecently}/${teamStats.overview.trackedProfiles || 0}`}
-            />
-          </div>
-
-          <div className="grid grid-cols-1 xl:grid-cols-[1.2fr_1fr] gap-4">
-            <div className="surface p-5">
-              <div className="eyebrow">Team leaders</div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
-                <LeaderRow
-                  label="ACS leader"
-                  leader={teamStats.leaders.acs}
-                  value={formatWhole(teamStats.leaders.acs?.value ?? null)}
-                />
-                <LeaderRow
-                  label="K/D leader"
-                  leader={teamStats.leaders.kd_ratio}
-                  value={formatDecimal(teamStats.leaders.kd_ratio?.value ?? null, 2)}
-                />
-                <LeaderRow
-                  label="HS% leader"
-                  leader={teamStats.leaders.headshot_pct}
-                  value={formatPercent(teamStats.leaders.headshot_pct?.value ?? null, 0)}
-                />
-                <LeaderRow
-                  label="Best WR"
-                  leader={teamStats.leaders.win_rate}
-                  value={formatPercent(teamStats.leaders.win_rate?.value ?? null, 0)}
-                />
-              </div>
-            </div>
-
-            <div className="surface p-5">
-              <div className="eyebrow">Agent pool</div>
-              {teamStats.agentPool.length > 0 ? (
-                <div className="flex flex-col gap-3 mt-4">
-                  {teamStats.agentPool.slice(0, 4).map((entry) => (
-                    <div
-                      key={entry.agent}
-                      className="flex items-center justify-between gap-3 rounded-md border border-white/5 bg-white/[0.02] px-3 py-2"
-                    >
-                      <div>
-                        <div className="font-display tracking-wide">{entry.agent}</div>
-                        <div className="text-xs text-[color:var(--color-muted)]">
-                          {entry.games} games · {formatPercent(entry.winRate, 0)} WR
-                        </div>
-                      </div>
-                      <div className="text-sm text-[color:var(--color-muted)]">
-                        {formatWhole(entry.acs)} ACS
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-[color:var(--color-muted)] mt-3">
-                  Agent usage appears once tracked match rows exist for the roster.
-                </p>
-              )}
-            </div>
-          </div>
-        </section>
-      ) : null}
-
-      <section>
-        <div className="eyebrow mb-3">Roster — {team.name}</div>
-        {rosterWithRiot.length === 0 ? (
-          <EmptyState
-            icon={Users}
-            title="No Riot IDs linked yet"
-            description="Team members can add their Riot name + tag from Players → Profile."
-          />
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {rosterWithRiot.map((u) => (
-              <Link
-                key={u.id}
-                href={`/stats/${encodeURIComponent(u.riot_name!)}/${encodeURIComponent(u.riot_tag!)}?region=${u.riot_region ?? "eu"}`}
-                className="surface p-4 flex items-center gap-4 hover-lift"
-              >
-                <div className="h-10 w-10 rounded-full border border-white/10 bg-white/5 grid place-items-center">
-                  <SearchIcon className="h-4 w-4 text-[color:var(--color-muted)]" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="font-display tracking-wide text-lg truncate">
-                    {u.display_name ?? u.riot_name}
-                  </div>
-                  <div className="text-xs text-[color:var(--color-muted)] truncate">
-                    {u.riot_name}#{u.riot_tag} · {(u.riot_region ?? "eu").toUpperCase()}
-                  </div>
-                </div>
-                <span className="text-[color:var(--accent)] text-xs">Track →</span>
-              </Link>
-            ))}
-          </div>
-        )}
+          <PlayerSearch defaultRegion={defaultRegion()} />
+        </div>
       </section>
 
-      {recentProfiles.length > 0 ? (
-        <section>
-          <div className="eyebrow mb-3">Recently tracked</div>
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {recentProfiles.map((p) => (
-              <Link
-                key={p.id}
-                href={`/stats/${encodeURIComponent(p.riot_name)}/${encodeURIComponent(p.riot_tag)}?region=${p.region ?? "eu"}`}
-                className="surface p-4 flex items-center justify-between gap-3 hover-lift"
-              >
-                <div className="min-w-0">
-                  <div className="font-display tracking-wide text-lg truncate">
-                    {p.riot_name}{" "}
-                    <span className="text-[color:var(--color-muted)]">
-                      #{p.riot_tag}
-                    </span>
-                  </div>
-                  <div className="text-xs text-[color:var(--color-muted)]">
-                    {p.last_synced_at
-                      ? `Synced ${new Date(p.last_synced_at).toLocaleDateString()}`
-                      : "Not synced yet"}
-                  </div>
+      {(teamStats.overview.trackedProfiles > 0 || rosterWithRiot.length > 0) ? (
+        <section className="grid grid-cols-1 gap-4 xl:grid-cols-12">
+          <StatsPanel className="xl:col-span-12">
+            <div className="flex flex-col gap-5">
+              <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+                <div>
+                  <div className="eyebrow">Team Snapshot</div>
+                  <p className="mt-1 text-sm text-white/48">
+                    Aggregated from tracked roster matches, with profile
+                    snapshot fallback when the team sample is still thin.
+                  </p>
                 </div>
-                <RankBadge rank={p.current_rank} rr={p.current_rr ?? undefined} />
-              </Link>
-            ))}
-          </div>
+                {teamStats.overview.lastSyncAt ? (
+                  <div className="text-xs text-white/36">
+                    Last sync {relativeTime(teamStats.overview.lastSyncAt)}
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 md:grid-cols-4 xl:grid-cols-8">
+                <TeamMetricCard
+                  label="Tracked Roster"
+                  value={teamStats.overview.trackedProfiles.toString()}
+                  detail={
+                    teamStats.overview.rosterLinkedCount > 0
+                      ? `${teamStats.overview.rosterLinkedCount} linked · ${formatPercent(teamStats.overview.coveragePct, 0)} coverage`
+                      : "Link Riot IDs to expand coverage"
+                  }
+                />
+                <TeamMetricCard
+                  label="Match Sample"
+                  value={teamStats.overview.sampledMatches.toString()}
+                  detail={`${teamStats.overview.playersWithSamples} players with tracked matches`}
+                />
+                <TeamMetricCard
+                  label="Form Trend"
+                  value={formatSignedPercent(teamStats.trend.momentum_pct)}
+                  detail={
+                    teamStats.trend.recent_win_rate != null
+                      ? `Recent WR ${formatPercent(teamStats.trend.recent_win_rate, 0)}`
+                      : "Need more tracked recent form"
+                  }
+                />
+                <TeamMetricCard
+                  label="ADR"
+                  value={formatWhole(teamStats.combat.adr)}
+                  detail={formatKdaLine(teamStats)}
+                />
+                <TeamMetricCard
+                  label="Team ACS"
+                  value={formatWhole(teamStats.averages.acs)}
+                  detail="Equal-weighted across tracked players"
+                />
+                <TeamMetricCard
+                  label="Team K/D"
+                  value={formatDecimal(teamStats.averages.kd_ratio, 2)}
+                  detail="Recent player sample average"
+                />
+                <TeamMetricCard
+                  label="Win Rate"
+                  value={formatPercent(teamStats.averages.win_rate, 0)}
+                  detail="Per-player recent win rate average"
+                />
+                <TeamMetricCard
+                  label="HS%"
+                  value={formatPercent(teamStats.averages.headshot_pct, 0)}
+                  detail={`Fresh syncs ${teamStats.overview.syncedRecently}/${teamStats.overview.trackedProfiles || 0}`}
+                />
+              </div>
+            </div>
+          </StatsPanel>
+
+          <StatsPanel className="xl:col-span-7">
+            <div className="eyebrow">Team Leaders</div>
+            <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+              <LeaderRow
+                label="ACS Leader"
+                leader={teamStats.leaders.acs}
+                value={formatWhole(teamStats.leaders.acs?.value ?? null)}
+              />
+              <LeaderRow
+                label="K/D Leader"
+                leader={teamStats.leaders.kd_ratio}
+                value={formatDecimal(teamStats.leaders.kd_ratio?.value ?? null, 2)}
+              />
+              <LeaderRow
+                label="HS% Leader"
+                leader={teamStats.leaders.headshot_pct}
+                value={formatPercent(teamStats.leaders.headshot_pct?.value ?? null, 0)}
+              />
+              <LeaderRow
+                label="Best WR"
+                leader={teamStats.leaders.win_rate}
+                value={formatPercent(teamStats.leaders.win_rate?.value ?? null, 0)}
+              />
+            </div>
+          </StatsPanel>
+
+          <StatsPanel className="xl:col-span-5">
+            <div className="eyebrow">Agent Pool</div>
+            {teamStats.agentPool.length > 0 ? (
+              <div className="mt-4 flex flex-col gap-3">
+                {teamStats.agentPool.slice(0, 4).map((entry) => (
+                  <div
+                    key={entry.agent}
+                    className="flex items-center justify-between gap-3 rounded-[1rem] border border-white/6 bg-white/[0.025] px-4 py-3"
+                  >
+                    <div>
+                      <div className="font-display text-lg tracking-[0.04em]">
+                        {entry.agent}
+                      </div>
+                      <div className="text-xs text-white/38">
+                        {entry.games} games · {formatPercent(entry.winRate, 0)} WR
+                      </div>
+                    </div>
+                    <div className="font-display text-lg">{formatWhole(entry.acs)} ACS</div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-3 text-sm text-white/42">
+                Agent usage appears once tracked match rows exist for the roster.
+              </p>
+            )}
+          </StatsPanel>
         </section>
       ) : null}
+
+      <section className="grid grid-cols-1 gap-4 xl:grid-cols-12">
+        <StatsPanel className="xl:col-span-7">
+          <div className="mb-4 flex items-end justify-between gap-3">
+            <div className="eyebrow">Roster — {team.name}</div>
+            <div className="text-xs text-white/36">{rosterWithRiot.length} linked players</div>
+          </div>
+          {rosterWithRiot.length === 0 ? (
+            <EmptyState
+              icon={Users}
+              title="No Riot IDs linked yet"
+              description="Team members can add their Riot name + tag from Players → Profile."
+            />
+          ) : (
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              {rosterWithRiot.map((user) => (
+                <Link
+                  key={user.id}
+                  href={`/stats/${encodeURIComponent(user.riot_name!)}/${encodeURIComponent(user.riot_tag!)}?region=${user.riot_region ?? "eu"}`}
+                  className="group relative overflow-hidden rounded-[1.1rem] border border-white/7 bg-[linear-gradient(180deg,rgba(17,20,27,0.94)_0%,rgba(10,12,17,0.98)_100%)] p-4 transition hover:border-[color:var(--accent-soft)]"
+                >
+                  <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.03),transparent_45%,rgba(255,255,255,0.015))]" />
+                  <div className="relative flex items-center gap-4">
+                    <div className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-white/5">
+                      <SearchIcon className="h-4 w-4 text-white/46" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate font-display text-lg tracking-[0.04em]">
+                        {user.display_name ?? user.riot_name}
+                      </div>
+                      <div className="truncate text-xs text-white/38">
+                        {user.riot_name}#{user.riot_tag} · {(user.riot_region ?? "eu").toUpperCase()}
+                      </div>
+                    </div>
+                    <span className="text-xs uppercase tracking-[0.18em] text-[color:var(--accent)]">
+                      Track →
+                    </span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </StatsPanel>
+
+        <StatsPanel className="xl:col-span-5">
+          <div className="mb-4 flex items-end justify-between gap-3">
+            <div className="eyebrow">Recently Tracked</div>
+            <div className="text-xs text-white/36">{recentProfiles.length} recent profiles</div>
+          </div>
+          {recentProfiles.length > 0 ? (
+            <div className="grid grid-cols-1 gap-3">
+              {recentProfiles.map((profile) => (
+                <Link
+                  key={profile.id}
+                  href={`/stats/${encodeURIComponent(profile.riot_name)}/${encodeURIComponent(profile.riot_tag)}?region=${profile.region ?? "eu"}`}
+                  className="group flex items-center justify-between gap-3 rounded-[1rem] border border-white/7 bg-white/[0.025] px-4 py-3 transition hover:border-[color:var(--accent-soft)]"
+                >
+                  <div className="min-w-0">
+                    <div className="truncate font-display text-lg tracking-[0.04em]">
+                      {profile.riot_name}
+                      <span className="text-white/38"> #{profile.riot_tag}</span>
+                    </div>
+                    <div className="text-xs text-white/38">
+                      {profile.last_synced_at
+                        ? `Synced ${new Date(profile.last_synced_at).toLocaleDateString()}`
+                        : "Not synced yet"}
+                    </div>
+                  </div>
+                  <RankBadge rank={profile.current_rank} rr={profile.current_rr ?? undefined} />
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-white/42">Tracked players will appear here after the first sync.</p>
+          )}
+        </StatsPanel>
+      </section>
     </div>
+  );
+}
+
+function StatsPanel({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <section
+      className={`relative overflow-hidden rounded-[1.35rem] border border-white/7 bg-[linear-gradient(180deg,rgba(19,22,29,0.96)_0%,rgba(11,13,19,0.98)_100%)] p-5 shadow-[0_24px_60px_-42px_rgba(0,0,0,0.95)] ${className ?? ""}`}
+    >
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.03),transparent_42%,rgba(255,255,255,0.015)_100%)]" />
+      <div className="relative">{children}</div>
+    </section>
   );
 }
 
@@ -269,10 +307,10 @@ function TeamMetricCard({
   detail: string;
 }) {
   return (
-    <div className="surface p-4">
-      <div className="eyebrow">{label}</div>
-      <div className="stat-number mt-1">{value}</div>
-      <div className="text-xs text-[color:var(--color-muted)] mt-2">{detail}</div>
+    <div className="rounded-[1rem] border border-white/7 bg-white/[0.025] p-4">
+      <div className="text-[0.66rem] uppercase tracking-[0.2em] text-white/34">{label}</div>
+      <div className="mt-2 font-display text-[2rem] leading-none tracking-[0.03em]">{value}</div>
+      <div className="mt-3 text-xs leading-5 text-white/40">{detail}</div>
     </div>
   );
 }
@@ -287,25 +325,25 @@ function LeaderRow({
   value: string;
 }) {
   return (
-    <div className="rounded-md border border-white/5 bg-white/[0.02] px-3 py-3">
-      <div className="text-xs uppercase tracking-[0.2em] text-[color:var(--color-muted)]">
+    <div className="rounded-[1rem] border border-white/7 bg-white/[0.025] px-4 py-4">
+      <div className="text-[0.66rem] uppercase tracking-[0.2em] text-white/34">
         {label}
       </div>
       {leader ? (
         <>
-          <div className="font-display tracking-wide text-lg mt-1">
+          <div className="mt-2 font-display text-xl tracking-[0.04em]">
             {leader.riotName}
-            <span className="text-[color:var(--color-muted)]"> #{leader.riotTag}</span>
+            <span className="text-white/36"> #{leader.riotTag}</span>
           </div>
-          <div className="text-sm text-[color:var(--accent)] mt-1">{value}</div>
-          <div className="text-xs text-[color:var(--color-muted)] mt-1">
+          <div className="mt-2 text-sm text-[color:var(--accent)]">{value}</div>
+          <div className="mt-2 text-xs text-white/38">
             {leader.sampleSize > 0
               ? `${leader.sampleSize} tracked matches`
               : "Profile snapshot fallback"}
           </div>
         </>
       ) : (
-        <div className="text-sm text-[color:var(--color-muted)] mt-2">
+        <div className="mt-2 text-sm text-white/42">
           Not enough data yet.
         </div>
       )}
