@@ -27,10 +27,10 @@ export function PlayerSearch({ defaultRegion = "eu" }: { defaultRegion?: string 
   return (
     <form
       onSubmit={onSubmit}
-      className="relative overflow-hidden rounded-[1.45rem] border border-white/7 bg-[linear-gradient(180deg,rgba(19,22,29,0.96)_0%,rgba(11,13,19,0.98)_100%)] p-4 shadow-[0_24px_60px_-42px_rgba(0,0,0,0.95)]"
+      className="relative overflow-hidden rounded-[1.45rem] border border-[#c89b3c]/18 bg-[linear-gradient(180deg,rgba(21,18,14,0.98)_0%,rgba(11,13,19,0.98)_100%)] p-4 shadow-[0_24px_60px_-42px_rgba(0,0,0,0.95)]"
     >
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_left_top,rgba(246,196,83,0.16),transparent_24%),linear-gradient(135deg,rgba(255,255,255,0.03),transparent_45%,rgba(255,255,255,0.015))]" />
-      <div className="relative grid gap-4 lg:grid-cols-[minmax(240px,1.35fr)_minmax(130px,0.75fr)_minmax(120px,0.65fr)_auto] lg:items-end">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_left_top,rgba(200,155,60,0.18),transparent_26%),linear-gradient(135deg,rgba(255,255,255,0.025),transparent_45%,rgba(255,255,255,0.012))]" />
+      <div className="relative grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(0,0.78fr)_minmax(0,0.72fr)_minmax(172px,0.82fr)] xl:items-end">
         <div className="min-w-0">
           <label className="mb-1 block text-[0.68rem] uppercase tracking-[0.22em] text-white/40">
             Riot Name
@@ -78,10 +78,10 @@ export function PlayerSearch({ defaultRegion = "eu" }: { defaultRegion?: string 
         <Button
           type="submit"
           disabled={!name.trim() || !tag.trim() || loading}
-          className="h-14 min-w-40 rounded-[1rem] border border-[color:var(--accent)] bg-[linear-gradient(180deg,var(--accent)_0%,color-mix(in_srgb,var(--accent)_74%,#000)_100%)] px-5 text-black shadow-[0_0_24px_-12px_var(--accent)] hover:brightness-105"
+          className="h-14 w-full min-w-0 rounded-[1rem] border border-[#c89b3c] bg-[linear-gradient(180deg,#e0b44d_0%,#b98723_100%)] px-5 text-black shadow-[0_0_24px_-12px_rgba(200,155,60,0.5)] hover:brightness-105 xl:self-end"
         >
           <Search className="h-4 w-4" />
-          {loading ? "Loading…" : "Track player"}
+          {loading ? "Loading..." : "Track player"}
         </Button>
       </div>
     </form>

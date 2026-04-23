@@ -6,6 +6,7 @@ import type { ComponentType, ReactNode } from "react";
 import {
   ArrowUpRight,
   BrainCircuit,
+  ChevronDown,
   Crosshair,
   Crown,
   Map as MapIcon,
@@ -39,6 +40,11 @@ import type {
   NormalizedMatch,
   NormalizedMmrHistoryEntry,
 } from "@/types/domain";
+
+const DASHBOARD_ACCENT = "#d6a74a";
+const DASHBOARD_ACCENT_SOFT = "rgba(214,167,74,0.18)";
+const PANEL_CLASS =
+  "rounded-[24px] border border-[#d6a74a]/12 bg-[linear-gradient(180deg,rgba(18,16,14,0.98)_0%,rgba(10,12,17,0.99)_100%)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]";
 
 interface Props {
   account: NormalizedAccount;
@@ -148,7 +154,7 @@ export function PlayerStatsDashboard({
   return (
     <div className="grid gap-5">
       <div className="grid gap-5 xl:grid-cols-[340px_minmax(0,1fr)]">
-        <section className="rounded-[28px] border border-white/8 bg-[linear-gradient(180deg,#0d1320_0%,#090e18_100%)] p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+        <section className="rounded-[28px] border border-[#d6a74a]/14 bg-[linear-gradient(180deg,rgba(21,18,14,0.98)_0%,rgba(9,11,16,1)_100%)] p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
           <div className="flex items-start justify-between gap-3">
             <div>
               <div className="flex items-center gap-2">
@@ -242,7 +248,7 @@ export function PlayerStatsDashboard({
           <Link
             href={insightsHref}
             className="mt-5 flex items-center justify-center gap-2 rounded-2xl border px-4 py-4 text-sm font-semibold uppercase tracking-[0.14em] transition hover:border-white/20 hover:bg-white/[0.04]"
-            style={{ borderColor: theme.ring, color: theme.accent }}
+            style={{ borderColor: "rgba(214,167,74,0.24)", color: DASHBOARD_ACCENT }}
           >
             <Sparkles className="h-4 w-4" />
             Open AI Analysis
@@ -256,8 +262,8 @@ export function PlayerStatsDashboard({
               <MetricTile
                 key={tile.label}
                 {...tile}
-                accent={theme.accent}
-                accentSoft={theme.accentSoft}
+                accent={DASHBOARD_ACCENT}
+                accentSoft={DASHBOARD_ACCENT_SOFT}
               />
             ))}
           </div>
@@ -268,15 +274,15 @@ export function PlayerStatsDashboard({
                 <AreaChart data={trendData}>
                   <defs>
                     <linearGradient id="dashboard-acs-fill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={theme.accent} stopOpacity={0.3} />
-                      <stop offset="100%" stopColor={theme.accent} stopOpacity={0} />
+                      <stop offset="0%" stopColor={DASHBOARD_ACCENT} stopOpacity={0.3} />
+                      <stop offset="100%" stopColor={DASHBOARD_ACCENT} stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid stroke="rgba(255,255,255,0.07)" vertical={false} />
                   <XAxis dataKey="label" stroke="rgba(255,255,255,0.3)" fontSize={11} tickLine={false} axisLine={false} />
                   <YAxis stroke="rgba(255,255,255,0.28)" fontSize={11} tickLine={false} axisLine={false} width={34} />
                   <Tooltip contentStyle={tooltipStyle} labelStyle={tooltipLabelStyle} />
-                  <Area type="monotone" dataKey="acs" stroke={theme.accent} strokeWidth={2.25} fill="url(#dashboard-acs-fill)" />
+                  <Area type="monotone" dataKey="acs" stroke={DASHBOARD_ACCENT} strokeWidth={2.25} fill="url(#dashboard-acs-fill)" />
                 </AreaChart>
               </ResponsiveContainer>
             </ChartPanel>
@@ -286,15 +292,15 @@ export function PlayerStatsDashboard({
                 <AreaChart data={rrSeries}>
                   <defs>
                     <linearGradient id="dashboard-rr-fill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={theme.accent} stopOpacity={0.22} />
-                      <stop offset="100%" stopColor={theme.accent} stopOpacity={0} />
+                      <stop offset="0%" stopColor={DASHBOARD_ACCENT} stopOpacity={0.22} />
+                      <stop offset="100%" stopColor={DASHBOARD_ACCENT} stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid stroke="rgba(255,255,255,0.07)" vertical={false} />
                   <XAxis dataKey="label" stroke="rgba(255,255,255,0.3)" fontSize={11} tickLine={false} axisLine={false} />
                   <YAxis stroke="rgba(255,255,255,0.28)" fontSize={11} tickLine={false} axisLine={false} width={42} />
                   <Tooltip contentStyle={tooltipStyle} labelStyle={tooltipLabelStyle} />
-                  <Area type="monotone" dataKey="rr" stroke={theme.accent} strokeWidth={2.25} fill="url(#dashboard-rr-fill)" />
+                  <Area type="monotone" dataKey="rr" stroke={DASHBOARD_ACCENT} strokeWidth={2.25} fill="url(#dashboard-rr-fill)" />
                 </AreaChart>
               </ResponsiveContainer>
             </ChartPanel>
@@ -308,32 +314,7 @@ export function PlayerStatsDashboard({
             {recentMatches.length === 0 ? (
               <EmptyPanelCopy text="No competitive matches available." />
             ) : (
-              recentMatches.map((match) => (
-                <div
-                  key={match.matchId}
-                  className="grid gap-3 rounded-[20px] border border-white/8 bg-white/[0.03] p-4 lg:grid-cols-[minmax(0,1fr)_auto]"
-                >
-                  <div className="flex items-start gap-3">
-                    <AgentIcon agent={match.agent} />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <MapPill map={match.map} />
-                        <span className="text-[11px] uppercase tracking-[0.2em] text-white/38">
-                          {match.mode}
-                        </span>
-                      </div>
-                      <div className="mt-3 grid grid-cols-2 gap-3 text-sm text-white/72 sm:grid-cols-5">
-                        <MiniStat label="Score" value={`${match.scoreTeam} - ${match.scoreOpponent}`} />
-                        <MiniStat label="KDA" value={`${match.kills}/${match.deaths}/${match.assists}`} />
-                        <MiniStat label="ACS" value={String(match.acs)} />
-                        <MiniStat label="ADR" value={String(match.adr)} />
-                        <MiniStat label="HS%" value={`${match.headshotPct.toFixed(0)}%`} />
-                      </div>
-                    </div>
-                  </div>
-                  <ResultBadge result={match.result} rrChange={match.rrChange} />
-                </div>
-              ))
+              recentMatches.map((match) => <RecentMatchCard key={match.matchId} match={match} />)
             )}
           </div>
         </Panel>
@@ -426,7 +407,7 @@ export function PlayerStatsDashboard({
                           className="h-full rounded-full"
                           style={{
                             width: `${Math.max(4, Math.min(100, mapRow.winRate))}%`,
-                            background: `linear-gradient(90deg, ${theme.accent} 0%, color-mix(in srgb, ${theme.accent} 72%, white) 100%)`,
+                            background: `linear-gradient(90deg, ${DASHBOARD_ACCENT} 0%, color-mix(in srgb, ${DASHBOARD_ACCENT} 72%, white) 100%)`,
                           }}
                         />
                       </div>
@@ -486,7 +467,7 @@ function MetricTile({
   icon: ComponentType<{ className?: string }>;
 }) {
   return (
-    <div className="rounded-[22px] border border-white/8 bg-[linear-gradient(180deg,#0d1320_0%,#090e18_100%)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+    <div className="rounded-[22px] border border-[#d6a74a]/12 bg-[linear-gradient(180deg,rgba(18,16,14,0.98)_0%,rgba(10,12,17,0.99)_100%)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
       <div
         className="flex h-11 w-11 items-center justify-center rounded-2xl border"
         style={{ borderColor: accentSoft, background: `${accentSoft}` }}
@@ -512,7 +493,7 @@ function ChartPanel({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-[24px] border border-white/8 bg-[linear-gradient(180deg,#0d1320_0%,#090e18_100%)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+    <section className={PANEL_CLASS}>
       <div>
         <div className="font-display text-3xl leading-none text-white">{title}</div>
         <div className="mt-1 text-sm text-white/48">{subtitle}</div>
@@ -534,7 +515,7 @@ function Panel({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-[24px] border border-white/8 bg-[linear-gradient(180deg,#0d1320_0%,#090e18_100%)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+    <section className={PANEL_CLASS}>
       <div className="flex items-center justify-between gap-3">
         <div>
           <div className="font-display text-3xl leading-none text-white">{title}</div>
@@ -608,30 +589,131 @@ function MiniStat({ label, value }: { label: string; value: string }) {
   );
 }
 
-function ResultBadge({ result, rrChange }: { result: NormalizedMatch["result"]; rrChange: number | null }) {
-  const tone =
-    result === "win"
-      ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-300"
-      : result === "loss"
-        ? "border-red-500/25 bg-red-500/10 text-red-300"
-        : "border-white/10 bg-white/5 text-white/60";
+function RecentMatchCard({ match }: { match: NormalizedMatch }) {
+  const agentAsset = getAgentAsset(match.agent);
+  const mapAsset = getMapAsset(match.map);
 
   return (
-    <div className={cn("inline-flex min-w-[120px] flex-col rounded-2xl border px-3 py-2 text-right", tone)}>
-      <div className="font-display text-lg uppercase tracking-[0.16em]">
-        {result === "win" ? "Victory" : result === "loss" ? "Defeat" : "Draw"}
+    <article
+      className={cn(
+        "grid gap-4 overflow-hidden rounded-[24px] border bg-[linear-gradient(180deg,rgba(10,15,24,0.98)_0%,rgba(8,12,19,0.98)_100%)] p-4 md:p-5 xl:grid-cols-[minmax(0,1fr)_minmax(248px,0.38fr)]",
+        match.result === "win"
+          ? "border-emerald-500/40 shadow-[inset_1px_0_0_rgba(16,185,129,0.35)]"
+          : match.result === "loss"
+            ? "border-rose-500/38 shadow-[inset_1px_0_0_rgba(244,63,94,0.3)]"
+            : "border-[#d6a74a]/14",
+      )}
+    >
+      <div className="flex items-start gap-4">
+        <div className="relative h-[86px] w-[86px] shrink-0 overflow-hidden rounded-[18px] border border-white/12 bg-[linear-gradient(180deg,rgba(37,44,56,0.9)_0%,rgba(12,16,24,0.98)_100%)]">
+          {agentAsset?.portrait ? (
+            <Image
+              src={agentAsset.portrait}
+              alt={match.agent ?? "Agent"}
+              fill
+              sizes="86px"
+              className="object-cover object-top scale-[1.08]"
+            />
+          ) : (
+            <div className="grid h-full w-full place-items-center font-display text-xl text-white/65">
+              {agentMonogram(match.agent)}
+            </div>
+          )}
+          <div className="absolute inset-x-0 bottom-0 h-12 bg-[linear-gradient(180deg,transparent,rgba(2,6,12,0.92))]" />
+          <div className="absolute bottom-1 left-1 rounded-full border border-[#d6a74a]/30 bg-[rgba(9,12,18,0.88)] px-1.5 py-0.5 text-[10px] uppercase tracking-[0.18em] text-[#f0c462]">
+            {agentAsset?.role ?? "Agent"}
+          </div>
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-3">
+            <MapPill map={match.map} />
+            <span className="text-[11px] uppercase tracking-[0.26em] text-white/38">{match.mode}</span>
+          </div>
+          <div className="mt-3 grid gap-3 sm:grid-cols-5">
+            <MiniStat label="Score" value={`${match.scoreTeam} - ${match.scoreOpponent}`} />
+            <MiniStat label="KDA" value={`${match.kills}/${match.deaths}/${match.assists}`} />
+            <MiniStat label="ACS" value={String(match.acs)} />
+            <MiniStat label="ADR" value={String(match.adr)} />
+            <MiniStat label="HS%" value={`${match.headshotPct.toFixed(0)}%`} />
+          </div>
+        </div>
       </div>
-      <div className="mt-1 text-xs uppercase tracking-[0.18em]">
-        {typeof rrChange === "number" && Number.isFinite(rrChange)
-          ? `${rrChange > 0 ? "+" : ""}${rrChange} RR`
-          : "Ranked form"}
+
+      <MatchResultRail
+        map={match.map}
+        result={match.result}
+        score={`${match.scoreTeam} - ${match.scoreOpponent}`}
+        rrChange={match.rrChange}
+        splash={mapAsset?.splash ?? null}
+      />
+    </article>
+  );
+}
+
+function MatchResultRail({
+  map,
+  result,
+  score,
+  rrChange,
+  splash,
+}: {
+  map: string;
+  result: NormalizedMatch["result"];
+  score: string;
+  rrChange: number | null;
+  splash: string | null;
+}) {
+  const tone =
+    result === "win"
+      ? "border-emerald-500/35 bg-emerald-500/10 text-emerald-300"
+      : result === "loss"
+        ? "border-rose-500/35 bg-rose-500/10 text-rose-300"
+        : "border-[#d6a74a]/20 bg-white/5 text-white/60";
+
+  return (
+    <div className={cn("grid min-h-[126px] overflow-hidden rounded-[20px] border md:grid-cols-[1.1fr_0.9fr]", tone)}>
+      <div className="flex flex-col justify-between p-4">
+        <div className="font-display text-[2rem] uppercase leading-none tracking-[0.08em]">
+          {result === "win" ? "Victory" : result === "loss" ? "Defeat" : "Draw"}
+        </div>
+        <div className="font-display text-[2rem] leading-none text-white">{score}</div>
+        <div className="text-[11px] uppercase tracking-[0.2em] text-white/44">
+          {typeof rrChange === "number" && Number.isFinite(rrChange)
+            ? `${rrChange > 0 ? "+" : ""}${rrChange} RR`
+            : map}
+        </div>
+      </div>
+      <div className="relative min-h-[126px] border-l border-white/10">
+        {splash ? (
+          <Image
+            src={splash}
+            alt={map}
+            fill
+            sizes="(min-width: 1280px) 220px, 100vw"
+            className="object-cover"
+          />
+        ) : null}
+        <div
+          className={cn(
+            "absolute inset-0",
+            result === "win"
+              ? "bg-[linear-gradient(135deg,rgba(2,8,13,0.15)_0%,rgba(6,78,59,0.74)_100%)]"
+              : result === "loss"
+                ? "bg-[linear-gradient(135deg,rgba(2,8,13,0.15)_0%,rgba(127,29,29,0.74)_100%)]"
+                : "bg-[linear-gradient(135deg,rgba(2,8,13,0.2)_0%,rgba(89,69,24,0.72)_100%)]",
+          )}
+        />
+        <div className="absolute bottom-3 right-3 flex h-9 w-9 items-center justify-center rounded-full border border-white/14 bg-black/28 text-white/86">
+          <ChevronDown className="h-4 w-4" />
+        </div>
       </div>
     </div>
   );
 }
 
 function EmptyPanelCopy({ text }: { text: string }) {
-  return <p className="rounded-2xl border border-white/8 bg-white/[0.025] px-4 py-5 text-sm text-white/55">{text}</p>;
+  return <p className="rounded-2xl border border-[#d6a74a]/10 bg-white/[0.025] px-4 py-5 text-sm text-white/55">{text}</p>;
 }
 
 function summarizeMatches(matches: NormalizedMatch[]) {
@@ -741,9 +823,9 @@ function buildInsightCards({
         : "Mechanical output is stable, but first-bullet precision still has room to tighten.",
       highlight: hs >= 20 ? "Keep pressing clean duels" : "Sharpen opening accuracy",
       icon: Crosshair,
-      accent: "#f4c95d",
-      border: "rgba(244, 201, 93, 0.22)",
-      background: "rgba(244, 201, 93, 0.08)",
+      accent: "#f0c462",
+      border: "rgba(214, 167, 74, 0.22)",
+      background: "rgba(214, 167, 74, 0.08)",
     },
     {
       title: "Best Map",
@@ -752,9 +834,9 @@ function buildInsightCards({
         : "No map has separated itself from the pack yet.",
       highlight: bestMap ? `${bestMap.map} at ${formatPercent(bestMap.winRate, 0)}` : "Need more map data",
       icon: MapIcon,
-      accent: "#28f0d0",
-      border: "rgba(40, 240, 208, 0.2)",
-      background: "rgba(40, 240, 208, 0.08)",
+      accent: "#dcb56b",
+      border: "rgba(214, 167, 74, 0.18)",
+      background: "rgba(214, 167, 74, 0.06)",
     },
     {
       title: "Best Agent",
@@ -763,9 +845,9 @@ function buildInsightCards({
         : "No standout main has emerged yet.",
       highlight: bestAgent ? `${bestAgent.usage.toFixed(0)}% usage` : "Role still flexible",
       icon: BrainCircuit,
-      accent: "#7aa2ff",
-      border: "rgba(122, 162, 255, 0.2)",
-      background: "rgba(122, 162, 255, 0.08)",
+      accent: "#dcb56b",
+      border: "rgba(214, 167, 74, 0.18)",
+      background: "rgba(214, 167, 74, 0.06)",
     },
     {
       title: "Climb Outlook",
@@ -774,9 +856,9 @@ function buildInsightCards({
         : "Recent RR movement softened. A cleaner win stretch is needed to rebuild pace.",
       highlight: recentSwing >= 0 ? "Momentum trending up" : "Reset the climb rhythm",
       icon: TrendingUp,
-      accent: recentSwing >= 0 ? "#8ef16a" : "#fb7185",
-      border: recentSwing >= 0 ? "rgba(142, 241, 106, 0.2)" : "rgba(251, 113, 133, 0.2)",
-      background: recentSwing >= 0 ? "rgba(142, 241, 106, 0.08)" : "rgba(251, 113, 133, 0.08)",
+      accent: recentSwing >= 0 ? "#f0c462" : "#d89773",
+      border: recentSwing >= 0 ? "rgba(214, 167, 74, 0.2)" : "rgba(216, 151, 115, 0.22)",
+      background: recentSwing >= 0 ? "rgba(214, 167, 74, 0.08)" : "rgba(216, 151, 115, 0.08)",
     },
   ];
 }
