@@ -13,7 +13,7 @@ One paragraph per layer. Canonical configs: [`package.json`](../../package.json)
 
 ## Persistence
 
-**Supabase** (managed Postgres + Auth + Realtime + Storage) — accessed via `@supabase/ssr` (server-rendered helpers) and `@supabase/supabase-js` (service-role admin). Postgres schema under `supabase/migrations/0001_init.sql`, RLS policies in `0002_rls_policies.sql`, seed in `0003_seed.sql`, and match-VOD metadata in `0005_match_vod_uploads.sql`. Private match MP4 uploads live in a `match-vods` Storage bucket and are accessed through signed URLs minted by `app/api/matches/[id]/vod`. Migrations are applied via the Supabase CLI (`supabase db push`) or pasted into the SQL editor. No ORM — raw queries via the Supabase client.
+**Supabase** (managed Postgres + Auth + Realtime + Storage) — accessed via `@supabase/ssr` (server-rendered helpers) and `@supabase/supabase-js` (service-role admin). Postgres schema under `supabase/migrations/0001_init.sql`, RLS policies in `0002_rls_policies.sql`, seed in `0003_seed.sql`, and match-VOD metadata in `0005_match_vod_uploads.sql`. Private match MP4 uploads live in a `match-vods` Storage bucket and are accessed through signed URLs minted by `app/api/matches/[id]/vod` and `app/api/matches/[id]/vod/playback`. The authenticated UI surfaces those files in `/matches/[id]` and the dedicated `/vods` section. Migrations are applied via the Supabase CLI (`supabase db push`) or pasted into the SQL editor. No ORM — raw queries via the Supabase client.
 
 ## Auth
 

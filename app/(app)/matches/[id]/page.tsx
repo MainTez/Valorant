@@ -1,10 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Calendar, ExternalLink, Map as MapIcon } from "lucide-react";
+import { DeleteMatchButton } from "@/components/matches/delete-match-button";
 import { MatchVodManager } from "@/components/matches/match-vod-manager";
 import { CoachNotesSection } from "@/components/matches/coach-notes-section";
+import { VodPlayer } from "@/components/vods/vod-player";
 import { requireSession } from "@/lib/auth/get-session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { canDeleteMatch, resolveMatchVodSource } from "@/lib/vods";
 import { cn } from "@/lib/utils";
 import type { CoachNoteRow, MatchRow, UserRow } from "@/types/domain";
 
@@ -53,8 +56,23 @@ export default async function MatchDetailPage({ params, searchParams }: Props) {
   }));
 
   const m = match as MatchRow;
+  const vodSource = resolveMatchVodSource({
+    vod_storage_path: m.vod_storage_path,
+    vod_url: m.vod_url,
+  });
+  const canDelete = canDeleteMatch({
+    createdBy: m.created_by,
+    role: user.role,
+    userId: user.id,
+  });
   const uploadedVodHref = m.vod_storage_path ? `/api/matches/${m.id}/vod` : null;
-  const initialVodError = sp.vodUpload === "failed" ? "Match saved, but the MP4 upload did not finish. Retry below." : null;
+  const vodDetailHref = vodSource.kind === "missing" ? null : `/vods/${m.id}`;
+  const initialVodError =
+    typeof sp.vodUploadError === "string"
+      ? sp.vodUploadError
+      : sp.vodUpload === "failed"
+        ? "Match saved, but the MP4 upload did not finish. Retry below."
+        : null;
 
   return (
     <div className="flex flex-col gap-5 max-w-[1100px]">
@@ -68,20 +86,30 @@ export default async function MatchDetailPage({ params, searchParams }: Props) {
             vs {m.opponent}
           </h1>
         </div>
-        <div className="text-right">
-          <div
-            className={cn(
-              "font-display text-2xl tracking-widest uppercase",
-              m.result === "win" && "text-green-400",
-              m.result === "loss" && "text-red-400",
-              m.result === "draw" && "text-[color:var(--color-muted)]",
-            )}
-          >
-            {m.result}
+        <div className="text-right flex flex-col items-end gap-3">
+          <div>
+            <div
+              className={cn(
+                "font-display text-2xl tracking-widest uppercase",
+                m.result === "win" && "text-green-400",
+                m.result === "loss" && "text-red-400",
+                m.result === "draw" && "text-[color:var(--color-muted)]",
+              )}
+            >
+              {m.result}
+            </div>
+            <div className="font-display text-4xl tracking-wider">
+              {m.score_us} - {m.score_them}
+            </div>
           </div>
-          <div className="font-display text-4xl tracking-wider">
-            {m.score_us} - {m.score_them}
-          </div>
+          {canDelete ? (
+            <DeleteMatchButton
+              matchId={m.id}
+              matchLabel={`the match vs ${m.opponent}`}
+              redirectTo="/matches"
+              variant="outline"
+            />
+          ) : null}
         </div>
       </header>
 
@@ -92,24 +120,10 @@ export default async function MatchDetailPage({ params, searchParams }: Props) {
         <Detail
           label="VOD"
           value={
-            uploadedVodHref ? (
-              <a
-                href={uploadedVodHref}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1 text-[color:var(--accent)] hover:underline"
-              >
-                Open upload <ExternalLink className="h-3.5 w-3.5" />
-              </a>
-            ) : m.vod_url ? (
-              <a
-                href={m.vod_url}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1 text-[color:var(--accent)] hover:underline"
-              >
-                Open link <ExternalLink className="h-3.5 w-3.5" />
-              </a>
+            vodDetailHref ? (
+              <Link href={vodDetailHref} className="inline-flex items-center gap-1 text-[color:var(--accent)] hover:underline">
+                Watch VOD <ExternalLink className="h-3.5 w-3.5" />
+              </Link>
             ) : (
               <span className="text-[color:var(--color-muted)]">—</span>
             )
@@ -124,11 +138,14 @@ export default async function MatchDetailPage({ params, searchParams }: Props) {
         </section>
       ) : null}
 
+      {vodSource.kind !== "missing" ? <VodPlayer matchId={m.id} /> : null}
+
       <MatchVodManager
         externalVodUrl={m.vod_url}
         initialError={initialVodError}
         matchId={m.id}
         uploadedVodHref={uploadedVodHref}
+        vodDetailHref={vodDetailHref}
         vodOriginalName={m.vod_original_name}
         vodSizeBytes={m.vod_size_bytes}
       />

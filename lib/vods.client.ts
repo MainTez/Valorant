@@ -1,5 +1,6 @@
 "use client";
 
+import type { MatchVodPlaybackData } from "@/lib/vods";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { MATCH_VOD_BUCKET, assertValidMatchVodUpload } from "@/lib/vods";
 
@@ -17,6 +18,11 @@ interface SignedUploadResponse {
 }
 
 interface ApiResponse {
+  error?: string;
+}
+
+interface PlaybackResponse {
+  data?: MatchVodPlaybackData;
   error?: string;
 }
 
@@ -68,4 +74,17 @@ export async function uploadMatchVod({ file, matchId }: UploadMatchVodParams): P
     const attachBody = (await attachResponse.json().catch(() => ({}))) as ApiResponse;
     throw new Error(attachBody.error ?? "Failed to attach uploaded VOD to the match.");
   }
+}
+
+export async function fetchMatchVodPlayback(matchId: string): Promise<MatchVodPlaybackData> {
+  const response = await fetch(`/api/matches/${matchId}/vod/playback`, {
+    cache: "no-store",
+  });
+
+  const body = (await response.json().catch(() => ({}))) as PlaybackResponse;
+  if (!response.ok || !body.data) {
+    throw new Error(body.error ?? "Failed to load VOD playback.");
+  }
+
+  return body.data;
 }

@@ -4,8 +4,10 @@ import {
   MATCH_VOD_MAX_FILE_BYTES,
   assertValidMatchVodUpload,
   buildMatchVodObjectPath,
+  canDeleteMatch,
   isMatchVodPathForMatch,
   isMatchVodPathForTeam,
+  resolveMatchVodSource,
   sanitizeMatchVodFileName,
 } from "./vods.ts";
 
@@ -88,4 +90,48 @@ test("isMatchVodPathForMatch locks uploads to a single match", () => {
     ),
     false,
   );
+});
+
+test("resolveMatchVodSource prefers uploaded VODs when both sources exist", () => {
+  assert.deepEqual(
+    resolveMatchVodSource({
+      vod_storage_path: "team-456/matches/match-123/upload.mp4",
+      vod_url: "https://example.com/fallback.mp4",
+    }),
+    {
+      kind: "uploaded",
+      path: "team-456/matches/match-123/upload.mp4",
+    },
+  );
+});
+
+test("resolveMatchVodSource returns external direct video metadata for mp4 URLs", () => {
+  assert.deepEqual(
+    resolveMatchVodSource({
+      vod_storage_path: null,
+      vod_url: "https://cdn.example.com/review.mp4?download=1",
+    }),
+    {
+      isDirectVideo: true,
+      kind: "external",
+      url: "https://cdn.example.com/review.mp4?download=1",
+    },
+  );
+});
+
+test("resolveMatchVodSource returns missing when no source exists", () => {
+  assert.deepEqual(
+    resolveMatchVodSource({
+      vod_storage_path: null,
+      vod_url: null,
+    }),
+    { kind: "missing" },
+  );
+});
+
+test("canDeleteMatch allows admins, coaches, and the match creator", () => {
+  assert.equal(canDeleteMatch({ createdBy: "user-1", role: "admin", userId: "user-2" }), true);
+  assert.equal(canDeleteMatch({ createdBy: "user-1", role: "coach", userId: "user-2" }), true);
+  assert.equal(canDeleteMatch({ createdBy: "user-1", role: "player", userId: "user-1" }), true);
+  assert.equal(canDeleteMatch({ createdBy: "user-1", role: "player", userId: "user-2" }), false);
 });

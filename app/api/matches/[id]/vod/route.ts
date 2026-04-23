@@ -5,8 +5,8 @@ import { logActivity } from "@/lib/audit";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   createMatchVodSignedUpload,
-  createMatchVodSignedUrl,
   deleteMatchVodObject,
+  getMatchVodPlaybackData,
 } from "@/lib/vods.server";
 import { MATCH_VOD_MAX_FILE_BYTES, isMatchVodPathForMatch } from "@/lib/vods";
 
@@ -35,12 +35,23 @@ export async function GET(_request: NextRequest, { params }: RouteContext) {
     const { id } = await params;
     const match = await getTeamMatch(id, team.id);
 
-    if (!match?.vod_storage_path) {
-      return NextResponse.json({ error: "VOD not found" }, { status: 404 });
+    if (!match) {
+      return NextResponse.json({ error: "Match not found" }, { status: 404 });
     }
 
-    const signedUrl = await createMatchVodSignedUrl(match.vod_storage_path);
-    return NextResponse.redirect(signedUrl);
+    const playback = await getMatchVodPlaybackData({
+      vod_content_type: match.vod_content_type,
+      vod_original_name: match.vod_original_name,
+      vod_size_bytes: match.vod_size_bytes,
+      vod_storage_path: match.vod_storage_path,
+      vod_url: match.vod_url,
+    });
+
+    if (playback.kind === "missing") {
+      return NextResponse.json({ error: playback.message }, { status: 404 });
+    }
+
+    return NextResponse.redirect(playback.kind === "uploaded" ? playback.signedUrl : playback.url);
   } catch (err) {
     const status = (err as { status?: number }).status ?? 400;
     const message = err instanceof Error ? err.message : "Bad request";
@@ -190,10 +201,19 @@ async function getTeamMatch(id: string, teamId: string) {
   const supabase = await createSupabaseServerClient();
   const { data } = await supabase
     .from("matches")
-    .select("id, team_id, vod_storage_path")
+    .select("id, team_id, created_by, vod_content_type, vod_original_name, vod_size_bytes, vod_storage_path, vod_url")
     .eq("id", id)
     .eq("team_id", teamId)
     .maybeSingle();
 
-  return data as { id: string; team_id: string; vod_storage_path: string | null } | null;
+  return data as {
+    id: string;
+    team_id: string;
+    created_by: string | null;
+    vod_content_type: string | null;
+    vod_original_name: string | null;
+    vod_size_bytes: number | null;
+    vod_storage_path: string | null;
+    vod_url: string | null;
+  } | null;
 }

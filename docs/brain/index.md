@@ -1,7 +1,7 @@
 ---
 tags: [moc, entrypoint]
 created: 2026-04-21
-updated: 2026-04-21
+updated: 2026-04-23
 ---
 
 # Index — Map of Content
@@ -23,6 +23,7 @@ updated: 2026-04-21
 - [[0003-team-isolation-via-supabase-rls|ADR 0003 — Team isolation via Supabase RLS]] (accepted)
 - [[0004-henrik-proxy-cache-strategy|ADR 0004 — HenrikDev proxy + cache strategy]] (accepted)
 - [[0005-private-match-vod-uploads|ADR 0005 — Private match VOD uploads via Supabase Storage]] (accepted)
+- [[0006-in-app-vod-library-and-playback|ADR 0006 — In-app VOD playback, library, and match deletion]] (accepted)
 
 ## Roadmap
 
@@ -33,7 +34,7 @@ updated: 2026-04-21
 ## Sessions
 
 - [[2026-04-21]] — bootstrap + greenfield platform build
-- [[2026-04-23]] — pulled latest main, added private MP4 VOD uploads, and documented ADR 0005
+- [[2026-04-23]] — pulled latest main, added private MP4 VOD uploads, VOD library/playback, and documented ADRs 0005/0006
 
 ## Meta
 

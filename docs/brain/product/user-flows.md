@@ -49,9 +49,10 @@ Edge cases:
 
 1. Coach/admin goes to `/matches/new`, fills opponent, type (`scrim`/`official`/`tournament`), date, map, scores, optional notes, and either an external VOD URL or an MP4 upload.
 2. Submit → `/api/matches` inserts into `public.matches` with `team_id` from the session.
-3. If an MP4 was selected, the client asks `/api/matches/[id]/vod` for a signed upload token, uploads directly into the private `match-vods` bucket, then PATCHes the match metadata (`vod_storage_path`, `vod_original_name`, etc.).
-4. On the detail page `/matches/[id]`, team members read the match and can open the uploaded VOD through a signed redirect route. Coaches/admins (or any user for their own notes) post free-text coach notes via `/api/coach-notes`.
-5. RLS enforces that team members only ever see their own team's matches.
+3. If an MP4 was selected, the client asks `/api/matches/[id]/vod` for a signed upload token, uploads directly into the private `match-vods` bucket, then PATCHes the match metadata (`vod_storage_path`, `vod_original_name`, etc.). If upload or attach fails, the user lands on `/matches/[id]` with a concrete retryable error instead of a blind success.
+4. On the detail page `/matches/[id]`, team members can watch the VOD inline, manage uploaded files, and read/post coach notes. Coaches/admins and match creators can also delete the match log.
+5. The dedicated `/vods` and `/vods/[id]` pages provide a library view and a playback-focused detail page for all team VODs.
+6. RLS enforces that team members only ever see their own team's matches.
 
 ## Team chat (realtime)
 

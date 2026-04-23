@@ -5,8 +5,10 @@ import {
   MATCH_VOD_BUCKET,
   MATCH_VOD_MAX_FILE_BYTES,
   MATCH_VOD_SIGNED_URL_TTL_SECONDS,
+  type MatchVodPlaybackData,
   assertValidMatchVodUpload,
   buildMatchVodObjectPath,
+  resolveMatchVodSource,
 } from "@/lib/vods";
 
 const MATCH_VOD_ALLOWED_MIME_TYPES = ["video/mp4", "application/mp4"];
@@ -57,6 +59,40 @@ export async function createMatchVodSignedUrl(path: string): Promise<string> {
   }
 
   return data.signedUrl;
+}
+
+export async function getMatchVodPlaybackData(input: {
+  vod_content_type: string | null;
+  vod_original_name: string | null;
+  vod_size_bytes: number | null;
+  vod_storage_path: string | null;
+  vod_url: string | null;
+}): Promise<MatchVodPlaybackData> {
+  const source = resolveMatchVodSource({
+    vod_storage_path: input.vod_storage_path,
+    vod_url: input.vod_url,
+  });
+
+  if (source.kind === "uploaded") {
+    const signedUrl = await createMatchVodSignedUrl(source.path);
+    return {
+      kind: "uploaded",
+      signedUrl,
+      expiresAt: new Date(Date.now() + MATCH_VOD_SIGNED_URL_TTL_SECONDS * 1000).toISOString(),
+      fileName: input.vod_original_name,
+      sizeBytes: input.vod_size_bytes,
+      contentType: input.vod_content_type,
+    };
+  }
+
+  if (source.kind === "external") {
+    return source;
+  }
+
+  return {
+    kind: "missing",
+    message: "No VOD is attached to this match yet.",
+  };
 }
 
 export async function deleteMatchVodObject(path: string): Promise<void> {

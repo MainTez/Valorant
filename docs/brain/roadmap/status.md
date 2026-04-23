@@ -23,7 +23,7 @@ Snapshot of what's shipped / stubbed / missing right now. Grouped by area. Updat
 - ✅ Seed creates two teams, six default chat channels per team, one "Daily practice" routine per team, and a "Mid Control" weekly-focus team note. Admin whitelist entries for `vegard.laland@gmail.com` and `danilebnen@gmail.com` → Surf'n Bulls.
 - ✅ HenrikDev wrapper in `lib/henrik/` (client, cache, normalize, regions, types) with proxy routes at `app/api/henrik/{account,matches,mmr,mmr-history}`.
 - ✅ `henrik_cache` table with per-endpoint TTLs (1h / 10m / 2m / 15m). See [[0004-henrik-proxy-cache-strategy]].
-- ✅ Match VOD uploads use private Supabase Storage objects behind app-issued signed upload/download URLs. Metadata lives on `matches.vod_*`; the bucket is `match-vods`. See [[0005-private-match-vod-uploads]].
+- ✅ Match VOD uploads use private Supabase Storage objects behind app-issued signed upload/download URLs. Metadata lives on `matches.vod_*`; the bucket is `match-vods`. Playback metadata now flows through `/api/matches/[id]/vod/playback`. See [[0005-private-match-vod-uploads]] and [[0006-in-app-vod-library-and-playback]].
 - ⚠️ `types/database.ts` is a placeholder `Record<string, unknown>`. Supabase clients skip the `<Database>` generic to avoid `never` inference. `supabase gen types` is pending.
 - ⚠️ No live Supabase project is wired up yet — migrations are written but not applied against a real instance.
 
@@ -38,7 +38,8 @@ Snapshot of what's shipped / stubbed / missing right now. Grouped by area. Updat
 - ✅ `/dashboard` — team overview.
 - ✅ `/stats/[name]/[tag]` — player stats with Recharts graphs.
 - ✅ `/insights/[name]/[tag]` — AI insight report with confidence + rules/LLM badge.
-- ✅ `/matches`, `/matches/new`, `/matches/[id]` — match log with coach notes and private MP4 VOD uploads.
+- ✅ `/matches`, `/matches/new`, `/matches/[id]` — match log with coach notes, delete controls, private MP4 VOD uploads, and inline playback.
+- ✅ `/vods` and `/vods/[id]` — dedicated VOD library and playback pages.
 - ✅ `/routines` — daily routine with progress rings.
 - ✅ `/tasks` — kanban (backlog / in_progress / done).
 - ✅ `/chat/[channel]` — per-channel realtime chat via Supabase Realtime.
@@ -48,7 +49,7 @@ Snapshot of what's shipped / stubbed / missing right now. Grouped by area. Updat
 - ✅ Dark premium theme with per-team accent via `[data-team]` (`surf-n-bulls` gold, `molgarians` red).
 - ⚠️ Calendar is list-only — no create-event form. Events must be seeded via Supabase directly.
 - ⚠️ Players page has no Riot-ID link UI. Users still edit `users.riot_name` / `users.riot_tag` in the DB.
-- ⚠️ Match VODs are limited to one MP4 upload or one external link per match — no embedded player, transcoding, clips, or timeline comments.
+- ⚠️ Match VODs are limited to one MP4 upload or one external link per match. There is now an in-app player and VOD library, but still no transcoding, clips, playlists, or timeline comments.
 - ⚠️ Top-bar notification bell is decorative; no notifications panel.
 - ⚠️ `⌘K` command-palette hint in UI is a visual only; no palette implemented.
 

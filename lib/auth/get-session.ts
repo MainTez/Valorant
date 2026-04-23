@@ -15,7 +15,7 @@ export const getSessionUser = cache(async (): Promise<SessionContext | null> => 
   const {
     data: { user: authUser },
   } = await supabase.auth.getUser();
-  let userId = authUser?.id ?? null;
+  const userId = authUser?.id ?? null;
 
   if (!userId) {
     const cookieStore = await cookies();

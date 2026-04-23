@@ -77,8 +77,9 @@ export function MatchEntryForm() {
       if (vodFile) {
         try {
           await uploadMatchVod({ file: vodFile, matchId: body.data.id });
-        } catch {
-          router.push(`/matches/${body.data.id}?vodUpload=failed`);
+        } catch (uploadError) {
+          const message = uploadError instanceof Error ? uploadError.message : "VOD upload failed.";
+          router.push(`/matches/${body.data.id}?vodUploadError=${encodeURIComponent(message)}`);
           router.refresh();
           return;
         }

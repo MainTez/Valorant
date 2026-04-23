@@ -1,11 +1,11 @@
 import Link from "next/link";
-import { FileText, ListPlus, Plus, Upload } from "lucide-react";
+import { FileText, Film, ListPlus, Plus } from "lucide-react";
 
 const ACTIONS = [
   { label: "New Note", href: "/matches", icon: FileText },
   { label: "New Task", href: "/tasks", icon: ListPlus },
   { label: "Log Match", href: "/matches/new", icon: Plus },
-  { label: "Upload VOD", href: "/matches/new", icon: Upload },
+  { label: "VOD Library", href: "/vods", icon: Film },
 ];
 
 export function QuickActions() {

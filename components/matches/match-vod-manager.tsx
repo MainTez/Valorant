@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,7 @@ interface Props {
   initialError?: string | null;
   matchId: string;
   uploadedVodHref: string | null;
+  vodDetailHref: string | null;
   vodOriginalName: string | null;
   vodSizeBytes: number | null;
 }
@@ -22,6 +24,7 @@ export function MatchVodManager({
   initialError,
   matchId,
   uploadedVodHref,
+  vodDetailHref,
   vodOriginalName,
   vodSizeBytes,
 }: Props) {
@@ -32,6 +35,7 @@ export function MatchVodManager({
   const [message, setMessage] = useState<string | null>(null);
 
   const hasUploadedVod = Boolean(uploadedVodHref);
+  const hasAnyVod = hasUploadedVod || Boolean(externalVodUrl);
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -82,29 +86,48 @@ export function MatchVodManager({
   return (
     <section className="surface p-5 grid gap-4">
       <div>
-        <div className="eyebrow">Private VOD upload</div>
+        <div className="eyebrow">VOD manager</div>
         <p className="mt-2 text-sm text-[color:var(--color-muted)] max-w-2xl">
-          Upload one MP4 per match to private Supabase Storage. Opening the file uses a
-          short-lived signed URL so only logged-in teammates can fetch it through the app.
+          Upload one MP4 per match to private Supabase Storage. Playback now happens inside the app,
+          while the raw file still uses a short-lived signed URL.
         </p>
       </div>
 
-      {hasUploadedVod ? (
+      {hasAnyVod ? (
         <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm flex flex-wrap items-center justify-between gap-3">
           <div>
-            <div className="font-medium">{vodOriginalName ?? "Uploaded VOD"}</div>
+            <div className="font-medium">{vodOriginalName ?? (hasUploadedVod ? "Uploaded VOD" : "External VOD")}</div>
             <div className="text-[color:var(--color-muted)]">
-              {vodSizeBytes ? formatBytes(vodSizeBytes) : "Size unavailable"}
+              {vodSizeBytes ? formatBytes(vodSizeBytes) : hasUploadedVod ? "Uploaded file" : "External link"}
             </div>
           </div>
-          <a
-            className="text-[color:var(--accent)] hover:underline"
-            href={uploadedVodHref ?? undefined}
-            rel="noreferrer"
-            target="_blank"
-          >
-            Open upload
-          </a>
+          <div className="flex items-center gap-3 flex-wrap">
+            {vodDetailHref ? (
+              <Link className="text-[color:var(--accent)] hover:underline" href={vodDetailHref}>
+                Watch in app
+              </Link>
+            ) : null}
+            {hasUploadedVod && uploadedVodHref ? (
+              <a
+                className="text-[color:var(--accent)] hover:underline"
+                href={uploadedVodHref}
+                rel="noreferrer"
+                target="_blank"
+              >
+                Open raw file
+              </a>
+            ) : null}
+            {!hasUploadedVod && externalVodUrl ? (
+              <a
+                className="text-[color:var(--accent)] hover:underline"
+                href={externalVodUrl}
+                rel="noreferrer"
+                target="_blank"
+              >
+                Open external link
+              </a>
+            ) : null}
+          </div>
         </div>
       ) : null}
 

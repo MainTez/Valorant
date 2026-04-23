@@ -3,12 +3,30 @@ export const MATCH_VOD_MAX_FILE_BYTES = 5 * 1024 * 1024 * 1024;
 export const MATCH_VOD_SIGNED_URL_TTL_SECONDS = 60 * 60;
 
 const MP4_MIME_TYPES = new Set(["video/mp4", "application/mp4"]);
+const DIRECT_VIDEO_EXTENSIONS = /\.(mp4|webm|ogg|ogv|m4v)(?:$|[?#])/i;
 
 export interface MatchVodUploadInput {
   fileName: string;
   fileSize: number;
   contentType: string;
 }
+
+export type MatchVodSource =
+  | { kind: "uploaded"; path: string }
+  | { kind: "external"; url: string; isDirectVideo: boolean }
+  | { kind: "missing" };
+
+export type MatchVodPlaybackData =
+  | {
+      kind: "uploaded";
+      signedUrl: string;
+      expiresAt: string;
+      fileName: string | null;
+      sizeBytes: number | null;
+      contentType: string | null;
+    }
+  | { kind: "external"; url: string; isDirectVideo: boolean }
+  | { kind: "missing"; message: string };
 
 export function sanitizeMatchVodFileName(fileName: string): string {
   const trimmed = fileName.trim();
@@ -71,4 +89,38 @@ export function isMatchVodPathForMatch(path: string, teamId: string, matchId: st
     segments[1] === "matches" &&
     segments[2] === matchId
   );
+}
+
+export function resolveMatchVodSource(input: {
+  vod_storage_path: string | null;
+  vod_url: string | null;
+}): MatchVodSource {
+  if (input.vod_storage_path) {
+    return {
+      kind: "uploaded",
+      path: input.vod_storage_path,
+    };
+  }
+
+  if (input.vod_url) {
+    return {
+      kind: "external",
+      url: input.vod_url,
+      isDirectVideo: isDirectVideoUrl(input.vod_url),
+    };
+  }
+
+  return { kind: "missing" };
+}
+
+export function canDeleteMatch(input: {
+  createdBy: string | null;
+  role: "player" | "coach" | "admin";
+  userId: string;
+}): boolean {
+  return input.role === "admin" || input.role === "coach" || input.createdBy === input.userId;
+}
+
+export function isDirectVideoUrl(url: string): boolean {
+  return DIRECT_VIDEO_EXTENSIONS.test(url);
 }
