@@ -1,6 +1,8 @@
 import "server-only";
 import { cache } from "react";
+import { cookies } from "next/headers";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { buildVipSession, decodeVipSession, VIP_SESSION_COOKIE } from "@/lib/auth/vip";
 import type { UserRow, TeamRow } from "@/types/domain";
 
 export interface SessionContext {
@@ -8,22 +10,31 @@ export interface SessionContext {
   team: TeamRow;
 }
 
-/**
- * Server-side helper: returns the authed user + team, or null if not signed in
- * or not yet onboarded into the `public.users` table.
- * Cached per-request via React cache().
- */
 export const getSessionUser = cache(async (): Promise<SessionContext | null> => {
   const supabase = await createSupabaseServerClient();
   const {
     data: { user: authUser },
   } = await supabase.auth.getUser();
-  if (!authUser) return null;
+  let userId = authUser?.id ?? null;
+
+  if (!userId) {
+    const cookieStore = await cookies();
+    const vipSession = decodeVipSession(cookieStore.get(VIP_SESSION_COOKIE)?.value);
+    if (vipSession) {
+      const teamSlug =
+        vipSession.teamId === "00000000-0000-0000-0000-000000000002"
+          ? "molgarians"
+          : "surf-n-bulls";
+      return buildVipSession(teamSlug);
+    }
+  }
+
+  if (!userId) return null;
 
   const { data: userRow } = await supabase
     .from("users")
     .select("*")
-    .eq("id", authUser.id)
+    .eq("id", userId)
     .maybeSingle();
 
   if (!userRow) return null;

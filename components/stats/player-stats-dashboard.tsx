@@ -560,15 +560,8 @@ function AgentIcon({ agent }: { agent?: string | null }) {
 }
 
 function MapPill({ map }: { map?: string | null }) {
-  const asset = getMapAsset(map);
-
   return (
-    <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5">
-      {asset?.icon ? (
-        <Image src={asset.icon} alt={map ?? "Map"} width={18} height={18} className="h-[18px] w-[18px] object-contain" />
-      ) : (
-        <MapIcon className="h-4 w-4 text-white/55" />
-      )}
+    <div className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.03] px-4 py-1.5">
       <span className="text-xs uppercase tracking-[0.18em] text-white/72">{map ?? "Unknown"}</span>
     </div>
   );
