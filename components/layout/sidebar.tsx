@@ -88,15 +88,17 @@ export function Sidebar({ team, user }: Props) {
   }, []);
 
   return (
-    <aside className="relative z-10 w-[260px] shrink-0 flex flex-col gap-4 p-5 pr-3 border-r border-white/5 bg-[color:var(--color-panel)]/70 backdrop-blur-md min-h-screen sticky top-0">
-      <div className="flex flex-col items-center gap-2 py-3">
-        <TeamEmblem team={team} size="md" />
-        <div className="mt-1 text-center font-display text-base tracking-[0.25em] accent-text">
+    <aside className="relative z-10 flex min-h-screen w-[212px] shrink-0 flex-col gap-5 border-r border-white/6 bg-[linear-gradient(180deg,rgba(14,16,22,0.94)_0%,rgba(12,14,19,0.98)_100%)] px-4 py-5 backdrop-blur-xl">
+      <div className="flex flex-col items-center gap-3 py-2">
+        <div className="rounded-[1.15rem] border border-[color:var(--accent-soft)] bg-[color:var(--accent-dim)] p-3 shadow-[0_0_26px_-14px_var(--accent)]">
+          <TeamEmblem team={team} size="md" />
+        </div>
+        <div className="mt-1 text-center font-display text-base tracking-[0.34em] accent-text">
           {meta.shortName}
         </div>
       </div>
 
-      <nav className="flex flex-col gap-1">
+      <nav className="flex flex-col gap-1.5">
         {NAV.filter((n) => !n.adminOnly || user.role === "admin").map((n) => {
           const href = n.matchPrefix === "/chat" ? chatHref : n.href;
           const matchTarget = n.matchPrefix ?? n.href;
@@ -117,8 +119,17 @@ export function Sidebar({ team, user }: Props) {
         })}
       </nav>
 
-      <div className="mt-auto pt-5 border-t border-white/5">
-        <div className="flex items-center gap-3 rounded-xl border border-white/5 bg-white/[0.02] p-2.5">
+      <div className="mt-auto space-y-3 pt-4">
+        <div className="rounded-[1rem] border border-[color:var(--accent-soft)] bg-[linear-gradient(180deg,rgba(246,196,83,0.12),rgba(246,196,83,0.04))] px-4 py-3 shadow-[0_20px_40px_-32px_rgba(246,196,83,0.75)]">
+          <div className="text-[0.66rem] uppercase tracking-[0.24em] text-white/42">
+            Team Brief
+          </div>
+          <div className="mt-2 text-sm leading-6 text-white/74">
+            {meta.motto ?? meta.name}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 rounded-[1rem] border border-white/7 bg-white/[0.02] p-3">
           <Avatar className="h-9 w-9">
             {user.avatar_url ? (
               <AvatarImage src={user.avatar_url} alt={user.display_name ?? user.email} />
@@ -137,7 +148,7 @@ export function Sidebar({ team, user }: Props) {
             <Settings className="h-4 w-4" />
           </Link>
         </div>
-        <div className="mt-3 text-[10px] uppercase tracking-[0.25em] text-[color:var(--color-muted)] text-center">
+        <div className="text-[10px] uppercase tracking-[0.25em] text-[color:var(--color-muted)] text-center">
           <ScrollText className="inline-block h-3 w-3 mr-1 -mt-0.5" />
           {meta.name}
         </div>

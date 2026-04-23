@@ -76,7 +76,7 @@ export default async function AppLayout({
   return (
     <div
       data-team={teamSlug}
-      className="relative z-10 flex min-h-screen"
+      className="relative z-10 flex min-h-screen overflow-x-hidden"
     >
       <Sidebar
         team={teamSlug}
@@ -87,8 +87,8 @@ export default async function AppLayout({
           role: session.user.role,
         }}
       />
-      <div className="flex-1 flex min-w-0">
-        <main className="flex-1 flex flex-col min-w-0">
+      <div className="flex min-w-0 flex-1">
+        <main className="flex min-w-0 flex-1 flex-col overflow-x-hidden">
           <Topbar
             user={{
               display_name: session.user.display_name,
@@ -98,7 +98,7 @@ export default async function AppLayout({
             }}
             teamName={session.team.name}
           />
-          <div className="flex-1 min-w-0 p-6 animate-slide-up">{children}</div>
+          <div className="flex-1 min-w-0 px-5 py-5 animate-slide-up xl:px-6">{children}</div>
         </main>
         <ChatRail
           channels={channelList}
