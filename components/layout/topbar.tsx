@@ -30,6 +30,7 @@ export function Topbar({ user, teamName }: Props) {
 
   async function signOut() {
     const supabase = createSupabaseBrowserClient();
+    await fetch("/api/auth/vip-logout", { method: "POST" });
     await supabase.auth.signOut();
     router.replace("/login");
     router.refresh();
