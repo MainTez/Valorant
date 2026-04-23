@@ -5,6 +5,7 @@ import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { ChevronRight, Hash, PanelRightClose, PanelRightOpen, Send } from "lucide-react";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn, initials, relativeTime } from "@/lib/utils";
@@ -59,10 +60,11 @@ export function ChatRail({
   teamId,
 }: Props) {
   const supabaseRef = useRef(createSupabaseBrowserClient());
+  const messageChannelRef = useRef<RealtimeChannel | null>(null);
+  const membersRef = useRef(members);
   const rootRef = useRef<HTMLDivElement>(null);
   const drawerPanelRef = useRef<HTMLElement>(null);
   const messageViewportRef = useRef<HTMLDivElement>(null);
-  const bottomRef = useRef<HTMLDivElement>(null);
   const hydratedChannelRef = useRef(false);
 
   const [selectedChannelSlug, setSelectedChannelSlug] = useState(activeChannelSlug);
@@ -80,6 +82,10 @@ export function ChatRail({
   const online = members.filter(
     (member) => onlineIdSet.has(member.id) || member.status === "online",
   );
+
+  useEffect(() => {
+    membersRef.current = members;
+  }, [members]);
 
   useEffect(() => {
     setSelectedChannelSlug(activeChannelSlug);
@@ -142,7 +148,7 @@ export function ChatRail({
             author_id: message.author_id,
             body: message.body,
             created_at: message.created_at,
-            author: authorForMessage(members, message.author_id),
+            author: authorForMessage(membersRef.current, message.author_id),
           }));
 
         setMessages(nextMessages);
@@ -158,7 +164,7 @@ export function ChatRail({
     return () => {
       cancelled = true;
     };
-  }, [activeChannel, members]);
+  }, [activeChannel]);
 
   useEffect(() => {
     if (!teamId) return;
@@ -201,6 +207,29 @@ export function ChatRail({
     const supabase = supabaseRef.current;
     const subscription = supabase
       .channel(`rail:${activeChannel.id}`)
+      .on("broadcast", { event: "message" }, ({ payload }) => {
+        const row = payload as {
+          id: string;
+          author_id: string;
+          body: string;
+          created_at: string;
+        };
+
+        setMessages((previous) => {
+          if (previous.some((message) => message.id === row.id)) return previous;
+
+          return [
+            ...previous,
+            {
+              id: row.id,
+              author_id: row.author_id,
+              body: row.body,
+              created_at: row.created_at,
+              author: authorForMessage(membersRef.current, row.author_id),
+            },
+          ].slice(-50);
+        });
+      })
       .on(
         "postgres_changes",
         {
@@ -227,33 +256,33 @@ export function ChatRail({
                 author_id: row.author_id,
                 body: row.body,
                 created_at: row.created_at,
-                author: authorForMessage(members, row.author_id),
+                author: authorForMessage(membersRef.current, row.author_id),
               },
             ].slice(-50);
           });
         },
       )
       .subscribe();
+    messageChannelRef.current = subscription;
 
     return () => {
+      if (messageChannelRef.current?.topic === subscription.topic) {
+        messageChannelRef.current = null;
+      }
       void supabase.removeChannel(subscription);
     };
-  }, [activeChannel, members]);
+  }, [activeChannel]);
 
-  function scrollMessagesToBottom(behavior: ScrollBehavior = "smooth") {
+  useEffect(() => {
     if (railHidden) return;
 
+    const behavior: ScrollBehavior = activeChannel ? "auto" : "smooth";
     requestAnimationFrame(() => {
       const viewport = messageViewportRef.current;
       if (!viewport) return;
       viewport.scrollTo({ top: viewport.scrollHeight, behavior });
-      bottomRef.current?.scrollIntoView({ behavior });
     });
-  }
-
-  useEffect(() => {
-    scrollMessagesToBottom(activeChannel ? "auto" : "smooth");
-  }, [messages.length, railHidden, activeChannel?.id]);
+  }, [messages.length, railHidden, activeChannel]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -355,7 +384,6 @@ export function ChatRail({
     setPending(true);
     setDraft("");
     setMessages((previous) => [...previous, optimisticMessage].slice(-50));
-    scrollMessagesToBottom();
 
     try {
       const response = await fetch("/api/chat/send", {
@@ -383,6 +411,11 @@ export function ChatRail({
       }
 
       if (confirmedMessage) {
+        void messageChannelRef.current?.send({
+          type: "broadcast",
+          event: "message",
+          payload: confirmedMessage,
+        });
         setMessages((previous) => {
           const withoutOptimistic = previous.filter(
             (message) => message.id !== optimisticId,
@@ -646,7 +679,6 @@ export function ChatRail({
                             })
                           : null}
 
-                        <div ref={bottomRef} />
                       </div>
                     </div>
 

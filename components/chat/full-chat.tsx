@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Hash, Send } from "lucide-react";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cn, initials, relativeTime } from "@/lib/utils";
@@ -39,11 +40,11 @@ export function FullChat({
   currentUserId,
 }: Props) {
   const supabaseRef = useRef(createSupabaseBrowserClient());
+  const messageChannelRef = useRef<RealtimeChannel | null>(null);
   const active = channels.find((c) => c.slug === activeSlug) ?? channels[0];
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [draft, setDraft] = useState("");
   const [pending, setPending] = useState(false);
-  const bottomRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const membersById = Object.fromEntries(members.map((m) => [m.id, m]));
 
@@ -61,8 +62,13 @@ export function FullChat({
 
   useEffect(() => {
     if (!active) return;
-    const ch = supabaseRef.current
+    const supabase = supabaseRef.current;
+    const ch = supabase
       .channel(`full:${active.id}`)
+      .on("broadcast", { event: "message" }, ({ payload }) => {
+        const row = payload as Message;
+        setMessages((prev) => (prev.some((m) => m.id === row.id) ? prev : [...prev, row]));
+      })
       .on(
         "postgres_changes",
         {
@@ -77,8 +83,12 @@ export function FullChat({
         },
       )
       .subscribe();
+    messageChannelRef.current = ch;
     return () => {
-      void supabaseRef.current.removeChannel(ch);
+      if (messageChannelRef.current?.topic === ch.topic) {
+        messageChannelRef.current = null;
+      }
+      void supabase.removeChannel(ch);
     };
   }, [active]);
 
@@ -88,7 +98,6 @@ export function FullChat({
       if (viewport) {
         viewport.scrollTo({ top: viewport.scrollHeight, behavior: "smooth" });
       }
-      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
     });
   }, [messages.length]);
 
@@ -124,6 +133,11 @@ export function FullChat({
       }
 
       if (confirmedMessage) {
+        void messageChannelRef.current?.send({
+          type: "broadcast",
+          event: "message",
+          payload: confirmedMessage,
+        });
         setMessages((prev) => {
           const withoutOptimistic = prev.filter((message) => message.id !== optimisticId);
           if (withoutOptimistic.some((message) => message.id === confirmedMessage.id)) {
@@ -231,7 +245,6 @@ export function FullChat({
               );
             })
           )}
-          <div ref={bottomRef} />
         </div>
         <form onSubmit={send} className="border-t border-white/5 p-3 flex gap-2">
           <input
