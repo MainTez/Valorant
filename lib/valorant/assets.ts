@@ -60,6 +60,12 @@ export function getAgentAsset(agent?: string | null) {
   return AGENT_ASSETS[key] ?? null;
 }
 
+export function getAgentIcon(agent?: string | null) {
+  const asset = getAgentAsset(agent);
+  if (!asset) return null;
+  return asset.portrait.replace(/fullportrait\.png$/i, "displayicon.png");
+}
+
 export function getMapAsset(map?: string | null) {
   const key = normalizeKey(map) as keyof typeof MAP_ASSETS;
   return MAP_ASSETS[key] ?? null;

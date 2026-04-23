@@ -4,7 +4,6 @@ import Image from "next/image";
 import Link from "next/link";
 import type { ComponentType, ReactNode } from "react";
 import {
-  Activity,
   ArrowUpRight,
   BrainCircuit,
   Crosshair,
@@ -16,6 +15,7 @@ import {
   Target,
   TrendingUp,
   Trophy,
+  Users,
 } from "lucide-react";
 import {
   Area,
@@ -30,7 +30,7 @@ import {
   YAxis,
 } from "recharts";
 import { Badge } from "@/components/ui/badge";
-import { getAgentAsset, getMapAsset } from "@/lib/valorant/assets";
+import { getAgentAsset, getAgentIcon, getMapAsset } from "@/lib/valorant/assets";
 import { getCompetitiveTierAsset, getRankTheme } from "@/lib/valorant/ranks";
 import { cn } from "@/lib/utils";
 import type {
@@ -71,15 +71,24 @@ export function PlayerStatsDashboard({
   const theme = getRankTheme(mmr?.currentTierId, mmr?.currentTier);
   const rankAsset = getCompetitiveTierAsset(mmr?.currentTierId);
   const summary = summarizeMatches(matches);
-  const recentMatches = matches.slice(0, 5);
+  const recentMatches = matches.slice(0, 6);
+  const agents = summarizeAgents(matches);
+  const maps = summarizeMaps(matches);
+  const outcomes = buildOutcomeBreakdown(matches);
   const trendData = [...matches].reverse().map((match) => ({
-    label: new Date(match.startedAt).toLocaleDateString(undefined, { month: "short", day: "numeric" }),
+    label: new Date(match.startedAt).toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+    }),
     acs: match.acs,
   }));
   const rrSeries = history
     .slice(-14)
     .map((entry) => ({
-      label: new Date(entry.date).toLocaleDateString(undefined, { month: "short", day: "numeric" }),
+      label: new Date(entry.date).toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+      }),
       delta: entry.rrChange ?? 0,
     }))
     .reduce<Array<{ label: string; rr: number }>>((acc, entry) => {
@@ -87,10 +96,6 @@ export function PlayerStatsDashboard({
       acc.push({ label: entry.label, rr: previous + entry.delta });
       return acc;
     }, []);
-
-  const agents = summarizeAgents(matches);
-  const maps = summarizeMaps(matches);
-  const outcomes = buildOutcomeBreakdown(matches);
   const insightCards = buildInsightCards({
     hs: summary.hs,
     agents,
@@ -99,156 +104,145 @@ export function PlayerStatsDashboard({
   });
 
   const metricTiles = [
-    { label: "Win Rate", value: formatPercent(summary.winRate, 1), sublabel: outcomeRank(summary.winRate, 52, 44), icon: Trophy },
-    { label: "K/D", value: summary.kd.toFixed(2), sublabel: outcomeRank(summary.kd, 1.25, 0.95), icon: Crosshair },
-    { label: "ACS", value: summary.acs.toFixed(1), sublabel: outcomeRank(summary.acs, 240, 190), icon: Target },
-    { label: "ADR", value: summary.adr.toFixed(1), sublabel: outcomeRank(summary.adr, 155, 125), icon: Swords },
-    { label: "HS%", value: formatPercent(summary.hs, 1), sublabel: outcomeRank(summary.hs, 22, 15), icon: Crown },
-    { label: "Matches", value: String(matches.length), sublabel: "Recent sample", icon: Activity },
+    {
+      label: "Win Rate",
+      value: formatPercent(summary.winRate, 1),
+      sublabel: outcomeRank(summary.winRate, 52, 44),
+      icon: Trophy,
+    },
+    {
+      label: "K/D",
+      value: summary.kd.toFixed(2),
+      sublabel: outcomeRank(summary.kd, 1.25, 0.95),
+      icon: Crosshair,
+    },
+    {
+      label: "ACS",
+      value: summary.acs.toFixed(1),
+      sublabel: outcomeRank(summary.acs, 240, 190),
+      icon: Target,
+    },
+    {
+      label: "ADR",
+      value: summary.adr.toFixed(1),
+      sublabel: outcomeRank(summary.adr, 155, 125),
+      icon: Swords,
+    },
+    {
+      label: "HS%",
+      value: formatPercent(summary.hs, 1),
+      sublabel: outcomeRank(summary.hs, 22, 15),
+      icon: Crown,
+    },
+    {
+      label: "Matches",
+      value: String(matches.length),
+      sublabel: "Core queue sample",
+      icon: Users,
+    },
   ];
 
   const currentRR = mmr?.currentRR ?? 0;
   const rrProgress = Math.max(0, Math.min(100, currentRR));
 
   return (
-    <div className="relative isolate">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 -top-8 -z-10 h-72 blur-3xl"
-        style={{
-          background: `radial-gradient(circle at 20% 30%, ${theme.accentSoft}, transparent 46%), radial-gradient(circle at 80% 10%, rgba(56, 189, 248, 0.12), transparent 35%)`,
-        }}
-      />
-
-      <div className="grid gap-5 xl:grid-cols-[380px_minmax(0,1fr)]">
-        <section
-          className="group relative overflow-hidden rounded-[28px] border p-6 shadow-[0_32px_80px_-48px_rgba(0,0,0,0.85)] transition duration-300 hover:-translate-y-1"
-          style={{
-            background: "linear-gradient(180deg, rgba(11,18,31,0.96) 0%, rgba(6,11,19,0.96) 100%)",
-            borderColor: theme.ring,
-            boxShadow: `0 0 0 1px ${theme.accentSoft}, 0 32px 80px -48px rgba(0, 0, 0, 0.9)`,
-          }}
-        >
-          <div
-            aria-hidden
-            className="absolute inset-0 opacity-90"
-            style={{
-              background: `radial-gradient(circle at 16% 20%, ${theme.accentSoft}, transparent 34%), linear-gradient(135deg, rgba(255,255,255,0.03), transparent 42%)`,
-            }}
-          />
-          <div
-            aria-hidden
-            className="absolute inset-y-0 right-0 w-40 opacity-20"
-            style={{
-              backgroundImage: account.cardUrl ? `url(${account.cardUrl})` : undefined,
-              backgroundPosition: "center right",
-              backgroundSize: "cover",
-              mixBlendMode: "screen",
-            }}
-          />
-
-          <div className="relative flex items-start justify-between gap-3">
-            <div className="space-y-2">
+    <div className="grid gap-5">
+      <div className="grid gap-5 xl:grid-cols-[340px_minmax(0,1fr)]">
+        <section className="rounded-[28px] border border-white/8 bg-[linear-gradient(180deg,#0d1320_0%,#090e18_100%)] p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+          <div className="flex items-start justify-between gap-3">
+            <div>
               <div className="flex items-center gap-2">
-                <Badge variant="outline" className="border-white/10 bg-white/5 text-white/80">
-                  Stats Tracker
-                </Badge>
-                <Badge variant="outline" className="border-white/10 bg-white/5 text-white/80">
+                <Badge variant="outline" className="border-white/10 bg-white/5 text-white/75">
                   {region.toUpperCase()}
                 </Badge>
+                {onTeam ? (
+                  <Badge className="border-transparent bg-white/8 text-white">Roster</Badge>
+                ) : (
+                  <Badge variant="outline" className="border-white/10 bg-white/5 text-white/65">
+                    External
+                  </Badge>
+                )}
               </div>
-              <h1 className="font-display text-5xl leading-none tracking-tight text-white">
-                {account.name} <span className="text-white/45">#{account.tag}</span>
+              <h1 className="mt-4 font-display text-5xl leading-none tracking-tight text-white">
+                {account.name}
+                <span className="ml-2 text-white/35">#{account.tag}</span>
               </h1>
-              <div className="flex items-center gap-2 text-sm text-white/70">
-                <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: theme.accent, boxShadow: `0 0 16px ${theme.accent}` }} />
-                Peak {mmr?.peakTier ?? mmr?.currentTier ?? "Unranked"}
-              </div>
+              <p className="mt-3 text-sm text-white/54">
+                Clean competitive-only tracker using official Riot rank, map, and agent assets.
+              </p>
             </div>
-            {onTeam ? (
-              <Badge className="border-transparent bg-white/8 text-white">Roster</Badge>
-            ) : (
-              <Badge variant="outline" className="border-white/10 bg-white/5 text-white/70">
-                External
-              </Badge>
-            )}
+            <div
+              className="rounded-2xl border px-3 py-2 text-xs uppercase tracking-[0.22em]"
+              style={{ borderColor: theme.ring, color: theme.accent }}
+            >
+              Live
+            </div>
           </div>
 
-          <div className="relative mt-6 flex items-center gap-5">
+          <div className="mt-6 flex items-center gap-5">
             <div
-              className="relative flex h-40 w-40 items-center justify-center rounded-[26px] border bg-black/20"
-              style={{ borderColor: theme.ring, boxShadow: `inset 0 0 32px ${theme.accentSoft}` }}
+              className="flex h-28 w-28 shrink-0 items-center justify-center rounded-[24px] border bg-black/20"
+              style={{
+                borderColor: theme.ring,
+                boxShadow: `inset 0 0 24px ${theme.accentSoft}`,
+              }}
             >
-              <div
-                aria-hidden
-                className="absolute inset-3 rounded-[20px]"
-                style={{ background: `radial-gradient(circle, ${theme.accentSoft}, transparent 65%)` }}
-              />
               {rankAsset ? (
                 <Image
                   src={rankAsset.largeIcon}
                   alt={mmr?.currentTier ?? "Rank emblem"}
-                  width={132}
-                  height={132}
-                  className="relative drop-shadow-[0_0_28px_rgba(57,246,207,0.25)]"
+                  width={88}
+                  height={88}
                 />
               ) : (
-                <Shield className="relative h-14 w-14 text-white/60" />
+                <Shield className="h-10 w-10 text-white/55" />
               )}
             </div>
-
-            <div className="min-w-0 flex-1">
-              <div className="text-[0.72rem] uppercase tracking-[0.28em] text-white/45">Current Rank</div>
-              <div className="mt-2 font-display text-5xl leading-none tracking-tight" style={{ color: theme.accent }}>
+            <div className="min-w-0">
+              <div className="text-[0.72rem] uppercase tracking-[0.24em] text-white/42">
+                Current Rank
+              </div>
+              <div
+                className="mt-2 font-display text-4xl leading-none tracking-tight"
+                style={{ color: theme.accent }}
+              >
                 {mmr?.currentTier ?? "Unranked"}
               </div>
-              <div className="mt-4 flex items-end justify-between gap-3">
-                <div>
-                  <div className="font-display text-4xl leading-none text-white">{currentRR}</div>
-                  <div className="mt-1 text-xs uppercase tracking-[0.2em] text-white/45">Rank Rating</div>
-                </div>
-                {mmr?.leaderboardPlace ? (
-                  <div className="text-right text-sm text-white/70">
-                    <div className="font-display text-xl text-white">#{mmr.leaderboardPlace.toLocaleString()}</div>
-                    <div className="uppercase tracking-[0.18em] text-white/40">Leaderboard</div>
-                  </div>
-                ) : null}
+              <div className="mt-3 font-display text-2xl text-white">
+                {currentRR} RR
               </div>
-
-              <div className="mt-4">
-                <div className="h-2.5 overflow-hidden rounded-full bg-white/8">
-                  <div
-                    className="h-full rounded-full"
-                    style={{
-                      width: `${rrProgress}%`,
-                      background: `linear-gradient(90deg, ${theme.accent} 0%, color-mix(in srgb, ${theme.accent} 78%, white) 100%)`,
-                      boxShadow: `0 0 24px ${theme.accentSoft}`,
-                    }}
-                  />
-                </div>
-                <div className="mt-2 flex justify-between text-xs uppercase tracking-[0.18em] text-white/40">
-                  <span>0 RR</span>
-                  <span>{rrProgress}/100 RR</span>
-                </div>
+              <div className="mt-2 text-sm text-white/48">
+                Peak {mmr?.peakTier ?? mmr?.currentTier ?? "Unranked"}
               </div>
             </div>
           </div>
 
-          <div className="relative mt-6 grid grid-cols-3 gap-3 rounded-[22px] border border-white/8 bg-black/20 p-4 text-center">
+          <div className="mt-5">
+            <div className="h-2.5 rounded-full bg-white/7">
+              <div
+                className="h-full rounded-full"
+                style={{
+                  width: `${rrProgress}%`,
+                  background: `linear-gradient(90deg, ${theme.accent} 0%, color-mix(in srgb, ${theme.accent} 72%, white) 100%)`,
+                }}
+              />
+            </div>
+            <div className="mt-2 flex justify-between text-xs uppercase tracking-[0.18em] text-white/38">
+              <span>0 RR</span>
+              <span>{rrProgress}/100 RR</span>
+            </div>
+          </div>
+
+          <div className="mt-5 grid grid-cols-3 gap-3 rounded-[22px] border border-white/8 bg-white/[0.03] p-4">
             <MetaBlock label="Region" value={region.toUpperCase()} />
-            <MetaBlock label="Account" value="Public" />
             <MetaBlock label="Level" value={account.accountLevel ? String(account.accountLevel) : "N/A"} />
+            <MetaBlock label="Board" value={mmr?.leaderboardPlace ? `#${mmr.leaderboardPlace}` : "N/A"} />
           </div>
 
           <Link
             href={insightsHref}
-            className="relative mt-6 flex items-center justify-center gap-2 rounded-2xl border px-4 py-4 text-sm font-semibold tracking-[0.12em] uppercase transition duration-300 hover:-translate-y-0.5"
-            style={{
-              borderColor: theme.ring,
-              background: `linear-gradient(180deg, ${theme.accentSoft} 0%, rgba(6, 10, 18, 0.4) 100%)`,
-              color: theme.accent,
-              boxShadow: `0 0 0 1px ${theme.accentSoft}, inset 0 1px 0 rgba(255,255,255,0.06)`,
-            }}
+            className="mt-5 flex items-center justify-center gap-2 rounded-2xl border px-4 py-4 text-sm font-semibold uppercase tracking-[0.14em] transition hover:border-white/20 hover:bg-white/[0.04]"
+            style={{ borderColor: theme.ring, color: theme.accent }}
           >
             <Sparkles className="h-4 w-4" />
             Open AI Analysis
@@ -259,21 +253,22 @@ export function PlayerStatsDashboard({
         <section className="grid gap-5">
           <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-6">
             {metricTiles.map((tile) => (
-              <MetricTile key={tile.label} {...tile} accentSoft={theme.accentSoft} />
+              <MetricTile
+                key={tile.label}
+                {...tile}
+                accent={theme.accent}
+                accentSoft={theme.accentSoft}
+              />
             ))}
           </div>
 
           <div className="grid gap-5 2xl:grid-cols-[minmax(0,1fr)_minmax(320px,0.95fr)]">
-            <ChartPanel
-              title="Performance Trend"
-              subtitle={`Last ${trendData.length || 0} matches`}
-              accent={theme.accentSoft}
-            >
+            <ChartPanel title="ACS Trend" subtitle={`Last ${trendData.length} core matches`}>
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={trendData}>
                   <defs>
-                    <linearGradient id="performance-fill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={theme.accent} stopOpacity={0.4} />
+                    <linearGradient id="dashboard-acs-fill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={theme.accent} stopOpacity={0.3} />
                       <stop offset="100%" stopColor={theme.accent} stopOpacity={0} />
                     </linearGradient>
                   </defs>
@@ -281,20 +276,16 @@ export function PlayerStatsDashboard({
                   <XAxis dataKey="label" stroke="rgba(255,255,255,0.3)" fontSize={11} tickLine={false} axisLine={false} />
                   <YAxis stroke="rgba(255,255,255,0.28)" fontSize={11} tickLine={false} axisLine={false} width={34} />
                   <Tooltip contentStyle={tooltipStyle} labelStyle={tooltipLabelStyle} />
-                  <Area type="monotone" dataKey="acs" stroke={theme.accent} strokeWidth={2.25} fill="url(#performance-fill)" />
+                  <Area type="monotone" dataKey="acs" stroke={theme.accent} strokeWidth={2.25} fill="url(#dashboard-acs-fill)" />
                 </AreaChart>
               </ResponsiveContainer>
             </ChartPanel>
 
-            <ChartPanel
-              title="RR Progression"
-              subtitle={rrSeries.length ? "Recent competitive movement" : "No RR history yet"}
-              accent={theme.accentSoft}
-            >
+            <ChartPanel title="RR Progression" subtitle={rrSeries.length ? "Recent MMR history" : "No RR history yet"}>
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={rrSeries}>
                   <defs>
-                    <linearGradient id="rr-fill" x1="0" y1="0" x2="0" y2="1">
+                    <linearGradient id="dashboard-rr-fill" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor={theme.accent} stopOpacity={0.22} />
                       <stop offset="100%" stopColor={theme.accent} stopOpacity={0} />
                     </linearGradient>
@@ -303,7 +294,7 @@ export function PlayerStatsDashboard({
                   <XAxis dataKey="label" stroke="rgba(255,255,255,0.3)" fontSize={11} tickLine={false} axisLine={false} />
                   <YAxis stroke="rgba(255,255,255,0.28)" fontSize={11} tickLine={false} axisLine={false} width={42} />
                   <Tooltip contentStyle={tooltipStyle} labelStyle={tooltipLabelStyle} />
-                  <Area type="monotone" dataKey="rr" stroke={theme.accent} strokeWidth={2.25} fill="url(#rr-fill)" />
+                  <Area type="monotone" dataKey="rr" stroke={theme.accent} strokeWidth={2.25} fill="url(#dashboard-rr-fill)" />
                 </AreaChart>
               </ResponsiveContainer>
             </ChartPanel>
@@ -311,29 +302,28 @@ export function PlayerStatsDashboard({
         </section>
       </div>
 
-      <div className="mt-5 grid gap-5 2xl:grid-cols-[380px_minmax(320px,0.95fr)_minmax(360px,1.05fr)]">
-        <Panel title="Recent Matches" subtitle={`${recentMatches.length} latest`} actionLabel={matches.length > 5 ? "View all" : undefined}>
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
+        <Panel title="Recent Matches" subtitle="Competitive-only recent history">
           <div className="space-y-3">
             {recentMatches.length === 0 ? (
-              <EmptyPanelCopy text="No recent matches available." />
+              <EmptyPanelCopy text="No competitive matches available." />
             ) : (
               recentMatches.map((match) => (
-                <article
+                <div
                   key={match.matchId}
-                  className="relative overflow-hidden rounded-[20px] border border-white/7 bg-[linear-gradient(180deg,rgba(15,21,34,0.9),rgba(10,14,24,0.92))] p-3 transition duration-300 hover:border-white/15 hover:bg-white/[0.04]"
+                  className="grid gap-3 rounded-[20px] border border-white/8 bg-white/[0.03] p-4 lg:grid-cols-[minmax(0,1fr)_auto]"
                 >
-                  <MapMatchBackdrop map={match.map} />
                   <div className="flex items-start gap-3">
-                    <AgentAvatar agent={match.agent} size="sm" />
+                    <AgentIcon agent={match.agent} />
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <div className="font-display text-2xl leading-none text-white">{match.map}</div>
-                          <div className="mt-1 text-xs uppercase tracking-[0.22em] text-white/40">{match.mode}</div>
-                        </div>
-                        <ResultBadge result={match.result} rrChange={match.rrChange} />
+                      <div className="flex flex-wrap items-center gap-2">
+                        <MapPill map={match.map} />
+                        <span className="text-[11px] uppercase tracking-[0.2em] text-white/38">
+                          {match.mode}
+                        </span>
                       </div>
-                      <div className="mt-4 grid grid-cols-2 gap-2 text-sm text-white/72 sm:grid-cols-4">
+                      <div className="mt-3 grid grid-cols-2 gap-3 text-sm text-white/72 sm:grid-cols-5">
+                        <MiniStat label="Score" value={`${match.scoreTeam} - ${match.scoreOpponent}`} />
                         <MiniStat label="KDA" value={`${match.kills}/${match.deaths}/${match.assists}`} />
                         <MiniStat label="ACS" value={String(match.acs)} />
                         <MiniStat label="ADR" value={String(match.adr)} />
@@ -341,90 +331,16 @@ export function PlayerStatsDashboard({
                       </div>
                     </div>
                   </div>
-                </article>
+                  <ResultBadge result={match.result} rrChange={match.rrChange} />
+                </div>
               ))
             )}
           </div>
         </Panel>
 
         <div className="grid gap-5">
-          <Panel title="Most Played Agents" subtitle={agents.length ? `${agents.length} tracked agents` : "No agent data"}>
-            <div className="space-y-3">
-              {agents.length === 0 ? (
-                <EmptyPanelCopy text="No agent usage yet." />
-              ) : (
-                agents.slice(0, 3).map((agent) => (
-                  <div key={agent.agent} className="rounded-[20px] border border-white/7 bg-white/[0.03] p-3">
-                    <div className="flex items-center gap-3">
-                      <AgentAvatar agent={agent.agent} size="md" />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between gap-3">
-                          <div>
-                            <div className="font-display text-2xl leading-none text-white">{agent.agent}</div>
-                            <div className="mt-1 text-[11px] uppercase tracking-[0.18em] text-white/40">
-                              {getAgentAsset(agent.agent)?.role ?? "Agent"}
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <div className="font-display text-3xl leading-none" style={{ color: theme.accent }}>
-                              {agent.usage.toFixed(0)}%
-                            </div>
-                            <div className="text-[11px] uppercase tracking-[0.2em] text-white/40">Usage</div>
-                          </div>
-                        </div>
-                        <div className="mt-3 grid grid-cols-3 gap-2 text-sm text-white/70">
-                          <MiniStat label="Matches" value={String(agent.games)} />
-                          <MiniStat label="Win Rate" value={formatPercent(agent.winRate, 0)} />
-                          <MiniStat label="ACS" value={String(agent.acs)} />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </Panel>
-
-          <Panel title="Map Performance" subtitle={maps.length ? `${maps.length} active maps` : "No map data"}>
-            <div className="space-y-2.5">
-              {maps.length === 0 ? (
-                <EmptyPanelCopy text="No map performance data yet." />
-              ) : (
-                maps.map((mapRow) => (
-                  <div key={mapRow.map} className="grid grid-cols-[minmax(0,1fr)_100px_72px] items-center gap-3 rounded-2xl border border-white/7 bg-white/[0.025] px-3 py-3">
-                    <div className="flex min-w-0 items-center gap-3">
-                      <MapThumb map={mapRow.map} />
-                      <div className="min-w-0 flex-1">
-                      <div className="font-display text-xl leading-none text-white">{mapRow.map}</div>
-                      <div className="mt-1 h-2 rounded-full bg-white/7">
-                        <div
-                          className="h-full rounded-full"
-                          style={{
-                            width: `${Math.max(4, Math.min(100, mapRow.winRate))}%`,
-                            background: `linear-gradient(90deg, ${theme.accent} 0%, color-mix(in srgb, ${theme.accent} 70%, white) 100%)`,
-                          }}
-                        />
-                      </div>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-display text-xl leading-none text-white">{formatPercent(mapRow.winRate, 0)}</div>
-                      <div className="text-[11px] uppercase tracking-[0.18em] text-white/40">Win rate</div>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-display text-xl leading-none text-white">{mapRow.kd.toFixed(2)}</div>
-                      <div className="text-[11px] uppercase tracking-[0.18em] text-white/40">K/D</div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </Panel>
-        </div>
-
-        <div className="grid gap-5">
-          <Panel title="Result Breakdown" subtitle="Clean split across the recent sample">
-            <div className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)] lg:items-center">
+          <Panel title="Result Split" subtitle="Core sample only">
+            <div className="grid gap-4 md:grid-cols-[220px_minmax(0,1fr)] md:items-center">
               <div className="h-[220px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
@@ -439,14 +355,14 @@ export function PlayerStatsDashboard({
               </div>
               <div className="space-y-3">
                 {outcomes.map((segment) => (
-                  <div key={segment.name} className="flex items-center justify-between rounded-2xl border border-white/7 bg-white/[0.03] px-4 py-3">
+                  <div key={segment.name} className="flex items-center justify-between rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3">
                     <div className="flex items-center gap-3">
                       <span className="h-3 w-3 rounded-full" style={{ backgroundColor: segment.color }} />
-                      <span className="font-medium text-white">{segment.name}</span>
+                      <span className="text-white">{segment.name}</span>
                     </div>
                     <div className="text-right">
                       <div className="font-display text-2xl leading-none text-white">{segment.value}</div>
-                      <div className="text-[11px] uppercase tracking-[0.18em] text-white/40">
+                      <div className="text-[11px] uppercase tracking-[0.18em] text-white/38">
                         {matches.length ? `${Math.round((segment.value / matches.length) * 100)}%` : "0%"}
                       </div>
                     </div>
@@ -455,31 +371,100 @@ export function PlayerStatsDashboard({
               </div>
             </div>
           </Panel>
+        </div>
+      </div>
 
-          <Panel title="AI Insights" subtitle="Fast read on form, strengths, and climb path" actionLabel="View full analysis">
-            <div className="grid gap-3 md:grid-cols-2">
-              {insightCards.map((card) => (
-                <div
-                  key={card.title}
-                  className="rounded-[22px] border p-4"
-                  style={{
-                    borderColor: card.border,
-                    background: `linear-gradient(180deg, ${card.background} 0%, rgba(8, 12, 20, 0.88) 100%)`,
-                  }}
-                >
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl border" style={{ borderColor: card.border, background: "rgba(255,255,255,0.03)" }}>
-                    <card.icon className="h-5 w-5" style={{ color: card.accent }} />
-                  </div>
-                  <div className="mt-4 font-display text-2xl leading-none text-white">{card.title}</div>
-                  <p className="mt-2 text-sm leading-6 text-white/68">{card.body}</p>
-                  <div className="mt-4 text-sm font-semibold" style={{ color: card.accent }}>
-                    {card.highlight}
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,1.2fr)]">
+        <Panel title="Most Played Agents" subtitle="Official Riot agent icons">
+          <div className="space-y-3">
+            {agents.length === 0 ? (
+              <EmptyPanelCopy text="No agent usage available." />
+            ) : (
+              agents.slice(0, 4).map((agent) => (
+                <div key={agent.agent} className="flex items-center gap-3 rounded-2xl border border-white/8 bg-white/[0.03] p-3">
+                  <AgentIcon agent={agent.agent} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="font-display text-2xl leading-none text-white">{agent.agent}</div>
+                        <div className="mt-1 text-[11px] uppercase tracking-[0.18em] text-white/38">
+                          {getAgentAsset(agent.agent)?.role ?? "Agent"}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-display text-2xl leading-none text-white">
+                          {agent.usage.toFixed(0)}%
+                        </div>
+                        <div className="text-[11px] uppercase tracking-[0.18em] text-white/38">Usage</div>
+                      </div>
+                    </div>
+                    <div className="mt-3 grid grid-cols-3 gap-2 text-sm text-white/68">
+                      <MiniStat label="Matches" value={String(agent.games)} />
+                      <MiniStat label="Win Rate" value={formatPercent(agent.winRate, 0)} />
+                      <MiniStat label="ACS" value={String(agent.acs)} />
+                    </div>
                   </div>
                 </div>
-              ))}
-            </div>
-          </Panel>
-        </div>
+              ))
+            )}
+          </div>
+        </Panel>
+
+        <Panel title="Map Performance" subtitle="Official Riot map icons">
+          <div className="space-y-3">
+            {maps.length === 0 ? (
+              <EmptyPanelCopy text="No map performance available." />
+            ) : (
+              maps.map((mapRow) => (
+                <div key={mapRow.map} className="rounded-2xl border border-white/8 bg-white/[0.03] p-3">
+                  <div className="flex items-center gap-3">
+                    <MapIconBadge map={mapRow.map} />
+                    <div className="min-w-0 flex-1">
+                      <div className="font-display text-2xl leading-none text-white">{mapRow.map}</div>
+                      <div className="mt-2 h-2 rounded-full bg-white/7">
+                        <div
+                          className="h-full rounded-full"
+                          style={{
+                            width: `${Math.max(4, Math.min(100, mapRow.winRate))}%`,
+                            background: `linear-gradient(90deg, ${theme.accent} 0%, color-mix(in srgb, ${theme.accent} 72%, white) 100%)`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-2 text-sm text-white/68">
+                    <MiniStat label="Win Rate" value={formatPercent(mapRow.winRate, 0)} />
+                    <MiniStat label="K/D" value={mapRow.kd.toFixed(2)} />
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </Panel>
+
+        <Panel title="AI Insights" subtitle="Quick read from the current ranked sample" action={<Link href={insightsHref} className="text-sm text-white/58 hover:text-white">View full analysis</Link>}>
+          <div className="grid gap-3 md:grid-cols-2">
+            {insightCards.map((card) => (
+              <div
+                key={card.title}
+                className="rounded-[22px] border p-4"
+                style={{
+                  borderColor: card.border,
+                  background: `linear-gradient(180deg, ${card.background} 0%, rgba(8,12,20,0.88) 100%)`,
+                }}
+              >
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl border" style={{ borderColor: card.border }}>
+                  <card.icon className="h-5 w-5" style={{ color: card.accent }} />
+                </div>
+                <div className="mt-4 font-display text-2xl leading-none text-white">{card.title}</div>
+                <p className="mt-2 text-sm leading-6 text-white/66">{card.body}</p>
+                <div className="mt-4 text-sm font-semibold" style={{ color: card.accent }}>
+                  {card.highlight}
+                </div>
+              </div>
+            ))}
+          </div>
+        </Panel>
       </div>
     </div>
   );
@@ -489,33 +474,30 @@ function MetricTile({
   label,
   value,
   sublabel,
+  accent,
   accentSoft,
   icon: Icon,
 }: {
   label: string;
   value: string;
   sublabel: string;
+  accent: string;
   accentSoft: string;
   icon: ComponentType<{ className?: string }>;
 }) {
   return (
-    <div
-      className="rounded-[24px] border p-4 transition duration-300 hover:-translate-y-1"
-      style={{
-        borderColor: "rgba(255,255,255,0.08)",
-        background: "linear-gradient(180deg, rgba(13, 19, 31, 0.96) 0%, rgba(9, 13, 22, 0.94) 100%)",
-        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)",
-      }}
-    >
+    <div className="rounded-[22px] border border-white/8 bg-[linear-gradient(180deg,#0d1320_0%,#090e18_100%)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
       <div
-        className="flex h-12 w-12 items-center justify-center rounded-2xl border"
-        style={{ borderColor: accentSoft, background: `linear-gradient(180deg, ${accentSoft} 0%, rgba(255,255,255,0.02) 100%)` }}
+        className="flex h-11 w-11 items-center justify-center rounded-2xl border"
+        style={{ borderColor: accentSoft, background: `${accentSoft}` }}
       >
-        <Icon className="h-5 w-5 text-white" />
+        <div style={{ color: accent }}>
+          <Icon className="h-5 w-5" />
+        </div>
       </div>
-      <div className="mt-5 text-[0.72rem] uppercase tracking-[0.22em] text-white/42">{label}</div>
+      <div className="mt-4 text-[0.72rem] uppercase tracking-[0.22em] text-white/42">{label}</div>
       <div className="mt-2 font-display text-5xl leading-none text-white">{value}</div>
-      <div className="mt-2 text-sm text-white/58">{sublabel}</div>
+      <div className="mt-2 text-sm text-white/56">{sublabel}</div>
     </div>
   );
 }
@@ -523,31 +505,17 @@ function MetricTile({
 function ChartPanel({
   title,
   subtitle,
-  accent,
   children,
 }: {
   title: string;
   subtitle: string;
-  accent: string;
   children: ReactNode;
 }) {
   return (
-    <section
-      className="rounded-[24px] border p-4"
-      style={{
-        borderColor: "rgba(255,255,255,0.08)",
-        background: "linear-gradient(180deg, rgba(13, 19, 31, 0.96) 0%, rgba(8, 12, 21, 0.95) 100%)",
-        boxShadow: `inset 0 1px 0 rgba(255,255,255,0.04), 0 18px 48px -42px ${accent}`,
-      }}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className="font-display text-3xl leading-none text-white">{title}</div>
-          <div className="mt-1 text-sm text-white/48">{subtitle}</div>
-        </div>
-        <div className="rounded-xl border border-white/8 px-3 py-2 text-xs uppercase tracking-[0.22em] text-white/62">
-          Live
-        </div>
+    <section className="rounded-[24px] border border-white/8 bg-[linear-gradient(180deg,#0d1320_0%,#090e18_100%)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+      <div>
+        <div className="font-display text-3xl leading-none text-white">{title}</div>
+        <div className="mt-1 text-sm text-white/48">{subtitle}</div>
       </div>
       <div className="mt-4 h-[252px]">{children}</div>
     </section>
@@ -557,22 +525,22 @@ function ChartPanel({
 function Panel({
   title,
   subtitle,
-  actionLabel,
+  action,
   children,
 }: {
   title: string;
   subtitle: string;
-  actionLabel?: string;
+  action?: ReactNode;
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-[24px] border border-white/8 bg-[linear-gradient(180deg,rgba(12,17,28,0.95),rgba(7,11,19,0.96))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+    <section className="rounded-[24px] border border-white/8 bg-[linear-gradient(180deg,#0d1320_0%,#090e18_100%)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
       <div className="flex items-center justify-between gap-3">
         <div>
           <div className="font-display text-3xl leading-none text-white">{title}</div>
           <div className="mt-1 text-sm text-white/48">{subtitle}</div>
         </div>
-        {actionLabel ? <div className="text-sm text-white/55">{actionLabel}</div> : null}
+        {action ?? null}
       </div>
       <div className="mt-4">{children}</div>
     </section>
@@ -581,71 +549,53 @@ function Panel({
 
 function MetaBlock({ label, value }: { label: string; value: string }) {
   return (
-    <div>
+    <div className="text-center">
       <div className="text-[0.68rem] uppercase tracking-[0.2em] text-white/38">{label}</div>
       <div className="mt-2 font-display text-2xl leading-none text-white">{value}</div>
     </div>
   );
 }
 
-function AgentAvatar({ agent, size }: { agent?: string | null; size: "sm" | "md" }) {
-  const asset = getAgentAsset(agent);
-  const dimensions = size === "sm" ? "h-14 w-14" : "h-16 w-16";
-  const imageSize = size === "sm" ? 56 : 64;
+function AgentIcon({ agent }: { agent?: string | null }) {
+  const icon = getAgentIcon(agent);
 
   return (
-    <div className={cn("relative shrink-0 overflow-hidden rounded-2xl border border-white/8 bg-white/[0.04]", dimensions)}>
-      {asset ? (
-        <>
-          <div
-            aria-hidden
-            className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.12),transparent_60%)]"
-          />
-          <Image
-            src={asset.portrait}
-            alt={agent ?? "Agent"}
-            width={imageSize}
-            height={imageSize}
-            className="absolute inset-0 h-full w-full object-cover object-top scale-[1.18]"
-          />
-          <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-[#050913] to-transparent" />
-        </>
+    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.03]">
+      {icon ? (
+        <Image src={icon} alt={agent ?? "Agent"} width={28} height={28} className="h-7 w-7 object-contain" />
       ) : (
-        <div className="flex h-full w-full items-center justify-center font-display text-lg tracking-wide text-white/85">
-          {agentMonogram(agent)}
-        </div>
+        <span className="font-display text-sm text-white/65">{agentMonogram(agent)}</span>
       )}
     </div>
   );
 }
 
-function MapThumb({ map }: { map?: string | null }) {
+function MapPill({ map }: { map?: string | null }) {
   const asset = getMapAsset(map);
 
   return (
-    <div className="relative h-12 w-20 shrink-0 overflow-hidden rounded-xl border border-white/8 bg-white/[0.04]">
-      {asset ? (
-        <Image src={asset.splash} alt={map ?? "Map"} fill className="object-cover" />
-      ) : null}
-      <div className="absolute inset-0 bg-gradient-to-r from-[#06101a]/20 to-[#06101a]/55" />
+    <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5">
+      {asset?.icon ? (
+        <Image src={asset.icon} alt={map ?? "Map"} width={18} height={18} className="h-[18px] w-[18px] object-contain" />
+      ) : (
+        <MapIcon className="h-4 w-4 text-white/55" />
+      )}
+      <span className="text-xs uppercase tracking-[0.18em] text-white/72">{map ?? "Unknown"}</span>
     </div>
   );
 }
 
-function MapMatchBackdrop({ map }: { map?: string | null }) {
+function MapIconBadge({ map }: { map?: string | null }) {
   const asset = getMapAsset(map);
-  if (!asset) return null;
 
   return (
-    <>
-      <Image
-        src={asset.splash}
-        alt=""
-        fill
-        className="pointer-events-none object-cover opacity-[0.16]"
-      />
-      <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(7,11,19,0.94),rgba(7,11,19,0.78),rgba(7,11,19,0.94))]" />
-    </>
+    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.03]">
+      {asset?.icon ? (
+        <Image src={asset.icon} alt={map ?? "Map"} width={26} height={26} className="h-6 w-6 object-contain" />
+      ) : (
+        <MapIcon className="h-5 w-5 text-white/55" />
+      )}
+    </div>
   );
 }
 
@@ -667,14 +617,14 @@ function ResultBadge({ result, rrChange }: { result: NormalizedMatch["result"]; 
         : "border-white/10 bg-white/5 text-white/60";
 
   return (
-    <div className={cn("rounded-2xl border px-3 py-2 text-right", tone)}>
+    <div className={cn("inline-flex min-w-[120px] flex-col rounded-2xl border px-3 py-2 text-right", tone)}>
       <div className="font-display text-lg uppercase tracking-[0.16em]">
         {result === "win" ? "Victory" : result === "loss" ? "Defeat" : "Draw"}
       </div>
       <div className="mt-1 text-xs uppercase tracking-[0.18em]">
         {typeof rrChange === "number" && Number.isFinite(rrChange)
           ? `${rrChange > 0 ? "+" : ""}${rrChange} RR`
-          : "Recent form"}
+          : "Ranked form"}
       </div>
     </div>
   );
@@ -786,7 +736,9 @@ function buildInsightCards({
   return [
     {
       title: "Aim Discipline",
-      body: hs >= 20 ? "Your headshot rate is holding above the healthy carry threshold." : "Mechanical output is stable, but there is still room to tighten first-bullet conversion.",
+      body: hs >= 20
+        ? "Headshot rate is sitting in a healthy carry range across the core queues."
+        : "Mechanical output is stable, but first-bullet precision still has room to tighten.",
       highlight: hs >= 20 ? "Keep pressing clean duels" : "Sharpen opening accuracy",
       icon: Crosshair,
       accent: "#f4c95d",
@@ -795,7 +747,9 @@ function buildInsightCards({
     },
     {
       title: "Best Map",
-      body: bestMap ? `Your strongest recent environment is ${bestMap.map}, where the round control is noticeably steadier.` : "No map trend has separated from the pack yet.",
+      body: bestMap
+        ? `${bestMap.map} is your strongest recent environment on the current sample.`
+        : "No map has separated itself from the pack yet.",
       highlight: bestMap ? `${bestMap.map} at ${formatPercent(bestMap.winRate, 0)}` : "Need more map data",
       icon: MapIcon,
       accent: "#28f0d0",
@@ -804,7 +758,9 @@ function buildInsightCards({
     },
     {
       title: "Best Agent",
-      body: bestAgent ? `${bestAgent.agent} is still your clearest comfort pick across the current sample.` : "No standout main has emerged yet.",
+      body: bestAgent
+        ? `${bestAgent.agent} remains the clearest comfort pick in this ranked sample.`
+        : "No standout main has emerged yet.",
       highlight: bestAgent ? `${bestAgent.usage.toFixed(0)}% usage` : "Role still flexible",
       icon: BrainCircuit,
       accent: "#7aa2ff",
@@ -813,7 +769,9 @@ function buildInsightCards({
     },
     {
       title: "Climb Outlook",
-      body: recentSwing >= 0 ? "Momentum is positive. The current line suggests the account is stabilizing and climbing again." : "Recent RR movement is soft. A cleaner win streak is needed to restore climb pace.",
+      body: recentSwing >= 0
+        ? "Recent RR movement is stable to positive, so the climb is still alive."
+        : "Recent RR movement softened. A cleaner win stretch is needed to rebuild pace.",
       highlight: recentSwing >= 0 ? "Momentum trending up" : "Reset the climb rhythm",
       icon: TrendingUp,
       accent: recentSwing >= 0 ? "#8ef16a" : "#fb7185",

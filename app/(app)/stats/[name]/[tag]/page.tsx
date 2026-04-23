@@ -147,7 +147,7 @@ export default async function PlayerStatsPage({ params, searchParams }: Props) {
       <PlayerStatsDashboard
         account={account}
         mmr={mmr}
-        matches={matches}
+        matches={analyticalMatches}
         history={history}
         region={region}
         onTeam={Boolean(rosterUser)}
