@@ -54,6 +54,7 @@ interface Props {
   region: string;
   onTeam?: boolean;
   insightsHref: string;
+  playerHrefBase: string;
 }
 
 const tooltipStyle = {
@@ -73,6 +74,7 @@ export function PlayerStatsDashboard({
   region,
   onTeam,
   insightsHref,
+  playerHrefBase,
 }: Props) {
   const theme = getRankTheme(mmr?.currentTierId, mmr?.currentTier);
   const rankAsset = getCompetitiveTierAsset(mmr?.currentTierId);
@@ -314,7 +316,13 @@ export function PlayerStatsDashboard({
             {recentMatches.length === 0 ? (
               <EmptyPanelCopy text="No competitive matches available." />
             ) : (
-              recentMatches.map((match) => <RecentMatchCard key={match.matchId} match={match} />)
+              recentMatches.map((match) => (
+                <RecentMatchCard
+                  key={match.matchId}
+                  match={match}
+                  href={`${playerHrefBase}/matches/${encodeURIComponent(match.matchId)}?region=${region}`}
+                />
+              ))
             )}
           </div>
         </Panel>
@@ -570,9 +578,15 @@ function MapIconBadge({ map }: { map?: string | null }) {
   const asset = getMapAsset(map);
 
   return (
-    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.03]">
+    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[18px] border border-[#d6a74a]/14 bg-[linear-gradient(180deg,rgba(33,29,24,0.92)_0%,rgba(14,16,22,0.98)_100%)]">
       {asset?.icon ? (
-        <Image src={asset.icon} alt={map ?? "Map"} width={26} height={26} className="h-6 w-6 object-contain" />
+        <Image
+          src={asset.icon}
+          alt={map ?? "Map"}
+          width={38}
+          height={38}
+          className="h-9 w-9 object-contain opacity-95"
+        />
       ) : (
         <MapIcon className="h-5 w-5 text-white/55" />
       )}
@@ -589,14 +603,15 @@ function MiniStat({ label, value }: { label: string; value: string }) {
   );
 }
 
-function RecentMatchCard({ match }: { match: NormalizedMatch }) {
+function RecentMatchCard({ match, href }: { match: NormalizedMatch; href: string }) {
   const agentAsset = getAgentAsset(match.agent);
   const mapAsset = getMapAsset(match.map);
 
   return (
-    <article
+    <Link
+      href={href}
       className={cn(
-        "grid gap-4 overflow-hidden rounded-[24px] border bg-[linear-gradient(180deg,rgba(10,15,24,0.98)_0%,rgba(8,12,19,0.98)_100%)] p-4 md:p-5 xl:grid-cols-[minmax(0,1fr)_minmax(248px,0.38fr)]",
+        "grid gap-4 overflow-hidden rounded-[24px] border bg-[linear-gradient(180deg,rgba(10,15,24,0.98)_0%,rgba(8,12,19,0.98)_100%)] p-4 transition hover:-translate-y-[1px] hover:border-[#d6a74a]/35 md:p-5 xl:grid-cols-[minmax(0,1fr)_minmax(248px,0.38fr)]",
         match.result === "win"
           ? "border-emerald-500/40 shadow-[inset_1px_0_0_rgba(16,185,129,0.35)]"
           : match.result === "loss"
@@ -647,7 +662,7 @@ function RecentMatchCard({ match }: { match: NormalizedMatch }) {
         rrChange={match.rrChange}
         splash={mapAsset?.splash ?? null}
       />
-    </article>
+    </Link>
   );
 }
 

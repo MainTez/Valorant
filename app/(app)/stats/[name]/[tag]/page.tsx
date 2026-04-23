@@ -152,6 +152,7 @@ export default async function PlayerStatsPage({ params, searchParams }: Props) {
         region={region}
         onTeam={Boolean(rosterUser)}
         insightsHref={`/insights/${encodeURIComponent(decodedName)}/${encodeURIComponent(decodedTag)}?region=${region}`}
+        playerHrefBase={`/stats/${encodeURIComponent(decodedName)}/${encodeURIComponent(decodedTag)}`}
       />
     </div>
   );
