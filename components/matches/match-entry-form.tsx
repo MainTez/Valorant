@@ -28,6 +28,8 @@ export function MatchEntryForm() {
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [matchType, setMatchType] = useState<"scrim" | "official" | "tournament">("scrim");
+  const [selectedMap, setSelectedMap] = useState("Ascent");
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -54,12 +56,12 @@ export function MatchEntryForm() {
 
       const payload = {
         date: String(form.get("date") ?? ""),
-        map: String(form.get("map") ?? ""),
+        map: selectedMap,
         notes: String(form.get("notes") ?? "") || null,
         opponent: String(form.get("opponent") ?? ""),
         score_them: Number(form.get("score_them") ?? 0),
         score_us: Number(form.get("score_us") ?? 0),
-        type: String(form.get("type") ?? "scrim") as "scrim" | "official" | "tournament",
+        type: matchType,
         vod_url: vodUrl,
       };
 
@@ -101,7 +103,7 @@ export function MatchEntryForm() {
           <Input name="opponent" required placeholder="e.g. Eclipse" />
         </Field>
         <Field label="Type">
-          <Select name="type" defaultValue="scrim">
+          <Select value={matchType} onValueChange={(value) => setMatchType(value as "scrim" | "official" | "tournament")}>
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
@@ -118,7 +120,7 @@ export function MatchEntryForm() {
           <Input name="date" type="datetime-local" required />
         </Field>
         <Field label="Map">
-          <Select name="map" defaultValue="Ascent">
+          <Select value={selectedMap} onValueChange={setSelectedMap}>
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
