@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Calendar, ExternalLink, Map as MapIcon } from "lucide-react";
+import { MatchVodManager } from "@/components/matches/match-vod-manager";
+import { CoachNotesSection } from "@/components/matches/coach-notes-section";
 import { requireSession } from "@/lib/auth/get-session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { CoachNotesSection } from "@/components/matches/coach-notes-section";
 import { cn } from "@/lib/utils";
 import type { CoachNoteRow, MatchRow, UserRow } from "@/types/domain";
 
@@ -11,10 +12,12 @@ export const dynamic = "force-dynamic";
 
 interface Props {
   params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
-export default async function MatchDetailPage({ params }: Props) {
+export default async function MatchDetailPage({ params, searchParams }: Props) {
   const { id } = await params;
+  const sp = await searchParams;
   const { user, team } = await requireSession();
   const supabase = await createSupabaseServerClient();
 
@@ -50,6 +53,8 @@ export default async function MatchDetailPage({ params }: Props) {
   }));
 
   const m = match as MatchRow;
+  const uploadedVodHref = m.vod_storage_path ? `/api/matches/${m.id}/vod` : null;
+  const initialVodError = sp.vodUpload === "failed" ? "Match saved, but the MP4 upload did not finish. Retry below." : null;
 
   return (
     <div className="flex flex-col gap-5 max-w-[1100px]">
@@ -87,14 +92,23 @@ export default async function MatchDetailPage({ params }: Props) {
         <Detail
           label="VOD"
           value={
-            m.vod_url ? (
+            uploadedVodHref ? (
+              <a
+                href={uploadedVodHref}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 text-[color:var(--accent)] hover:underline"
+              >
+                Open upload <ExternalLink className="h-3.5 w-3.5" />
+              </a>
+            ) : m.vod_url ? (
               <a
                 href={m.vod_url}
                 target="_blank"
                 rel="noreferrer"
                 className="inline-flex items-center gap-1 text-[color:var(--accent)] hover:underline"
               >
-                Open <ExternalLink className="h-3.5 w-3.5" />
+                Open link <ExternalLink className="h-3.5 w-3.5" />
               </a>
             ) : (
               <span className="text-[color:var(--color-muted)]">—</span>
@@ -109,6 +123,15 @@ export default async function MatchDetailPage({ params }: Props) {
           <p className="mt-2 text-sm whitespace-pre-line">{m.notes}</p>
         </section>
       ) : null}
+
+      <MatchVodManager
+        externalVodUrl={m.vod_url}
+        initialError={initialVodError}
+        matchId={m.id}
+        uploadedVodHref={uploadedVodHref}
+        vodOriginalName={m.vod_original_name}
+        vodSizeBytes={m.vod_size_bytes}
+      />
 
       <CoachNotesSection
         matchId={m.id}

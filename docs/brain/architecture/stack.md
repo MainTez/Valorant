@@ -9,21 +9,21 @@ One paragraph per layer. Canonical configs: [`package.json`](../../package.json)
 
 ## Runtime
 
-**Next.js 15.1.6 App Router** on **React 19** with **TypeScript 5.7 strict**. Runs as a Vercel deployment (Node-ish serverless for route handlers, Edge runtime for `middleware.ts`). Path alias `@/*` maps to the repo root.
+**Next.js 15.1.11 App Router** on **React 19** with **TypeScript 5.7 strict**. Runs as a Vercel deployment (Node-ish serverless for route handlers, Edge runtime for `middleware.ts`). Path alias `@/*` maps to the repo root.
 
 ## Persistence
 
-**Supabase** (managed Postgres + Auth + Realtime + Storage) — accessed via `@supabase/ssr` (server-rendered helpers) and `@supabase/supabase-js` (service-role admin). Schema under `supabase/migrations/0001_init.sql`, RLS policies in `0002_rls_policies.sql`, seed in `0003_seed.sql`. Migrations are applied via the Supabase CLI (`supabase db push`) or pasted into the SQL editor. No ORM — raw queries via the Supabase client.
+**Supabase** (managed Postgres + Auth + Realtime + Storage) — accessed via `@supabase/ssr` (server-rendered helpers) and `@supabase/supabase-js` (service-role admin). Postgres schema under `supabase/migrations/0001_init.sql`, RLS policies in `0002_rls_policies.sql`, seed in `0003_seed.sql`, and match-VOD metadata in `0005_match_vod_uploads.sql`. Private match MP4 uploads live in a `match-vods` Storage bucket and are accessed through signed URLs minted by `app/api/matches/[id]/vod`. Migrations are applied via the Supabase CLI (`supabase db push`) or pasted into the SQL editor. No ORM — raw queries via the Supabase client.
 
 ## Auth
 
-**Supabase Auth** with **Google OAuth** as the sole provider. Session cookies managed by `@supabase/ssr`. The `public.users` table mirrors `auth.users` with team + role + Riot identity. A Gmail whitelist table gates sign-in; `/auth/callback/route.ts` is the enforcement point — non-whitelisted users are signed out and their `auth.users` row is deleted via service-role. See [[0003-team-isolation-via-supabase-rls]] for the RLS enforcement layer.
+**Supabase Auth** with **Google OAuth** as the primary user-facing provider. Session cookies are managed by `@supabase/ssr`. The `public.users` table mirrors `auth.users` with team + role + Riot identity. A Gmail whitelist table gates normal sign-in; `/auth/callback/route.ts` is the enforcement point — non-whitelisted users are signed out and their `auth.users` row is deleted via service-role. For AI-agent testing, `/api/auth/vip-login` can seed deterministic per-team admin users and sign them into a normal Supabase session without leaving the site. See [[0003-team-isolation-via-supabase-rls]] for the RLS enforcement layer.
 
 ## External services
 
 - **HenrikDev Valorant API** — player accounts, match history, MMR, MMR history. Wrapped in `lib/henrik/` and exposed via proxy routes at `app/api/henrik/*`. Responses cached in the `henrik_cache` table (see [[0004-henrik-proxy-cache-strategy]]). Key never leaves the server.
 - **OpenRouter** — free-tier LLM (default `meta-llama/llama-3.1-8b-instruct:free`) for the coach-summary prose in AI insights. Called from `lib/insights/llm.ts` with a 12-second abort timeout. Degrades to rules-only prose when `OPENROUTER_API_KEY` is missing. See [[0001-hybrid-ai-insights-engine]] and [[0002-openrouter-over-openai]].
-- **Google OAuth** (via Supabase Auth provider config) — sole sign-in method.
+- **Google OAuth** (via Supabase Auth provider config) — primary sign-in path for real team members.
 - **Vercel Cron** — scheduled endpoints `/api/cron/refresh-stats` (daily 03:00 UTC) and `/api/cron/regenerate-insights` (daily 04:00 UTC). Vercel's Hobby plan caps crons at once per day, so both run nightly and the 03:00 refresh seeds the 04:00 insights regen with fresh data. Gated by a `CRON_SECRET` bearer token.
 
 ## Key libraries

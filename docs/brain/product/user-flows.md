@@ -9,12 +9,13 @@ Primary journeys through Nexus Team Hub. One section per flow. Code-level detail
 
 ## First-time sign-in (whitelist gate)
 
-1. User lands on `/login` — a team-select landing with two cards (Surf'n Bulls / Molgarians) and a **Sign in with Google** button.
-2. User picks a team card and clicks sign-in. Supabase kicks off the Google OAuth flow.
-3. Google redirects back to `/auth/callback` with `?code=...`.
-4. `app/auth/callback/route.ts` exchanges the code for a session, then calls `findWhitelistEntry(email)`.
+1. User lands on `/login` — a team-select landing with two cards (Surf'n Bulls / Molgarians), a **Continue with Google** button, and a **VIP Login** shortcut reserved for AI agents testing the site.
+2. User picks a team card and clicks Google sign-in. Supabase kicks off the Google OAuth flow.
+3. Google redirects back to `/auth/callback` with `?code=...` (or an OTP/hash flow for other Supabase email callbacks).
+4. `app/auth/callback/route.ts` exchanges/verifies the callback, then calls `findWhitelistEntry(email)`.
 5. **If the email is not whitelisted**: `supabase.auth.signOut()` is called, the `auth.users` row is deleted via service-role (best-effort), and the user is redirected to `/login?error=not_whitelisted`.
 6. **If whitelisted**: `upsertWhitelistedUser` writes into `public.users` with `team_id` + `role` from the whitelist entry, a `signin` row is written to `audit_logs`, and the user is redirected to `/dashboard`.
+7. **If an AI agent uses VIP Login**: `/api/auth/vip-login` upserts a deterministic per-team admin identity, signs into Supabase with that account on the server, and returns the agent to `/dashboard` without external OAuth.
 
 Edge cases:
 
@@ -24,8 +25,8 @@ Edge cases:
 
 ## Session gating
 
-- `middleware.ts` runs on every request. Public paths: `/login`, `/auth/*`, `/api/cron/*`, `/favicon.ico`.
-- Any other path without a session redirects to `/login`.
+- `middleware.ts` runs on every request. Public paths: `/login`, `/auth/*`, `/api/auth/*`, `/api/cron/*`, `/favicon.ico`.
+- Any other path without a Supabase session redirects to `/login`.
 - Authed users hitting `/login` are bounced to `/dashboard`.
 - Admin-only pages (`/admin/whitelist`, `/admin/audit`) call `requireAdmin()` in `lib/auth/get-session.ts`; coach-only actions call `requireCoachOrAdmin()`.
 
@@ -46,10 +47,11 @@ Edge cases:
 
 ## Log a match + add a coach note
 
-1. Coach/admin goes to `/matches/new`, fills opponent, type (`scrim`/`official`/`tournament`), date, map, scores, optional notes and VOD URL.
+1. Coach/admin goes to `/matches/new`, fills opponent, type (`scrim`/`official`/`tournament`), date, map, scores, optional notes, and either an external VOD URL or an MP4 upload.
 2. Submit → `/api/matches` inserts into `public.matches` with `team_id` from the session.
-3. On the detail page `/matches/[id]`, team members read the match. Coaches/admins (or any user for their own notes) post free-text coach notes via `/api/coach-notes`.
-4. RLS enforces that team members only ever see their own team's matches.
+3. If an MP4 was selected, the client asks `/api/matches/[id]/vod` for a signed upload token, uploads directly into the private `match-vods` bucket, then PATCHes the match metadata (`vod_storage_path`, `vod_original_name`, etc.).
+4. On the detail page `/matches/[id]`, team members read the match and can open the uploaded VOD through a signed redirect route. Coaches/admins (or any user for their own notes) post free-text coach notes via `/api/coach-notes`.
+5. RLS enforces that team members only ever see their own team's matches.
 
 ## Team chat (realtime)
 

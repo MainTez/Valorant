@@ -14,6 +14,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { MAPS } from "@/lib/constants";
+import { uploadMatchVod } from "@/lib/vods.client";
+import { MATCH_VOD_MAX_FILE_BYTES, assertValidMatchVodUpload } from "@/lib/vods";
+
+interface CreateMatchResponse {
+  data?: {
+    id: string;
+  };
+  error?: string;
+}
 
 export function MatchEntryForm() {
   const router = useRouter();
@@ -24,31 +33,61 @@ export function MatchEntryForm() {
     e.preventDefault();
     setPending(true);
     setError(null);
+
     const form = new FormData(e.currentTarget);
-    const payload = {
-      opponent: String(form.get("opponent") ?? ""),
-      type: String(form.get("type") ?? "scrim") as "scrim" | "official" | "tournament",
-      date: String(form.get("date") ?? ""),
-      map: String(form.get("map") ?? ""),
-      score_us: Number(form.get("score_us") ?? 0),
-      score_them: Number(form.get("score_them") ?? 0),
-      notes: String(form.get("notes") ?? "") || null,
-      vod_url: String(form.get("vod_url") ?? "") || null,
-    };
+    const vodFileValue = form.get("vod_file");
+    const vodFile = vodFileValue instanceof File && vodFileValue.size > 0 ? vodFileValue : null;
+    const vodUrl = String(form.get("vod_url") ?? "").trim() || null;
+
     try {
+      if (vodFile && vodUrl) {
+        throw new Error("Choose either an MP4 upload or an external VOD URL.");
+      }
+
+      if (vodFile) {
+        assertValidMatchVodUpload({
+          contentType: vodFile.type,
+          fileName: vodFile.name,
+          fileSize: vodFile.size,
+        });
+      }
+
+      const payload = {
+        date: String(form.get("date") ?? ""),
+        map: String(form.get("map") ?? ""),
+        notes: String(form.get("notes") ?? "") || null,
+        opponent: String(form.get("opponent") ?? ""),
+        score_them: Number(form.get("score_them") ?? 0),
+        score_us: Number(form.get("score_us") ?? 0),
+        type: String(form.get("type") ?? "scrim") as "scrim" | "official" | "tournament",
+        vod_url: vodUrl,
+      };
+
       const res = await fetch("/api/matches", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      if (!res.ok) {
-        const body = (await res.json().catch(() => ({}))) as { error?: string };
+
+      const body = (await res.json().catch(() => ({}))) as CreateMatchResponse;
+      if (!res.ok || !body.data) {
         throw new Error(body.error ?? "Save failed");
       }
-      router.push("/matches");
+
+      if (vodFile) {
+        try {
+          await uploadMatchVod({ file: vodFile, matchId: body.data.id });
+        } catch {
+          router.push(`/matches/${body.data.id}?vodUpload=failed`);
+          router.refresh();
+          return;
+        }
+      }
+
+      router.push(`/matches/${body.data.id}`);
       router.refresh();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Save failed");
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : "Save failed");
     } finally {
       setPending(false);
     }
@@ -99,7 +138,13 @@ export function MatchEntryForm() {
           </div>
         </Field>
       </div>
-      <Field label="VOD URL (optional)">
+      <Field label="Upload MP4 (optional)">
+        <Input name="vod_file" type="file" accept=".mp4,video/mp4" />
+      </Field>
+      <p className="-mt-2 text-xs text-[color:var(--color-muted)]">
+        MP4 only. Max {formatBytes(MATCH_VOD_MAX_FILE_BYTES)}. Leave empty if you want to paste an external link instead.
+      </p>
+      <Field label="External VOD URL (optional)">
         <Input name="vod_url" type="url" placeholder="https://…" />
       </Field>
       <Field label="Notes">
@@ -110,7 +155,7 @@ export function MatchEntryForm() {
       ) : null}
       <div className="flex items-center justify-end gap-2">
         <Button type="submit" disabled={pending}>
-          {pending ? "Saving…" : "Log match"}
+          {pending ? "Saving…" : "Log Match"}
         </Button>
       </div>
     </form>
@@ -124,4 +169,14 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       {children}
     </div>
   );
+}
+
+function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  const exponent = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  const value = bytes / 1024 ** exponent;
+  return `${new Intl.NumberFormat(undefined, {
+    maximumFractionDigits: value >= 10 ? 0 : 1,
+  }).format(value)} ${units[exponent]}`;
 }

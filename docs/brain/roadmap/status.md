@@ -1,27 +1,29 @@
 ---
 tags: [roadmap, status]
 created: 2026-04-21
-updated: 2026-04-21
+updated: 2026-04-23
 ---
 
 # Status
 
-Snapshot of what's shipped / stubbed / missing after the greenfield build in commit `6c04870`. Grouped by area. Update this whenever the answer changes — it's only useful if it matches reality.
+Snapshot of what's shipped / stubbed / missing right now. Grouped by area. Update this whenever the answer changes — it's only useful if it matches reality.
 
 ## Auth & access control
 
-- ✅ Login page at `app/(auth)/login/` with team-select cards (Surf'n Bulls + Molgarians) and Google OAuth button.
-- ✅ `/auth/callback/route.ts` exchanges the code, checks `whitelist`, upserts `public.users`, logs a `signin` audit row. Non-whitelisted sign-ins are signed out and the `auth.users` row is deleted via service-role.
-- ✅ `middleware.ts` gates `/(app)/*`; public paths = `/login`, `/auth/*`, `/api/cron/*`.
+- ✅ Login page at `app/(auth)/login/` with team-select cards, Google OAuth, and a VIP login shortcut reserved for AI-agent testing.
+- ✅ `/auth/callback/route.ts` exchanges Google/OTP callbacks, checks `whitelist`, upserts `public.users`, logs a `signin` audit row, and rejects selected-team mismatches.
+- ✅ `middleware.ts` gates `/(app)/*`; public paths = `/login`, `/auth/*`, `/api/auth/*`, `/api/cron/*`, and `/favicon.ico`.
 - ✅ `lib/auth/get-session.ts` provides `getSessionUser` (cached), `requireSession`, `requireAdmin`, `requireCoachOrAdmin`.
+- ✅ VIP login route `/api/auth/vip-login` exists specifically for AI-agent testing: it seeds deterministic per-team admin users, signs them into a normal Supabase auth session, and reuses the existing RLS model.
 - ✅ Team isolation via Postgres RLS — every team-scoped table, helper functions `current_team_id() / current_role() / is_admin() / is_coach_or_admin()`. See [[0003-team-isolation-via-supabase-rls]].
 
 ## Data & integrations
 
-- ✅ Supabase schema applied via migrations `0001_init.sql`, `0002_rls_policies.sql`, `0003_seed.sql`.
+- ✅ Supabase schema is versioned in migrations `0001_init.sql`, `0002_rls_policies.sql`, `0003_seed.sql`, and `0005_match_vod_uploads.sql`.
 - ✅ Seed creates two teams, six default chat channels per team, one "Daily practice" routine per team, and a "Mid Control" weekly-focus team note. Admin whitelist entries for `vegard.laland@gmail.com` and `danilebnen@gmail.com` → Surf'n Bulls.
 - ✅ HenrikDev wrapper in `lib/henrik/` (client, cache, normalize, regions, types) with proxy routes at `app/api/henrik/{account,matches,mmr,mmr-history}`.
 - ✅ `henrik_cache` table with per-endpoint TTLs (1h / 10m / 2m / 15m). See [[0004-henrik-proxy-cache-strategy]].
+- ✅ Match VOD uploads use private Supabase Storage objects behind app-issued signed upload/download URLs. Metadata lives on `matches.vod_*`; the bucket is `match-vods`. See [[0005-private-match-vod-uploads]].
 - ⚠️ `types/database.ts` is a placeholder `Record<string, unknown>`. Supabase clients skip the `<Database>` generic to avoid `never` inference. `supabase gen types` is pending.
 - ⚠️ No live Supabase project is wired up yet — migrations are written but not applied against a real instance.
 
@@ -36,7 +38,7 @@ Snapshot of what's shipped / stubbed / missing after the greenfield build in com
 - ✅ `/dashboard` — team overview.
 - ✅ `/stats/[name]/[tag]` — player stats with Recharts graphs.
 - ✅ `/insights/[name]/[tag]` — AI insight report with confidence + rules/LLM badge.
-- ✅ `/matches`, `/matches/new`, `/matches/[id]` — match log with coach notes.
+- ✅ `/matches`, `/matches/new`, `/matches/[id]` — match log with coach notes and private MP4 VOD uploads.
 - ✅ `/routines` — daily routine with progress rings.
 - ✅ `/tasks` — kanban (backlog / in_progress / done).
 - ✅ `/chat/[channel]` — per-channel realtime chat via Supabase Realtime.
@@ -46,7 +48,7 @@ Snapshot of what's shipped / stubbed / missing after the greenfield build in com
 - ✅ Dark premium theme with per-team accent via `[data-team]` (`surf-n-bulls` gold, `molgarians` red).
 - ⚠️ Calendar is list-only — no create-event form. Events must be seeded via Supabase directly.
 - ⚠️ Players page has no Riot-ID link UI. Users still edit `users.riot_name` / `users.riot_tag` in the DB.
-- ⚠️ Match `vod_url` is a plain URL field — no upload UI, no embedded player.
+- ⚠️ Match VODs are limited to one MP4 upload or one external link per match — no embedded player, transcoding, clips, or timeline comments.
 - ⚠️ Top-bar notification bell is decorative; no notifications panel.
 - ⚠️ `⌘K` command-palette hint in UI is a visual only; no palette implemented.
 
@@ -59,7 +61,7 @@ Snapshot of what's shipped / stubbed / missing after the greenfield build in com
 
 ## Testing / tooling
 
-- ❌ No test suite.
+- ⚠️ Minimal `node:test` coverage exists via `npm test` for `lib/vods.ts` and `lib/auth/public-paths.ts`; the app still lacks a broader test suite.
 - ❌ No CI pipeline.
 - ❌ No Storybook.
 - ❌ No mobile/tablet responsive polish (desktop-first per spec).

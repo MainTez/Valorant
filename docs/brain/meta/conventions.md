@@ -41,8 +41,9 @@ created: 2026-04-21
 
 ## Testing
 
-- **No test suite today.** See [[status]] and [[open-questions]] (test-runner choice).
-- When tests arrive: pure functions (`lib/insights/engine.ts`, `lib/utils.ts`) go first — highest value, lowest setup cost.
+- **Minimal test coverage exists today.** `npm test` runs `lib/vods.test.ts` and `lib/auth/public-paths.test.ts` with Node's built-in `node:test` runner.
+- The broader test-runner / e2e decision is still open. See [[status]] and [[open-questions]] (test-runner choice).
+- When broader coverage arrives: pure functions (`lib/insights/engine.ts`, `lib/utils.ts`) go first — highest value, lowest setup cost.
 - RLS tests should run against a local Supabase instance, not mocked — RLS is the integrity boundary and mocks would defeat the purpose.
 
 ## Brain conventions

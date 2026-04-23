@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit";
 import { teamBySlug, type TeamSlug } from "@/lib/constants";
 import { upsertWhitelistedUser } from "@/lib/auth/whitelist";
-import { VIP_SESSION_COOKIE, encodeVipSession } from "@/lib/auth/vip";
 
 const VIP_EMAILS: Record<TeamSlug, string> = {
   "surf-n-bulls": "vip+surf-n-bulls@example.com",
@@ -41,11 +41,13 @@ export async function POST(request: Request) {
       throw whitelistError;
     }
 
+    const password = `vip-${selectedTeam.slug}-access`;
+
     const { error: createUserError } = await admin.auth.admin.createUser({
       id: userId,
       email,
       email_confirm: true,
-      password: `vip-${selectedTeam.slug}-access`,
+      password,
       user_metadata: {
         full_name: `${selectedTeam.name} VIP`,
         vip: true,
@@ -76,18 +78,17 @@ export async function POST(request: Request) {
       },
     });
 
-    const response = NextResponse.json({ ok: true, redirectTo: "/dashboard" });
-    response.cookies.set(VIP_SESSION_COOKIE, encodeVipSession({
-      userId,
-      teamId: selectedTeam.id,
-    }), {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: new URL(request.url).protocol === "https:",
-      path: "/",
-      maxAge: 60 * 60 * 12,
+    const supabase = await createSupabaseServerClient();
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
     });
-    return response;
+
+    if (signInError) {
+      throw signInError;
+    }
+
+    return NextResponse.json({ ok: true, redirectTo: "/dashboard" });
   } catch (error) {
     console.error("[auth/vip-login] failed:", error);
     const message = error instanceof Error ? error.message : "vip_login_failed";

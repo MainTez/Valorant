@@ -1,18 +1,13 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { VIP_SESSION_COOKIE } from "@/lib/auth/vip";
+import { isPublicPath } from "@/lib/auth/public-paths";
 import { updateSession } from "@/lib/supabase/middleware";
 
 export async function middleware(request: NextRequest) {
   const { response, user } = await updateSession(request);
-  const hasVipSession = Boolean(request.cookies.get(VIP_SESSION_COOKIE)?.value);
-  const hasAccess = Boolean(user) || hasVipSession;
+  const hasAccess = Boolean(user);
 
   const { pathname } = request.nextUrl;
-  const isPublic =
-    pathname === "/login" ||
-    pathname.startsWith("/auth/") ||
-    pathname.startsWith("/api/cron/") ||
-    pathname === "/favicon.ico";
+  const isPublic = isPublicPath(pathname);
 
   if (!hasAccess && !isPublic) {
     const url = request.nextUrl.clone();

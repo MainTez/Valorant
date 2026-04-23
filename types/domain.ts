@@ -81,6 +81,10 @@ export interface MatchRow {
   result: Result;
   notes: string | null;
   vod_url: string | null;
+  vod_content_type: string | null;
+  vod_original_name: string | null;
+  vod_size_bytes: number | null;
+  vod_storage_path: string | null;
   created_by: string | null;
   created_at: string;
 }

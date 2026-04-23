@@ -1,8 +1,6 @@
 import "server-only";
 import { cache } from "react";
-import { cookies } from "next/headers";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { decodeVipSession, VIP_SESSION_COOKIE } from "@/lib/auth/vip";
 import type { UserRow, TeamRow } from "@/types/domain";
 
 export interface SessionContext {
@@ -20,20 +18,12 @@ export const getSessionUser = cache(async (): Promise<SessionContext | null> => 
   const {
     data: { user: authUser },
   } = await supabase.auth.getUser();
-  let userId = authUser?.id ?? null;
-
-  if (!userId) {
-    const cookieStore = await cookies();
-    const vipSession = decodeVipSession(cookieStore.get(VIP_SESSION_COOKIE)?.value);
-    userId = vipSession?.userId ?? null;
-  }
-
-  if (!userId) return null;
+  if (!authUser) return null;
 
   const { data: userRow } = await supabase
     .from("users")
     .select("*")
-    .eq("id", userId)
+    .eq("id", authUser.id)
     .maybeSingle();
 
   if (!userRow) return null;

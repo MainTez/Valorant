@@ -35,16 +35,10 @@ Live questions with no decision yet. Resolved ones move to an ADR under `archite
 **Default lean**: Stay on Llama 3.1 8B until the coach UX feedback says otherwise; the model string is env-driven so this is a config change, not a code change.
 **Blocked on**: observation after real use.
 
-## VOD pipeline
-
-**Options**: (a) URL-only (current). (b) Accept a YouTube/Twitch URL and embed the player. (c) Full upload to Supabase Storage.
-**Tradeoff**: Embedding is ~2 hours work and covers 95% of use; upload is its own rabbit hole (storage quotas, transcoding, permissions).
-**Default lean**: (b) as a small upgrade; (c) only if players actually want it.
-**Blocked on**: nothing — just below the cut line.
-
 ## Resolved (see ADRs)
 
 - **AI insight architecture: pure LLM vs rule engine vs hybrid** → [[0001-hybrid-ai-insights-engine]].
 - **LLM provider: OpenAI vs Anthropic vs OpenRouter** → [[0002-openrouter-over-openai]].
 - **Multi-team isolation: app-level filters vs RLS vs per-team DB** → [[0003-team-isolation-via-supabase-rls]].
 - **Henrik access pattern: direct-from-client vs server proxy + cache** → [[0004-henrik-proxy-cache-strategy]].
+- **VOD pipeline: external link vs embed vs private upload** → [[0005-private-match-vod-uploads]].

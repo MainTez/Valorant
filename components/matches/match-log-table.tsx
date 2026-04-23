@@ -54,14 +54,23 @@ export function MatchLogTable({ matches }: { matches: MatchRow[] }) {
                     })}
                   </Td>
                   <Td>
-                    {m.vod_url ? (
+                    {m.vod_storage_path ? (
+                      <Link
+                        href={`/api/matches/${m.id}/vod`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[color:var(--accent)] hover:underline text-xs"
+                      >
+                        View upload
+                      </Link>
+                    ) : m.vod_url ? (
                       <Link
                         href={m.vod_url}
                         target="_blank"
                         rel="noreferrer"
                         className="text-[color:var(--accent)] hover:underline text-xs"
                       >
-                        View VOD
+                        View link
                       </Link>
                     ) : (
                       <span className="text-[color:var(--color-muted)] text-xs">—</span>

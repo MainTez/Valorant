@@ -22,6 +22,7 @@ updated: 2026-04-21
 - [[0002-openrouter-over-openai|ADR 0002 — OpenRouter over OpenAI]] (accepted)
 - [[0003-team-isolation-via-supabase-rls|ADR 0003 — Team isolation via Supabase RLS]] (accepted)
 - [[0004-henrik-proxy-cache-strategy|ADR 0004 — HenrikDev proxy + cache strategy]] (accepted)
+- [[0005-private-match-vod-uploads|ADR 0005 — Private match VOD uploads via Supabase Storage]] (accepted)
 
 ## Roadmap
 
@@ -32,6 +33,7 @@ updated: 2026-04-21
 ## Sessions
 
 - [[2026-04-21]] — bootstrap + greenfield platform build
+- [[2026-04-23]] — pulled latest main, added private MP4 VOD uploads, and documented ADR 0005
 
 ## Meta
 
