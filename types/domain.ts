@@ -101,6 +101,9 @@ export interface CoachNoteRow {
 export interface RoutineItem {
   id: string;
   label: string;
+  detail?: string;
+  duration?: string;
+  tag?: string;
 }
 
 export interface RoutineRow {
@@ -118,6 +121,18 @@ export interface RoutineProgressRow {
   user_id: string;
   date: string;
   completed_items: string[];
+  updated_at: string;
+}
+
+export interface SpotifyConnectionRow {
+  user_id: string;
+  access_token: string | null;
+  refresh_token: string;
+  expires_at: string | null;
+  scope: string | null;
+  token_type: string | null;
+  spotify_user_id: string | null;
+  created_at: string;
   updated_at: string;
 }
 

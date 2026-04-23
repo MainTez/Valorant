@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 import type { TeamSlug } from "@/lib/constants";
 import { TEAMS } from "@/lib/constants";
 import { TeamEmblem } from "@/components/common/team-emblem";
+import { SpotifyNowPlaying } from "@/components/spotify/spotify-now-playing";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { initials } from "@/lib/utils";
 
@@ -122,6 +123,8 @@ export function Sidebar({ team, user }: Props) {
       </nav>
 
       <div className="mt-auto space-y-3 pt-4">
+        <SpotifyNowPlaying />
+
         <div className="rounded-[1rem] border border-[color:var(--accent-soft)] bg-[linear-gradient(180deg,rgba(246,196,83,0.12),rgba(246,196,83,0.04))] px-4 py-3 shadow-[0_20px_40px_-32px_rgba(246,196,83,0.75)]">
           <div className="text-[0.66rem] uppercase tracking-[0.24em] text-white/42">
             Team Brief

@@ -456,6 +456,91 @@
     padding: 0.9rem 0;
     animation: tracker-marquee 28s linear infinite;
   }
+
+  .spotify-panel {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    min-height: 3.65rem;
+    border-radius: 1rem;
+    border: 1px solid rgba(30, 215, 96, 0.24);
+    background:
+      radial-gradient(circle at 10% 0%, rgba(30, 215, 96, 0.2), transparent 42%),
+      linear-gradient(180deg, rgba(14, 18, 25, 0.82), rgba(7, 10, 15, 0.92));
+    padding: 0.72rem;
+    color: var(--color-text);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.05),
+      0 18px 36px -30px rgba(30, 215, 96, 0.68);
+    transition:
+      border-color 160ms ease,
+      transform 160ms ease,
+      background 160ms ease;
+  }
+
+  .spotify-panel:hover {
+    border-color: rgba(30, 215, 96, 0.44);
+    transform: translateY(-1px);
+  }
+
+  .spotify-icon {
+    display: grid;
+    width: 2.25rem;
+    height: 2.25rem;
+    flex-shrink: 0;
+    place-items: center;
+    border-radius: 0.85rem;
+    border: 1px solid rgba(30, 215, 96, 0.26);
+    background: rgba(30, 215, 96, 0.1);
+    color: #1ed760;
+  }
+
+  .spotify-icon--muted {
+    border-color: rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--color-muted);
+  }
+
+  .spotify-eq {
+    display: inline-flex;
+    align-items: end;
+    gap: 2px;
+    height: 0.75rem;
+  }
+
+  .spotify-eq span {
+    display: block;
+    width: 2px;
+    border-radius: 999px;
+    background: #1ed760;
+    box-shadow: 0 0 7px rgba(30, 215, 96, 0.72);
+    animation: spotify-eq 820ms ease-in-out infinite;
+  }
+
+  .spotify-eq span:nth-child(1) {
+    height: 0.38rem;
+    animation-delay: -120ms;
+  }
+
+  .spotify-eq span:nth-child(2) {
+    height: 0.72rem;
+    animation-delay: -280ms;
+  }
+
+  .spotify-eq span:nth-child(3) {
+    height: 0.52rem;
+    animation-delay: -420ms;
+  }
+
+  .spotify-eq span:nth-child(4) {
+    height: 0.66rem;
+    animation-delay: -90ms;
+  }
+
+  .spotify-eq--idle span {
+    animation-play-state: paused;
+    opacity: 0.38;
+  }
 }
 
 @keyframes pulse-glow {
@@ -495,6 +580,17 @@
 
   to {
     transform: translateX(-50%);
+  }
+}
+
+@keyframes spotify-eq {
+  0%,
+  100% {
+    transform: scaleY(0.42);
+  }
+
+  50% {
+    transform: scaleY(1);
   }
 }
 

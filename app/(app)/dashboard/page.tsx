@@ -11,6 +11,7 @@ import { ImportantNote } from "@/components/dashboard/important-note";
 import { QuickActions } from "@/components/dashboard/quick-actions";
 import { RecentMatches } from "@/components/dashboard/recent-matches";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
+import { personalizeRoutineForUser } from "@/lib/routines/player-routines";
 import type {
   ActivityEventRow,
   MatchRow,
@@ -140,7 +141,10 @@ export default async function DashboardPage() {
   const teamSlug: TeamSlug =
     (teamBySlug(team.slug)?.slug as TeamSlug) ?? "surf-n-bulls";
 
-  const routine = ((routines ?? []) as RoutineRow[])[0] ?? null;
+  const routine = personalizeRoutineForUser(
+    ((routines ?? []) as RoutineRow[])[0] ?? null,
+    user,
+  );
   const progress =
     (((progressRows ?? []) as RoutineProgressRow[]).find(
       (row) => row.routine_id === routine?.id,

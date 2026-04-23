@@ -72,7 +72,7 @@ export function RoutineCard({ routine, progress }: Props) {
                 ) : (
                   <Circle className="h-4 w-4 text-[color:var(--color-muted)]" />
                 )}
-                <span>{item.label}</span>
+                <span className="truncate">{item.label}</span>
               </div>
             );
           })}

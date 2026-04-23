@@ -115,7 +115,28 @@ export function RoutineChecklist({ routine, progress, date }: Props) {
               ) : (
                 <Circle className="h-5 w-5 text-[color:var(--color-muted)]" />
               )}
-              <span className={isDone ? "font-semibold" : ""}>{item.label}</span>
+              <span className="min-w-0 flex-1">
+                <span className={cn("block", isDone && "font-semibold")}>{item.label}</span>
+                {item.detail ? (
+                  <span className="mt-1 block text-xs leading-5 text-[color:var(--color-muted)]">
+                    {item.detail}
+                  </span>
+                ) : null}
+                {item.duration || item.tag ? (
+                  <span className="mt-2 flex flex-wrap gap-2">
+                    {item.duration ? (
+                      <span className="rounded-full border border-white/8 bg-white/[0.03] px-2 py-0.5 text-[0.65rem] uppercase tracking-[0.16em] text-white/45">
+                        {item.duration}
+                      </span>
+                    ) : null}
+                    {item.tag ? (
+                      <span className="rounded-full border border-[color:var(--accent-soft)] bg-[color:var(--accent-dim)] px-2 py-0.5 text-[0.65rem] uppercase tracking-[0.16em] text-[color:var(--accent)]">
+                        {item.tag}
+                      </span>
+                    ) : null}
+                  </span>
+                ) : null}
+              </span>
             </button>
           );
         })}

@@ -2,6 +2,10 @@ import { requireSession } from "@/lib/auth/get-session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { RoutineChecklist } from "@/components/routines/routine-checklist";
 import { EmptyState } from "@/components/common/empty-state";
+import {
+  getPersonalRoutineName,
+  personalizeRoutineForUser,
+} from "@/lib/routines/player-routines";
 import { ListChecks } from "lucide-react";
 import type { RoutineProgressRow, RoutineRow } from "@/types/domain";
 
@@ -26,7 +30,10 @@ export default async function RoutinesPage() {
       .eq("date", today),
   ]);
 
-  const list = (routines ?? []) as RoutineRow[];
+  const personalName = getPersonalRoutineName(user);
+  const list = ((routines ?? []) as RoutineRow[]).map((routine) =>
+    personalizeRoutineForUser(routine, user),
+  ) as RoutineRow[];
   const byRoutine = new Map<string, RoutineProgressRow>();
   for (const p of (progressRows ?? []) as RoutineProgressRow[]) {
     byRoutine.set(p.routine_id, p);
@@ -37,10 +44,10 @@ export default async function RoutinesPage() {
       <header>
         <div className="eyebrow">Routines</div>
         <h1 className="font-display text-3xl tracking-wide mt-1">
-          Daily discipline
+          {personalName ? `${personalName}'s daily discipline` : "Daily discipline"}
         </h1>
         <p className="text-[color:var(--color-muted)] mt-1">
-          Your personal checklist. Progress saves as you go — every win is
+          Your personal checklist. Progress saves as you go - every win is
           compounded.
         </p>
       </header>
