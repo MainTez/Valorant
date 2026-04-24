@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Users, Search as SearchIcon } from "lucide-react";
+import { UserRound, Users, Search as SearchIcon } from "lucide-react";
 import { requireSession } from "@/lib/auth/get-session";
 import {
   buildTeamStatsBundle,
@@ -32,12 +32,26 @@ export default async function StatsIndexPage() {
       .eq("team_id", team.id),
   ]);
 
-  const rosterWithRiot = ((members ?? []) as Array<Partial<UserRow>>).filter(
+  const teamMembers = (members ?? []) as Array<Partial<UserRow>>;
+  const rosterWithRiot = teamMembers.filter(
     (u) => u.riot_name && u.riot_tag,
   );
   const profiles = (profileRows ?? []) as PlayerProfileRow[];
   const recentProfiles = profiles.slice(0, 24);
-  const profileIds = profiles.map((profile) => profile.id);
+  const rosterUserIds = new Set(teamMembers.map((member) => member.id).filter(Boolean));
+  const rosterRiotKeys = new Set(
+    rosterWithRiot.map((member) =>
+      `${member.riot_name!.toLowerCase()}#${member.riot_tag!.toLowerCase()}`,
+    ),
+  );
+  const rosterProfiles = profiles.filter((profile) => {
+    const key = `${profile.riot_name.toLowerCase()}#${profile.riot_tag.toLowerCase()}`;
+    return (
+      (profile.user_id != null && rosterUserIds.has(profile.user_id)) ||
+      rosterRiotKeys.has(key)
+    );
+  });
+  const profileIds = rosterProfiles.map((profile) => profile.id);
   const { data: trackedRows } = profileIds.length
     ? await supabase
         .from("tracked_stats")
@@ -47,7 +61,7 @@ export default async function StatsIndexPage() {
     : { data: [] as TrackedStatRow[] };
   const teamStats = buildTeamStatsBundle({
     teamId: team.id,
-    profiles,
+    profiles: rosterProfiles,
     trackedStats: (trackedRows ?? []) as TrackedStatRow[],
     rosterLinkedCount: rosterWithRiot.length,
   });
@@ -65,7 +79,8 @@ export default async function StatsIndexPage() {
             </h1>
             <p className="mt-3 max-w-[34rem] text-sm leading-7 text-white/56 sm:text-base">
               Search by Riot ID to open the new tracker layout, then compare it
-              against your linked roster and recent Henrik-backed team sample.
+              against your linked roster. External searches stay in recently
+              tracked without changing the team snapshot.
             </p>
           </div>
           <PlayerSearch defaultRegion={defaultRegion()} />
@@ -211,6 +226,12 @@ export default async function StatsIndexPage() {
               icon={Users}
               title="No Riot IDs linked yet"
               description="Team members can add their Riot name + tag from Players → Profile."
+              action={
+                <Link href="/players/profile" className="btn-ghost">
+                  <UserRound className="h-4 w-4" />
+                  Open Profile
+                </Link>
+              }
             />
           ) : (
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">

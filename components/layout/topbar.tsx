@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, Calendar as CalendarIcon, ChevronDown, LogOut, Search } from "lucide-react";
+import { Bell, Calendar as CalendarIcon, ChevronDown, LogOut, Search, UserRound } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -89,6 +89,9 @@ export function Topbar({ user, teamName }: Props) {
           <DropdownMenuSeparator />
           <DropdownMenuItem onSelect={() => router.push("/players")}>
             Players
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => router.push("/players/profile")}>
+            <UserRound className="h-4 w-4" /> Profile
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => router.push("/calendar")}>
             Calendar

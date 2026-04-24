@@ -7,6 +7,7 @@ test("isPublicPath allows anonymous auth endpoints and login shell", () => {
   assert.equal(isPublicPath("/auth/callback"), true);
   assert.equal(isPublicPath("/api/auth/vip-login"), true);
   assert.equal(isPublicPath("/api/auth/vip-logout"), true);
+  assert.equal(isPublicPath("/api/profile/riot"), true);
   assert.equal(isPublicPath("/api/cron/refresh-stats"), true);
 });
 

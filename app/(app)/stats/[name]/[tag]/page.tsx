@@ -105,24 +105,42 @@ export default async function PlayerStatsPage({ params, searchParams }: Props) {
   try {
     const admin = createSupabaseAdminClient();
     const { kdStat, acsStat, hsStat, wrStat } = aggregate(analyticalMatches);
-    await admin.from("player_profiles").upsert(
-      {
-        riot_name: account.name,
-        riot_tag: account.tag,
-        region,
-        puuid: account.puuid,
-        team_id: team.id,
-        current_rank: mmr?.currentTier ?? null,
-        current_rr: mmr?.currentRR ?? null,
-        peak_rank: mmr?.peakTier ?? null,
-        headshot_pct: hsStat,
-        kd_ratio: kdStat,
-        acs: acsStat,
-        win_rate: wrStat,
-        last_synced_at: new Date().toISOString(),
-      },
-      { onConflict: "riot_name,riot_tag" },
-    );
+    const profilePayload: {
+      riot_name: string;
+      riot_tag: string;
+      region: string;
+      puuid: string | null;
+      team_id: string;
+      user_id?: string;
+      current_rank: string | null;
+      current_rr: number | null;
+      peak_rank: string | null;
+      headshot_pct: number | null;
+      kd_ratio: number | null;
+      acs: number | null;
+      win_rate: number | null;
+      last_synced_at: string;
+    } = {
+      riot_name: account.name,
+      riot_tag: account.tag,
+      region,
+      puuid: account.puuid,
+      team_id: team.id,
+      current_rank: mmr?.currentTier ?? null,
+      current_rr: mmr?.currentRR ?? null,
+      peak_rank: mmr?.peakTier ?? null,
+      headshot_pct: hsStat,
+      kd_ratio: kdStat,
+      acs: acsStat,
+      win_rate: wrStat,
+      last_synced_at: new Date().toISOString(),
+    };
+
+    if (rosterUser?.id) {
+      profilePayload.user_id = rosterUser.id as string;
+    }
+
+    await admin.from("player_profiles").upsert(profilePayload, { onConflict: "riot_name,riot_tag" });
   } catch {
     // non-fatal
   }

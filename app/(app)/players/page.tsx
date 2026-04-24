@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { LineChart, Sparkles, Users } from "lucide-react";
+import { LineChart, Sparkles, UserRound, Users } from "lucide-react";
 import { requireSession } from "@/lib/auth/get-session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -39,12 +39,18 @@ export default async function PlayersPage() {
 
   return (
     <div className="flex flex-col gap-5 max-w-[1400px]">
-      <header>
-        <div className="eyebrow">Roster</div>
-        <h1 className="font-display text-3xl tracking-wide mt-1">{team.name}</h1>
-        <p className="text-[color:var(--color-muted)] mt-1">
-          Team members. Click through for stats and AI insights.
-        </p>
+      <header className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <div>
+          <div className="eyebrow">Roster</div>
+          <h1 className="font-display text-3xl tracking-wide mt-1">{team.name}</h1>
+          <p className="text-[color:var(--color-muted)] mt-1">
+            Team members. Click through for stats and AI insights.
+          </p>
+        </div>
+        <Link href="/players/profile" className="btn-accent w-fit">
+          <UserRound className="h-4 w-4" />
+          Profile
+        </Link>
       </header>
 
       {list.length === 0 ? (
@@ -100,7 +106,16 @@ export default async function PlayersPage() {
                   </div>
                 ) : (
                   <p className="text-xs text-[color:var(--color-muted)]">
-                    No Riot ID linked yet.
+                    {u.id === user.id ? (
+                      <>
+                        No Riot ID linked yet.{" "}
+                        <Link href="/players/profile" className="accent-text hover:underline">
+                          Add it from Profile.
+                        </Link>
+                      </>
+                    ) : (
+                      "No Riot ID linked yet."
+                    )}
                   </p>
                 )}
                 {u.riot_name && u.riot_tag ? (

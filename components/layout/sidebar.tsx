@@ -150,7 +150,7 @@ export function Sidebar({ team, user }: Props) {
               {user.role}
             </div>
           </div>
-          <Link href="/calendar" aria-label="Settings" className="text-[color:var(--color-muted)] hover:text-[color:var(--accent)]">
+          <Link href="/players/profile" aria-label="Profile" className="text-[color:var(--color-muted)] hover:text-[color:var(--accent)]">
             <Settings className="h-4 w-4" />
           </Link>
         </div>
