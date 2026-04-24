@@ -2,9 +2,15 @@ import type { RoutineItem, RoutineRow, UserRow } from "@/types/domain";
 
 type RoutineUser = Pick<UserRow, "email" | "display_name">;
 
-type PlayerRoutineKey = "maintez" | "ashmumu" | "johanjojo" | "kittypolo" | "hopped";
+type PlayerRoutineKey =
+  | "maintez"
+  | "ashmumu"
+  | "johanjojo"
+  | "kittypolo"
+  | "hopped"
+  | "epicman";
 
-interface PlayerRoutineConfig {
+export interface PlayerRoutineConfig {
   playerName: string;
   title: string;
   items: RoutineItem[];
@@ -216,6 +222,47 @@ const PLAYER_ROUTINES: Record<PlayerRoutineKey, PlayerRoutineConfig> = {
       },
     ],
   },
+  epicman: {
+    playerName: "Epic Man",
+    title: "Epic Man daily impact block",
+    items: [
+      {
+        id: "epicman_opening_focus",
+        label: "Opening duel focus",
+        detail: "Warm up with calm first-bullet fights and avoid wide swings without a trade path.",
+        duration: "15 min",
+        tag: "mechanics",
+      },
+      {
+        id: "epicman_agent_utility",
+        label: "Agent utility timing",
+        detail: "Run two common setups and two retake sequences for the agent you will queue today.",
+        duration: "14 min",
+        tag: "agent",
+      },
+      {
+        id: "epicman_ranked_block",
+        label: "Ranked focus block",
+        detail: "Play two games with one target: clean comms before contact and fast spacing after contact.",
+        duration: "2 games",
+        tag: "ranked",
+      },
+      {
+        id: "epicman_mistake_clip",
+        label: "Mistake clip review",
+        detail: "Save one avoidable death and write the fix in one sentence.",
+        duration: "10 min",
+        tag: "review",
+      },
+      {
+        id: "epicman_team_note",
+        label: "Team note",
+        detail: "Share one useful read, setup, or adjustment from today's games.",
+        duration: "5 min",
+        tag: "team",
+      },
+    ],
+  },
 };
 
 const ALIASES: Record<string, PlayerRoutineKey> = {
@@ -230,6 +277,8 @@ const ALIASES: Record<string, PlayerRoutineKey> = {
   kittypolo: "kittypolo",
   kitty: "kittypolo",
   hopped: "hopped",
+  epicman: "epicman",
+  "epic man": "epicman",
 };
 
 function compact(value: string) {
@@ -266,16 +315,27 @@ export function getPersonalRoutineName(user: RoutineUser) {
   return key ? PLAYER_ROUTINES[key].playerName : null;
 }
 
+export function getPersonalRoutineTemplateForUser(
+  user: RoutineUser,
+): PlayerRoutineConfig | null {
+  const key = matchRoutineKey(user);
+  if (!key) return null;
+  const template = PLAYER_ROUTINES[key];
+  return {
+    ...template,
+    items: template.items.map((item) => ({ ...item })),
+  };
+}
+
 export function personalizeRoutineForUser(
   routine: RoutineRow | null,
   user: RoutineUser,
 ): RoutineRow | null {
   if (!routine || routine.scope !== "daily") return routine;
+  if (routine.assigned_user_id) return routine;
 
-  const key = matchRoutineKey(user);
-  if (!key) return routine;
-
-  const config = PLAYER_ROUTINES[key];
+  const config = getPersonalRoutineTemplateForUser(user);
+  if (!config) return routine;
   return {
     ...routine,
     title: config.title,

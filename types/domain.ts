@@ -109,6 +109,7 @@ export interface RoutineItem {
 export interface RoutineRow {
   id: string;
   team_id: string;
+  assigned_user_id: string | null;
   title: string;
   items: RoutineItem[];
   scope: "daily" | "weekly" | "custom";

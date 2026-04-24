@@ -58,6 +58,7 @@ const NAV: Array<{
   { href: "/chat/general", label: "Team Chat", icon: MessageSquare, matchPrefix: "/chat" },
   { href: "/players", label: "Players", icon: Users },
   { href: "/calendar", label: "Calendar", icon: Calendar },
+  { href: "/admin/routines", label: "Routine Admin", icon: ListChecks, adminOnly: true },
   { href: "/admin/whitelist", label: "Admin", icon: Shield, adminOnly: true },
 ];
 

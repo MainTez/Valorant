@@ -90,7 +90,7 @@ export default async function DashboardPage() {
       .eq("team_id", team.id)
       .eq("scope", "daily")
       .order("created_at", { ascending: true })
-      .limit(1),
+      .limit(20),
     supabase
       .from("routine_progress")
       .select("*")
@@ -141,10 +141,12 @@ export default async function DashboardPage() {
   const teamSlug: TeamSlug =
     (teamBySlug(team.slug)?.slug as TeamSlug) ?? "surf-n-bulls";
 
-  const routine = personalizeRoutineForUser(
-    ((routines ?? []) as RoutineRow[])[0] ?? null,
-    user,
-  );
+  const dailyRoutines = (routines ?? []) as RoutineRow[];
+  const routineSource =
+    dailyRoutines.find((row) => row.assigned_user_id === user.id) ??
+    dailyRoutines.find((row) => !row.assigned_user_id) ??
+    null;
+  const routine = personalizeRoutineForUser(routineSource, user);
   const progress =
     (((progressRows ?? []) as RoutineProgressRow[]).find(
       (row) => row.routine_id === routine?.id,

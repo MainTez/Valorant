@@ -30,8 +30,17 @@ export default async function RoutinesPage() {
       .eq("date", today),
   ]);
 
-  const personalName = getPersonalRoutineName(user);
-  const list = ((routines ?? []) as RoutineRow[]).map((routine) =>
+  const rawList = (routines ?? []) as RoutineRow[];
+  const assignedList = rawList.filter((routine) => routine.assigned_user_id === user.id);
+  const sourceList =
+    assignedList.length > 0
+      ? assignedList
+      : rawList.filter((routine) => !routine.assigned_user_id);
+  const personalName =
+    assignedList.length > 0
+      ? user.display_name ?? user.email.split("@")[0]
+      : getPersonalRoutineName(user);
+  const list = sourceList.map((routine) =>
     personalizeRoutineForUser(routine, user),
   ) as RoutineRow[];
   const byRoutine = new Map<string, RoutineProgressRow>();
