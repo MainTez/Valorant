@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "node --no-warnings --test lib/vods.test.ts lib/auth/public-paths.test.ts lib/auth/vip.test.ts lib/routines/player-routines.test.ts",
+    "test": "node --no-warnings --test lib/vods.test.ts lib/auth/public-paths.test.ts lib/auth/vip.test.ts lib/routines/player-routines.test.ts lib/stats/tracker-score.test.ts",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {

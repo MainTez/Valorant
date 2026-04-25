@@ -6,8 +6,16 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { RankBadge } from "@/components/common/rank-badge";
 import { EmptyState } from "@/components/common/empty-state";
+import { TeamSpotifyStatus } from "@/components/spotify/team-spotify-status";
+import { TrackerScoreBadge } from "@/components/stats/tracker-score-badge";
+import {
+  buildPlayerStatSnapshot,
+  trackedStatToMatchSample,
+  type MatchStatSample,
+} from "@/lib/stats/team";
+import { buildTrackerScore } from "@/lib/stats/tracker-score";
 import { initials } from "@/lib/utils";
-import type { PlayerProfileRow, UserRow } from "@/types/domain";
+import type { PlayerProfileRow, TrackedStatRow, UserRow } from "@/types/domain";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Players" };
@@ -30,8 +38,45 @@ export default async function PlayersPage() {
   ]);
 
   const list = (users ?? []) as UserRow[];
+  const profileRows = (profiles ?? []) as PlayerProfileRow[];
+  const profileIds = profileRows.map((profile) => profile.id);
+  const { data: trackedStats } = profileIds.length
+    ? await supabase
+        .from("tracked_stats")
+        .select("*")
+        .in("player_profile_id", profileIds)
+        .order("played_at", { ascending: false })
+        .limit(Math.max(50, profileIds.length * 20))
+    : { data: [] };
+  const samplesByProfileId = new Map<string, MatchStatSample[]>();
+
+  for (const row of (trackedStats ?? []) as TrackedStatRow[]) {
+    if (!row.player_profile_id) continue;
+    const samples = samplesByProfileId.get(row.player_profile_id) ?? [];
+    samples.push(trackedStatToMatchSample(row));
+    samplesByProfileId.set(row.player_profile_id, samples);
+  }
+
+  const trackerScoreByProfileId = new Map(
+    profileRows.flatMap((profile) => {
+      const snapshot = buildPlayerStatSnapshot(
+        samplesByProfileId.get(profile.id) ?? [],
+        profile,
+      );
+      const score = buildTrackerScore({
+        sampleSize: snapshot.sampleSize,
+        kdRatio: snapshot.metrics.kdRatio,
+        acs: snapshot.metrics.acs,
+        adr: snapshot.metrics.adr,
+        headshotPct: snapshot.metrics.headshotPct,
+        winRate: snapshot.metrics.winRate,
+      });
+
+      return score ? [[profile.id, score] as const] : [];
+    }),
+  );
   const profilesByRiot = new Map(
-    ((profiles ?? []) as PlayerProfileRow[]).map((p) => [
+    profileRows.map((p) => [
       `${p.riot_name.toLowerCase()}#${p.riot_tag.toLowerCase()}`,
       p,
     ]),
@@ -60,84 +105,91 @@ export default async function PlayersPage() {
           description="Ask an admin to add members via the whitelist."
         />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {list.map((u) => {
-            const profile =
-              u.riot_name && u.riot_tag
-                ? profilesByRiot.get(`${u.riot_name.toLowerCase()}#${u.riot_tag.toLowerCase()}`)
-                : undefined;
-            const publicName =
-              u.display_name ??
-              (canSeeEmails ? u.email.split("@")[0] : u.riot_name ?? "Team Member");
-            return (
-              <div key={u.id} className="surface p-5 hover-lift flex flex-col gap-4">
-                <div className="flex items-center gap-3">
-                  <Avatar className="h-12 w-12">
-                    {u.avatar_url ? (
-                      <AvatarImage src={u.avatar_url} alt={publicName} />
-                    ) : null}
-                    <AvatarFallback>{initials(publicName)}</AvatarFallback>
-                  </Avatar>
-                  <div className="min-w-0 flex-1">
-                    <div className="font-display text-lg tracking-wide truncate">
-                      {publicName}
-                    </div>
-                    {canSeeEmails ? (
-                      <div className="text-xs text-[color:var(--color-muted)] truncate">
-                        {u.email}
+        <>
+          <TeamSpotifyStatus />
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {list.map((u) => {
+              const profile =
+                u.riot_name && u.riot_tag
+                  ? profilesByRiot.get(`${u.riot_name.toLowerCase()}#${u.riot_tag.toLowerCase()}`)
+                  : undefined;
+              const publicName =
+                u.display_name ??
+                (canSeeEmails ? u.email.split("@")[0] : u.riot_name ?? "Team Member");
+              const trackerScore = profile ? trackerScoreByProfileId.get(profile.id) : null;
+              return (
+                <div key={u.id} className="surface p-5 hover-lift flex flex-col gap-4">
+                  <div className="flex items-center gap-3">
+                    <Avatar className="h-12 w-12">
+                      {u.avatar_url ? (
+                        <AvatarImage src={u.avatar_url} alt={publicName} />
+                      ) : null}
+                      <AvatarFallback>{initials(publicName)}</AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0 flex-1">
+                      <div className="font-display text-lg tracking-wide truncate">
+                        {publicName}
                       </div>
-                    ) : null}
+                      {canSeeEmails ? (
+                        <div className="text-xs text-[color:var(--color-muted)] truncate">
+                          {u.email}
+                        </div>
+                      ) : null}
+                    </div>
+                    <Badge variant="outline">{u.role}</Badge>
                   </div>
-                  <Badge variant="outline">{u.role}</Badge>
+                  {u.riot_name && u.riot_tag ? (
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="text-xs text-[color:var(--color-muted)]">Riot ID</div>
+                        <div className="font-display tracking-wide">
+                          {u.riot_name}
+                          <span className="text-[color:var(--color-muted)]"> #{u.riot_tag}</span>
+                        </div>
+                      </div>
+                      <RankBadge
+                        rank={profile?.current_rank}
+                        rr={profile?.current_rr ?? undefined}
+                      />
+                    </div>
+                  ) : (
+                    <p className="text-xs text-[color:var(--color-muted)]">
+                      {u.id === user.id ? (
+                        <>
+                          No Riot ID linked yet.{" "}
+                          <Link href="/players/profile" className="accent-text hover:underline">
+                            Add it from Profile.
+                          </Link>
+                        </>
+                      ) : (
+                        "No Riot ID linked yet."
+                      )}
+                    </p>
+                  )}
+                  {trackerScore ? (
+                    <TrackerScoreBadge score={trackerScore} compact />
+                  ) : null}
+                  {u.riot_name && u.riot_tag ? (
+                    <div className="flex gap-2 mt-auto">
+                      <Link
+                        href={`/stats/${encodeURIComponent(u.riot_name)}/${encodeURIComponent(u.riot_tag)}?region=${u.riot_region ?? "eu"}`}
+                        className="btn-ghost flex-1 justify-center"
+                      >
+                        <LineChart className="h-4 w-4" /> Stats
+                      </Link>
+                      <Link
+                        href={`/insights/${encodeURIComponent(u.riot_name)}/${encodeURIComponent(u.riot_tag)}?region=${u.riot_region ?? "eu"}`}
+                        className="btn-ghost flex-1 justify-center text-[color:var(--accent)]"
+                      >
+                        <Sparkles className="h-4 w-4" /> Insights
+                      </Link>
+                    </div>
+                  ) : null}
                 </div>
-                {u.riot_name && u.riot_tag ? (
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="text-xs text-[color:var(--color-muted)]">Riot ID</div>
-                      <div className="font-display tracking-wide">
-                        {u.riot_name}
-                        <span className="text-[color:var(--color-muted)]"> #{u.riot_tag}</span>
-                      </div>
-                    </div>
-                    <RankBadge
-                      rank={profile?.current_rank}
-                      rr={profile?.current_rr ?? undefined}
-                    />
-                  </div>
-                ) : (
-                  <p className="text-xs text-[color:var(--color-muted)]">
-                    {u.id === user.id ? (
-                      <>
-                        No Riot ID linked yet.{" "}
-                        <Link href="/players/profile" className="accent-text hover:underline">
-                          Add it from Profile.
-                        </Link>
-                      </>
-                    ) : (
-                      "No Riot ID linked yet."
-                    )}
-                  </p>
-                )}
-                {u.riot_name && u.riot_tag ? (
-                  <div className="flex gap-2 mt-auto">
-                    <Link
-                      href={`/stats/${encodeURIComponent(u.riot_name)}/${encodeURIComponent(u.riot_tag)}?region=${u.riot_region ?? "eu"}`}
-                      className="btn-ghost flex-1 justify-center"
-                    >
-                      <LineChart className="h-4 w-4" /> Stats
-                    </Link>
-                    <Link
-                      href={`/insights/${encodeURIComponent(u.riot_name)}/${encodeURIComponent(u.riot_tag)}?region=${u.riot_region ?? "eu"}`}
-                      className="btn-ghost flex-1 justify-center text-[color:var(--accent)]"
-                    >
-                      <Sparkles className="h-4 w-4" /> Insights
-                    </Link>
-                  </div>
-                ) : null}
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        </>
       )}
     </div>
   );

@@ -1,26 +1,22 @@
-import { Buffer } from "node:buffer";
 import { NextResponse, type NextRequest } from "next/server";
 import { requireSession } from "@/lib/auth/get-session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  exchangeSpotifyCode,
+  spotifyConfigured,
+  spotifyRedirectUri,
+} from "@/lib/spotify";
 
 export const runtime = "nodejs";
 
 const STATE_COOKIE = "spotify_oauth_state";
 
-interface SpotifyTokenResponse {
-  access_token: string;
-  refresh_token?: string;
-  expires_in: number;
-  scope: string;
-  token_type: string;
-}
-
 interface SpotifyMeResponse {
   id?: string;
 }
 
-function dashboardRedirect(request: NextRequest, status: string) {
-  const url = new URL("/dashboard", request.url);
+function profileRedirect(request: NextRequest, status: string) {
+  const url = new URL("/players/profile", request.url);
   url.searchParams.set("spotify", status);
   return url;
 }
@@ -32,45 +28,36 @@ export async function GET(request: NextRequest) {
   const savedState = request.cookies.get(STATE_COOKIE)?.value;
 
   if (!code || !state || !savedState || state !== savedState) {
-    const response = NextResponse.redirect(dashboardRedirect(request, "state_failed"));
+    const response = NextResponse.redirect(profileRedirect(request, "state_failed"));
     response.cookies.set(STATE_COOKIE, "", { path: "/", maxAge: 0 });
     return response;
   }
 
-  const clientId = process.env.SPOTIFY_CLIENT_ID;
-  const clientSecret = process.env.SPOTIFY_CLIENT_SECRET;
-  if (!clientId || !clientSecret) {
-    const response = NextResponse.redirect(dashboardRedirect(request, "not_configured"));
+  if (!spotifyConfigured()) {
+    const response = NextResponse.redirect(profileRedirect(request, "not_configured"));
     response.cookies.set(STATE_COOKIE, "", { path: "/", maxAge: 0 });
     return response;
   }
 
-  const redirectUri =
-    process.env.SPOTIFY_REDIRECT_URI ??
-    new URL("/api/spotify/callback", request.nextUrl.origin).toString();
-
-  const tokenRes = await fetch("https://accounts.spotify.com/api/token", {
-    method: "POST",
-    headers: {
-      Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`,
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: new URLSearchParams({
-      grant_type: "authorization_code",
-      code,
-      redirect_uri: redirectUri,
-    }),
-  });
-
-  if (!tokenRes.ok) {
-    const response = NextResponse.redirect(dashboardRedirect(request, "token_failed"));
+  const redirectUri = spotifyRedirectUri(request.nextUrl.origin);
+  const token = await exchangeSpotifyCode({ code, redirectUri });
+  if (!token) {
+    const response = NextResponse.redirect(profileRedirect(request, "token_failed"));
     response.cookies.set(STATE_COOKIE, "", { path: "/", maxAge: 0 });
     return response;
   }
 
-  const token = (await tokenRes.json()) as SpotifyTokenResponse;
-  if (!token.refresh_token) {
-    const response = NextResponse.redirect(dashboardRedirect(request, "refresh_missing"));
+  const supabase = await createSupabaseServerClient();
+  const { data: existing } = await supabase
+    .from("spotify_connections")
+    .select("refresh_token")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  const refreshToken =
+    token.refresh_token ?? (existing as { refresh_token?: string } | null)?.refresh_token;
+
+  if (!refreshToken) {
+    const response = NextResponse.redirect(profileRedirect(request, "refresh_missing"));
     response.cookies.set(STATE_COOKIE, "", { path: "/", maxAge: 0 });
     return response;
   }
@@ -79,12 +66,11 @@ export async function GET(request: NextRequest) {
     headers: { Authorization: `Bearer ${token.access_token}` },
   });
   const me = meRes.ok ? ((await meRes.json()) as SpotifyMeResponse) : null;
-  const supabase = await createSupabaseServerClient();
 
   const { error } = await supabase.from("spotify_connections").upsert({
     user_id: user.id,
     access_token: token.access_token,
-    refresh_token: token.refresh_token,
+    refresh_token: refreshToken,
     expires_at: new Date(Date.now() + token.expires_in * 1000).toISOString(),
     scope: token.scope,
     token_type: token.token_type,
@@ -93,7 +79,7 @@ export async function GET(request: NextRequest) {
   });
 
   const response = NextResponse.redirect(
-    dashboardRedirect(request, error ? "save_failed" : "connected"),
+    profileRedirect(request, error ? "save_failed" : "connected"),
   );
   response.cookies.set(STATE_COOKIE, "", { path: "/", maxAge: 0 });
   return response;

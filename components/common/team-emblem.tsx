@@ -6,6 +6,8 @@ interface Props {
   team: TeamSlug;
   size?: "sm" | "md" | "lg" | "xl";
   className?: string;
+  showFrame?: boolean;
+  showGlow?: boolean;
 }
 
 const TEAM_LOGOS: Record<
@@ -30,7 +32,13 @@ const TEAM_LOGOS: Record<
   },
 };
 
-export function TeamEmblem({ team, size = "md", className }: Props) {
+export function TeamEmblem({
+  team,
+  size = "md",
+  className,
+  showFrame = true,
+  showGlow = true,
+}: Props) {
   const px = size === "sm" ? 38 : size === "md" ? 62 : size === "lg" ? 104 : 236;
   const logo = TEAM_LOGOS[team];
 
@@ -42,12 +50,14 @@ export function TeamEmblem({ team, size = "md", className }: Props) {
       )}
       style={{ width: px, height: px }}
     >
-      <span
-        className={cn(
-          "pointer-events-none absolute inset-[6%] rounded-full blur-2xl",
-          logo.frameClass,
-        )}
-      />
+      {showFrame ? (
+        <span
+          className={cn(
+            "pointer-events-none absolute inset-[6%] rounded-full blur-2xl",
+            logo.frameClass,
+          )}
+        />
+      ) : null}
       <Image
         src={logo.src}
         alt=""
@@ -57,7 +67,7 @@ export function TeamEmblem({ team, size = "md", className }: Props) {
         priority={size === "xl"}
         className={cn(
           "relative z-10 h-auto max-h-full w-auto max-w-full object-contain",
-          logo.glowClass,
+          showGlow && logo.glowClass,
         )}
       />
     </div>

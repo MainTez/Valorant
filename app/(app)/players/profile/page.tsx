@@ -3,6 +3,7 @@ import { ArrowLeft, LineChart, Sparkles } from "lucide-react";
 import { requireSession } from "@/lib/auth/get-session";
 import { RiotProfileForm } from "@/components/players/riot-profile-form";
 import { RankBadge } from "@/components/common/rank-badge";
+import { SpotifyProfilePanel } from "@/components/spotify/spotify-profile-panel";
 import { defaultRegion, normalizeRegion } from "@/lib/henrik/regions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { PlayerProfileRow } from "@/types/domain";
@@ -10,7 +11,12 @@ import type { PlayerProfileRow } from "@/types/domain";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Profile" };
 
-export default async function PlayerProfilePage() {
+interface Props {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
+
+export default async function PlayerProfilePage({ searchParams }: Props) {
+  const sp = await searchParams;
   const { user, team } = await requireSession();
   const supabase = await createSupabaseServerClient();
 
@@ -69,11 +75,14 @@ export default async function PlayerProfilePage() {
       </header>
 
       <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
-        <RiotProfileForm
-          initialName={user.riot_name ?? ""}
-          initialTag={user.riot_tag ?? ""}
-          initialRegion={region}
-        />
+        <div className="flex flex-col gap-4">
+          <RiotProfileForm
+            initialName={user.riot_name ?? ""}
+            initialTag={user.riot_tag ?? ""}
+            initialRegion={region}
+          />
+          <SpotifyProfilePanel status={typeof sp.spotify === "string" ? sp.spotify : null} />
+        </div>
 
         <aside className="relative overflow-hidden rounded-[1.35rem] border border-white/7 bg-white/[0.025] p-5">
           <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.035),transparent_44%,rgba(255,255,255,0.01)_100%)]" />

@@ -31,6 +31,8 @@ import {
   YAxis,
 } from "recharts";
 import { Badge } from "@/components/ui/badge";
+import { TrackerScoreBadge } from "@/components/stats/tracker-score-badge";
+import { buildTrackerScore } from "@/lib/stats/tracker-score";
 import { getAgentAsset, getAgentIcon, getMapAsset } from "@/lib/valorant/assets";
 import { getCompetitiveTierAsset, getRankTheme } from "@/lib/valorant/ranks";
 import { cn } from "@/lib/utils";
@@ -79,6 +81,16 @@ export function PlayerStatsDashboard({
   const theme = getRankTheme(mmr?.currentTierId, mmr?.currentTier);
   const rankAsset = getCompetitiveTierAsset(mmr?.currentTierId);
   const summary = summarizeMatches(matches);
+  const trackerScore = matches.length > 0
+    ? buildTrackerScore({
+        sampleSize: matches.length,
+        kdRatio: summary.kd,
+        acs: summary.acs,
+        adr: summary.adr,
+        headshotPct: summary.hs,
+        winRate: summary.winRate,
+      })
+    : null;
   const recentMatches = matches.slice(0, 6);
   const agents = summarizeAgents(matches);
   const maps = summarizeMaps(matches);
@@ -240,6 +252,10 @@ export function PlayerStatsDashboard({
               <span>{rrProgress}/100 RR</span>
             </div>
           </div>
+
+          {trackerScore ? (
+            <TrackerScoreBadge score={trackerScore} className="mt-5" />
+          ) : null}
 
           <div className="mt-5 grid grid-cols-3 gap-3 rounded-[22px] border border-white/8 bg-white/[0.03] p-4">
             <MetaBlock label="Region" value={region.toUpperCase()} />

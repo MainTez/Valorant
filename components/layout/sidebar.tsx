@@ -94,8 +94,13 @@ export function Sidebar({ team, user }: Props) {
   return (
     <aside className="relative z-10 flex min-h-screen w-[212px] shrink-0 flex-col gap-5 border-r border-white/6 bg-[linear-gradient(180deg,rgba(14,16,22,0.94)_0%,rgba(12,14,19,0.98)_100%)] px-4 py-5 backdrop-blur-xl">
       <div className="flex flex-col items-center gap-3 py-2">
-        <div className="rounded-[1.15rem] border border-[color:var(--accent-soft)] bg-[color:var(--accent-dim)] p-3 shadow-[0_0_26px_-14px_var(--accent)]">
-          <TeamEmblem team={team} size="md" />
+        <div className="flex h-[86px] items-center justify-center">
+          <TeamEmblem
+            team={team}
+            size="md"
+            showFrame={false}
+            showGlow={false}
+          />
         </div>
         <div className="mt-1 text-center font-display text-base tracking-[0.34em] accent-text">
           {meta.shortName}
