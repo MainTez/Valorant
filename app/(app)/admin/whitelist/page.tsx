@@ -24,7 +24,7 @@ export default async function AdminWhitelistPage() {
         <div className="eyebrow">Admin</div>
         <h1 className="font-display text-3xl tracking-wide mt-1">Whitelist</h1>
         <p className="text-[color:var(--color-muted)] mt-1">
-          Control who can sign in to RankTerminal. New entries take effect
+          Control who can sign in to Nexus Team Hub. New entries take effect
           immediately.
         </p>
       </header>

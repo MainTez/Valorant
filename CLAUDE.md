@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-**RankTerminal** — a private Next.js 15 web app for two competitive Valorant teams (**Surf'n Bulls** + **Molgarians**) with whitelisted Google OAuth, Supabase + RLS, HenrikDev stats, and hybrid rule-based + OpenRouter AI insights.
+**Nexus Team Hub** — a private Next.js 15 web app for two competitive Valorant teams (**Surf'n Bulls** + **Molgarians**) with whitelisted Google OAuth, Supabase + RLS, HenrikDev stats, and hybrid rule-based + OpenRouter AI insights.
 
 ## Load this first
 

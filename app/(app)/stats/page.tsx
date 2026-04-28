@@ -14,7 +14,7 @@ import { relativeTime } from "@/lib/utils";
 import type { PlayerProfileRow, TrackedStatRow, UserRow } from "@/types/domain";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "RankTerminal" };
+export const metadata = { title: "Stats Tracker" };
 
 export default async function StatsIndexPage() {
   const { team } = await requireSession();
@@ -72,7 +72,7 @@ export default async function StatsIndexPage() {
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_left_top,rgba(246,196,83,0.18),transparent_30%),radial-gradient(circle_at_right_top,rgba(61,160,255,0.12),transparent_24%),linear-gradient(135deg,transparent_0%,rgba(255,255,255,0.02)_50%,transparent_100%)]" />
         <div className="relative grid gap-6 xl:grid-cols-[1.02fr_0.98fr] xl:items-end">
           <div>
-            <div className="eyebrow text-white/45">RankTerminal</div>
+            <div className="eyebrow text-white/45">Stats Tracker</div>
             <h1 className="mt-2 font-display text-[clamp(2.3rem,3.6vw,4rem)] leading-[0.95] tracking-[0.03em] text-white">
               Track any player.
               <span className="block text-gold-metal">Build a real team snapshot.</span>

@@ -151,7 +151,7 @@ const QUICK_ACTIONS = [
 
 const MARQUEE_ITEMS = [
   "Dashboard",
-  "RankTerminal",
+  "Stats Tracker",
   "AI Insights",
   "Match Log",
   "Team Chat",

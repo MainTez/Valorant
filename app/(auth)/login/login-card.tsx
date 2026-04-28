@@ -14,7 +14,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 gsap.registerPlugin(useGSAP, ScrollTrigger);
 
 const REQUEST_ACCESS_HREF =
-  "mailto:danilebnen@gmail.com?subject=RankTerminal%20Access%20Request";
+  "mailto:danilebnen@gmail.com?subject=Esport%20Hub%20Access%20Request";
 
 function firstParam(value: string | string[] | undefined) {
   if (typeof value === "string") return value;

@@ -216,7 +216,7 @@ export function PlayerTrackerBoard({
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <div className="mb-2 flex flex-wrap items-center gap-3">
-            <span className="eyebrow">RankTerminal</span>
+            <span className="eyebrow">stats tracker</span>
             <span className="accent-dot" />
             <Link href="/stats" className="text-sm text-white/54 transition hover:text-white">
               <span className="inline-flex items-center gap-2">

@@ -31,7 +31,7 @@ export async function enhanceWithLLM(params: {
 
   const model = process.env.OPENROUTER_MODEL || "meta-llama/llama-3.1-8b-instruct:free";
   const appUrl = process.env.OPENROUTER_APP_URL || "http://localhost:3000";
-  const appName = process.env.OPENROUTER_APP_NAME || "RankTerminal";
+  const appName = process.env.OPENROUTER_APP_NAME || "Nexus Team Hub";
 
   const userPayload = JSON.stringify({
     player: params.player,
