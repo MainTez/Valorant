@@ -13,6 +13,7 @@ import {
   trackedStatToMatchSample,
   type MatchStatSample,
 } from "@/lib/stats/team";
+import { syncPlayerProfileFromHenrik } from "@/lib/stats/player-profile-sync";
 import { buildTrackerScore } from "@/lib/stats/tracker-score";
 import { initials } from "@/lib/utils";
 import type { PlayerProfileRow, TrackedStatRow, UserRow } from "@/types/domain";
@@ -38,7 +39,37 @@ export default async function PlayersPage() {
   ]);
 
   const list = (users ?? []) as UserRow[];
-  const profileRows = (profiles ?? []) as PlayerProfileRow[];
+  let profileRows = (profiles ?? []) as PlayerProfileRow[];
+  const initialProfilesByRiot = buildProfilesByRiot(profileRows);
+  const syncResults = await Promise.all(
+    list
+      .filter((rosterUser) => rosterUser.riot_name && rosterUser.riot_tag)
+      .map(async (rosterUser) => {
+        const riotName = rosterUser.riot_name as string;
+        const riotTag = rosterUser.riot_tag as string;
+        const profile = initialProfilesByRiot.get(riotKey(riotName, riotTag));
+        try {
+          return await syncPlayerProfileFromHenrik({
+            profile,
+            userId: rosterUser.id,
+            teamId: team.id,
+            riotName,
+            riotTag,
+            region: rosterUser.riot_region ?? profile?.region ?? "eu",
+          });
+        } catch {
+          return null;
+        }
+      }),
+  );
+
+  const profilesById = new Map(profileRows.map((profile) => [profile.id, profile]));
+  for (const result of syncResults) {
+    if (result?.profile) {
+      profilesById.set(result.profile.id, result.profile);
+    }
+  }
+  profileRows = [...profilesById.values()].filter((profile) => profile.team_id === team.id);
   const profileIds = profileRows.map((profile) => profile.id);
   const { data: trackedStats } = profileIds.length
     ? await supabase
@@ -75,12 +106,7 @@ export default async function PlayersPage() {
       return score ? [[profile.id, score] as const] : [];
     }),
   );
-  const profilesByRiot = new Map(
-    profileRows.map((p) => [
-      `${p.riot_name.toLowerCase()}#${p.riot_tag.toLowerCase()}`,
-      p,
-    ]),
-  );
+  const profilesByRiot = buildProfilesByRiot(profileRows);
 
   return (
     <div className="flex flex-col gap-5 max-w-[1400px]">
@@ -111,7 +137,7 @@ export default async function PlayersPage() {
             {list.map((u) => {
               const profile =
                 u.riot_name && u.riot_tag
-                  ? profilesByRiot.get(`${u.riot_name.toLowerCase()}#${u.riot_tag.toLowerCase()}`)
+                  ? profilesByRiot.get(riotKey(u.riot_name, u.riot_tag))
                   : undefined;
               const publicName =
                 u.display_name ??
@@ -193,4 +219,12 @@ export default async function PlayersPage() {
       )}
     </div>
   );
+}
+
+function buildProfilesByRiot(profiles: PlayerProfileRow[]): Map<string, PlayerProfileRow> {
+  return new Map(profiles.map((profile) => [riotKey(profile.riot_name, profile.riot_tag), profile]));
+}
+
+function riotKey(name: string, tag: string): string {
+  return `${name.toLowerCase()}#${tag.toLowerCase().replace(/^#/, "")}`;
 }

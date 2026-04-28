@@ -1,7 +1,7 @@
 ---
 tags: [roadmap, status]
 created: 2026-04-21
-updated: 2026-04-23
+updated: 2026-04-29
 ---
 
 # Status
@@ -43,11 +43,10 @@ Snapshot of what's shipped / stubbed / missing right now. Grouped by area. Updat
 - ✅ `/routines` — daily routine with progress rings.
 - ✅ `/tasks` — kanban (backlog / in_progress / done).
 - ✅ `/chat/[channel]` — per-channel realtime chat via Supabase Realtime.
-- ✅ `/players` — team roster.
-- ✅ `/calendar` — list view of `schedule_events` (read-only).
+- ✅ `/players` — team roster. Linked Riot profiles refresh through Henrik before rank and tracker-score cards render, with DB snapshots as fallback.
+- ✅ `/calendar` — list view of `schedule_events` with coach/admin create, edit, delete, optional location, description, and participant assignment.
 - ✅ `/admin/whitelist` and `/admin/audit` — admin-only, gated by `requireAdmin()`.
 - ✅ Dark premium theme with per-team accent via `[data-team]` (`surf-n-bulls` gold, `molgarians` red).
-- ⚠️ Calendar is list-only — no create-event form. Events must be seeded via Supabase directly.
 - ⚠️ Players page has no Riot-ID link UI. Users still edit `users.riot_name` / `users.riot_tag` in the DB.
 - ⚠️ Match VODs are limited to one MP4 upload or one external link per match. There is now an in-app player and VOD library, but still no transcoding, clips, playlists, or timeline comments.
 - ⚠️ Top-bar notification bell is decorative; no notifications panel.
