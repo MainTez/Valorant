@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 export function HeroHeader() {
   return (
     <header data-hero className="mx-auto flex w-full max-w-6xl flex-col items-center text-center">
@@ -11,10 +13,18 @@ export function HeroHeader() {
 
       <h1
         data-hero-item
-        className="w-full max-w-6xl text-[clamp(4rem,11vw,9rem)] font-extrabold uppercase leading-[0.86] tracking-[0.08em]"
+        className="w-full max-w-6xl text-[clamp(3.3rem,9vw,7.75rem)] font-extrabold uppercase leading-[0.86] tracking-[0.08em]"
       >
-        <span className="text-metal">Esport</span>{" "}
-        <span className="text-gold-metal">Hub</span>
+        <Image
+          src="/rankterminal-emblem.png"
+          alt="RankTerminal"
+          width={720}
+          height={720}
+          priority
+          className="mx-auto mb-4 h-auto w-[min(46vw,22rem)] max-w-[72vw]"
+        />
+        <span className="text-metal">Rank</span>
+        <span className="text-gold-metal">Terminal</span>
       </h1>
 
       <p

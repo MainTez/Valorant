@@ -1,4 +1,4 @@
-# Nexus Team Hub
+# RankTerminal
 
 Private esports command center for two competitive Valorant teams:
 

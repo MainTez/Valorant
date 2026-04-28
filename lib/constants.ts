@@ -1,4 +1,4 @@
-export const APP_NAME = "Esport Hub";
+export const APP_NAME = "RankTerminal";
 
 export type TeamSlug = "surf-n-bulls" | "molgarians";
 export type TeamAccent = "gold" | "blue";

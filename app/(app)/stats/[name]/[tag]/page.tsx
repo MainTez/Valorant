@@ -149,7 +149,7 @@ export default async function PlayerStatsPage({ params, searchParams }: Props) {
     <div className="flex max-w-[1400px] flex-col gap-5">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <div className="eyebrow">Stats Tracker</div>
+          <div className="eyebrow">RankTerminal</div>
           <Link href="/stats" className="text-sm text-[color:var(--color-muted)] hover:accent-text">
             Back to search
           </Link>

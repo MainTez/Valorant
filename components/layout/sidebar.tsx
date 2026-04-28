@@ -49,7 +49,7 @@ const NAV: Array<{
   matchPrefix?: string;
 }> = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/stats", label: "Stats Tracker", icon: LineChart },
+  { href: "/stats", label: "RankTerminal", icon: LineChart },
   { href: "/insights", label: "AI Insights", icon: Sparkles },
   { href: "/matches", label: "Match Log", icon: Swords },
   { href: "/vods", label: "VOD Library", icon: Film },

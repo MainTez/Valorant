@@ -17,12 +17,17 @@ const barlow = Barlow_Condensed({
 
 export const metadata: Metadata = {
   title: {
-    default: "Esport Hub",
-    template: "%s · Esport Hub",
+    default: "RankTerminal",
+    template: "%s · RankTerminal",
   },
   description:
-    "Premium esports hub for Molgarians and Surf'n Bulls — roster access, coordination, and match-day tools.",
-  applicationName: "Esport Hub",
+    "Private Valorant command center for rank tracking, roster access, coordination, and match-day tools.",
+  applicationName: "RankTerminal",
+  icons: {
+    icon: "/favicon.png",
+    shortcut: "/favicon.png",
+    apple: "/apple-icon.png",
+  },
   robots: { index: false, follow: false },
 };
 
