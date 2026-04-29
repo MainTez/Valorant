@@ -1,14 +1,39 @@
 {
   "name": "nexus-team-hub",
   "version": "0.1.0",
+  "description": "Private desktop and web command center for competitive Valorant teams.",
+  "author": "MainTez",
   "private": true,
+  "main": "desktop/main.cjs",
+  "nexus": {
+    "appUrl": "https://molgarians-premier-hub.vercel.app",
+    "desktopDownloadUrl": "https://github.com/MainTez/Valorant/releases/latest/download/Nexus-Team-Hub-Setup.exe"
+  },
   "scripts": {
     "dev": "next dev",
+    "desktop:dev": "concurrently -k \"npm run dev\" \"wait-on http://localhost:3000/desktop && electron .\"",
+    "desktop:start": "electron .",
+    "desktop:pack": "npm run build && electron-builder --win nsis --x64",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "node --no-warnings --test lib/vods.test.ts lib/auth/public-paths.test.ts lib/auth/vip.test.ts lib/routines/player-routines.test.ts lib/stats/tracker-score.test.ts",
+    "test": "node --no-warnings --test lib/vods.test.ts lib/auth/public-paths.test.ts lib/auth/vip.test.ts lib/routines/player-routines.test.ts lib/stats/tracker-score.test.ts lib/stats/match-moments.test.ts",
     "type-check": "tsc --noEmit"
+  },
+  "build": {
+    "appId": "gg.nexus.teamhub",
+    "productName": "Nexus Team Hub",
+    "artifactName": "Nexus-Team-Hub-Setup.${ext}",
+    "directories": {
+      "output": "dist-desktop"
+    },
+    "files": [
+      "desktop/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis"
+    }
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",
@@ -42,11 +67,15 @@
     "@types/node": "^22.10.7",
     "@types/react": "^19.0.7",
     "@types/react-dom": "^19.0.3",
+    "concurrently": "^9.2.1",
+    "electron": "^41.3.0",
+    "electron-builder": "^26.8.1",
     "eslint": "^9.18.0",
     "eslint-config-next": "15.1.6",
     "postcss": "^8.5.1",
     "server-only": "^0.0.1",
     "tailwindcss": "^4.0.6",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "wait-on": "^9.0.5"
   }
 }

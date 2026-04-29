@@ -4,6 +4,8 @@ import { isPublicPath } from "./public-paths.ts";
 
 test("isPublicPath allows anonymous auth endpoints and login shell", () => {
   assert.equal(isPublicPath("/login"), true);
+  assert.equal(isPublicPath("/download"), true);
+  assert.equal(isPublicPath("/download/windows"), true);
   assert.equal(isPublicPath("/auth/callback"), true);
   assert.equal(isPublicPath("/api/auth/vip-login"), true);
   assert.equal(isPublicPath("/api/auth/vip-logout"), true);

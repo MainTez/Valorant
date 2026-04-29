@@ -3,11 +3,15 @@ import { isPublicPath } from "@/lib/auth/public-paths";
 import { updateSession } from "@/lib/supabase/middleware";
 
 export async function middleware(request: NextRequest) {
-  const { response, user } = await updateSession(request);
-  const hasAccess = Boolean(user);
-
   const { pathname } = request.nextUrl;
   const isPublic = isPublicPath(pathname);
+
+  if (isPublic && pathname !== "/login") {
+    return NextResponse.next();
+  }
+
+  const { response, user } = await updateSession(request);
+  const hasAccess = Boolean(user);
 
   if (!hasAccess && !isPublic) {
     const url = request.nextUrl.clone();

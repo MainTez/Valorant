@@ -83,6 +83,7 @@ OPENROUTER_MODEL=meta-llama/llama-3.1-8b-instruct:free
 
 # App
 NEXT_PUBLIC_APP_URL=http://localhost:3000
+NEXT_PUBLIC_DESKTOP_DOWNLOAD_URL=https://github.com/MainTez/Valorant/releases/latest/download/Nexus-Team-Hub-Setup.exe
 CRON_SECRET=long-random-string
 ```
 
@@ -111,6 +112,31 @@ supabase db push
 npm run dev
 # open http://localhost:3000
 ```
+
+### 5. Run the Windows desktop app locally
+
+```bash
+npm run desktop:dev
+```
+
+The Electron shell loads `/desktop` from `NEXUS_APP_URL` (defaults to
+`http://localhost:3000`) and uses a separate transparent overlay route at
+`/desktop/overlay`. The app stays in the Windows tray, starts with Windows,
+and shows post-match overlay cards from the `match_moments` feed.
+
+### 6. Download the Windows desktop app from the website
+
+The public `/download` page links to the latest GitHub Releases installer:
+
+```text
+https://github.com/MainTez/Valorant/releases/latest/download/Nexus-Team-Hub-Setup.exe
+```
+
+Create a desktop release by pushing a tag like `desktop-v0.1.0`. The
+`Desktop Release` GitHub Action builds `Nexus-Team-Hub-Setup.exe`, uploads it
+to the release, and the website download button starts serving that installer.
+Packaged builds load `https://molgarians-premier-hub.vercel.app` by default;
+set the repository variable `NEXUS_APP_URL` if production moves to another URL.
 
 ## Auth flow
 
@@ -165,6 +191,9 @@ Both are protected by `CRON_SECRET` via the `Authorization: Bearer …` header.
 
 ```bash
 npm run dev         # local dev
+npm run desktop:dev # Next dev server + Electron shell
+npm run desktop:start # Electron shell against NEXUS_APP_URL
+npm run desktop:pack  # build Windows NSIS package
 npm run build       # production build
 npm run start       # start production server
 npm run lint        # eslint

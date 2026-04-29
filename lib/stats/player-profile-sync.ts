@@ -12,6 +12,7 @@ import {
   normalizedMatchToMatchSample,
 } from "@/lib/stats/team";
 import type { PlayerProfileRow } from "@/types/domain";
+import type { NormalizedMatch } from "@/types/domain";
 
 interface SyncPlayerProfileInput {
   profile?: PlayerProfileRow | null;
@@ -26,6 +27,7 @@ interface SyncPlayerProfileInput {
 
 export interface SyncPlayerProfileResult {
   profile: PlayerProfileRow;
+  matches: NormalizedMatch[];
   matchCount: number;
   refreshedRank: boolean;
   refreshedMatches: boolean;
@@ -137,6 +139,7 @@ export async function syncPlayerProfileFromHenrik({
 
   return {
     profile: syncedProfile,
+    matches,
     matchCount: trackedRows.length,
     refreshedRank,
     refreshedMatches,

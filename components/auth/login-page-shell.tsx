@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { ShieldCheck } from "lucide-react";
+import { Download, ShieldCheck } from "lucide-react";
 import { APP_NAME } from "@/lib/constants";
 import { glowButtonClasses } from "@/components/auth/glow-button";
 
@@ -46,15 +46,27 @@ export function LoginPageShell({
             </div>
           </div>
 
-          <a
-            href={requestAccessHref}
-            className={glowButtonClasses({
-              tone: "neutral",
-              className: "px-5 text-white/92 hover:border-[#f3bf4c]/28 hover:text-white",
-            })}
-          >
-            Request Access
-          </a>
+          <div className="flex items-center gap-2">
+            <a
+              href="/download"
+              className={glowButtonClasses({
+                tone: "neutral",
+                className: "px-4 text-white/82 hover:border-[#33b8ff]/28 hover:text-white",
+              })}
+            >
+              <Download className="h-4 w-4" />
+              Download App
+            </a>
+            <a
+              href={requestAccessHref}
+              className={glowButtonClasses({
+                tone: "neutral",
+                className: "px-5 text-white/92 hover:border-[#f3bf4c]/28 hover:text-white",
+              })}
+            >
+              Request Access
+            </a>
+          </div>
         </header>
 
         <div className="relative z-10 flex flex-1 items-center justify-center px-4 pb-10 pt-2 sm:px-8 lg:px-12">

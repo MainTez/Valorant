@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import {
   Calendar,
   ClipboardList,
+  Download,
   LayoutDashboard,
   Film,
   LineChart,
@@ -49,6 +50,7 @@ const NAV: Array<{
   matchPrefix?: string;
 }> = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/download", label: "Desktop App", icon: Download },
   { href: "/stats", label: "Stats Tracker", icon: LineChart },
   { href: "/insights", label: "AI Insights", icon: Sparkles },
   { href: "/matches", label: "Match Log", icon: Swords },

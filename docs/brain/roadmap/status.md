@@ -12,7 +12,7 @@ Snapshot of what's shipped / stubbed / missing right now. Grouped by area. Updat
 
 - ✅ Login page at `app/(auth)/login/` with team-select cards, Google OAuth, and a VIP login shortcut reserved for AI-agent testing.
 - ✅ `/auth/callback/route.ts` exchanges Google/OTP callbacks, checks `whitelist`, upserts `public.users`, logs a `signin` audit row, and rejects selected-team mismatches.
-- ✅ `middleware.ts` gates `/(app)/*`; public paths = `/login`, `/auth/*`, `/api/auth/*`, `/api/cron/*`, and `/favicon.ico`.
+- ✅ `middleware.ts` gates `/(app)/*`; public paths = `/login`, `/download`, `/auth/*`, `/api/auth/*`, `/api/cron/*`, and `/favicon.ico`.
 - ✅ `lib/auth/get-session.ts` provides `getSessionUser` (cached), `requireSession`, `requireAdmin`, `requireCoachOrAdmin`.
 - ✅ VIP login route `/api/auth/vip-login` exists specifically for AI-agent testing: it seeds deterministic per-team admin users, signs them into a normal Supabase auth session, and reuses the existing RLS model.
 - ✅ Team isolation via Postgres RLS — every team-scoped table, helper functions `current_team_id() / current_role() / is_admin() / is_coach_or_admin()`. See [[0003-team-isolation-via-supabase-rls]].
@@ -25,7 +25,7 @@ Snapshot of what's shipped / stubbed / missing right now. Grouped by area. Updat
 - ✅ `henrik_cache` table with per-endpoint TTLs (1h / 10m / 2m / 15m). See [[0004-henrik-proxy-cache-strategy]].
 - ✅ Match VOD uploads use private Supabase Storage objects behind app-issued signed upload/download URLs. Metadata lives on `matches.vod_*`; the bucket is `match-vods`. Playback metadata now flows through `/api/matches/[id]/vod/playback`. See [[0005-private-match-vod-uploads]] and [[0006-in-app-vod-library-and-playback]].
 - ⚠️ `types/database.ts` is a placeholder `Record<string, unknown>`. Supabase clients skip the `<Database>` generic to avoid `never` inference. `supabase gen types` is pending.
-- ⚠️ No live Supabase project is wired up yet — migrations are written but not applied against a real instance.
+- ✅ Live Supabase project `ValTracker` (`shvnvylpjxqsdnyqfyoa`) is linked and migrations through `0008_desktop_match_moments.sql` have been pushed.
 
 ## AI insights
 
@@ -52,11 +52,21 @@ Snapshot of what's shipped / stubbed / missing right now. Grouped by area. Updat
 - ⚠️ Top-bar notification bell is decorative; no notifications panel.
 - ⚠️ `⌘K` command-palette hint in UI is a visual only; no palette implemented.
 
+## Desktop app
+
+- ✅ Windows-first Electron shell with dedicated `/desktop` app feed, tray menu, auto-start, and transparent `/desktop/overlay` window.
+- ✅ `match_moments` + `desktop_sync_state` migrations support post-match callouts, sync backoff, dedupe by `(player_profile_id, match_id)`, and team-scoped reads.
+- ✅ `/api/desktop/sync` polls linked team Riot profiles, creates deterministic match moments, and returns new moments for the overlay/feed.
+- ✅ Savage deterministic callout engine labels matches as `INTED MATCH`, `CARRIED ALL!!`, `TEAM SOLD HIM`, `GOT CARRIED`, or normal win/loss/draw.
+- ✅ Public `/download` page links to the stable GitHub Releases asset `Nexus-Team-Hub-Setup.exe`.
+- ✅ `Desktop Release` GitHub Action builds and publishes the Windows installer when a `desktop-v*` tag is pushed.
+- ⚠️ Packaged Windows installer is not production code-signed yet, so SmartScreen warnings are expected.
+
 ## Infrastructure
 
 - ✅ `vercel.json` cron: `/api/cron/refresh-stats` daily at 03:00 UTC (`0 3 * * *`); `/api/cron/regenerate-insights` daily at 04:00 UTC. Vercel Hobby plan caps crons at once per day — a sub-daily schedule (originally `0 */6 * * *`) fails deployment with *"Hobby accounts are limited to daily cron jobs."*
 - ✅ `CRON_SECRET` bearer-token gating on `/api/cron/*` routes.
-- ⚠️ No Vercel deployment yet; env vars not wired in prod.
+- ✅ Production Vercel app is `https://molgarians-premier-hub.vercel.app`; packaged desktop builds use this URL by default.
 - ⚠️ Google OAuth client not yet configured (Supabase redirect URL pending real project).
 
 ## Testing / tooling

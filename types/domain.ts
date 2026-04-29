@@ -69,6 +69,31 @@ export interface TrackedStatRow {
   raw: unknown;
 }
 
+export interface MatchMomentRow {
+  id: string;
+  team_id: string;
+  user_id: string | null;
+  player_profile_id: string;
+  match_id: string;
+  label:
+    | "CARRIED ALL!!"
+    | "INTED MATCH"
+    | "TEAM SOLD HIM"
+    | "GOT CARRIED"
+    | "Won match"
+    | "Lost match"
+    | "Drew match";
+  title: string;
+  subtitle: string;
+  severity: "hype" | "flame" | "warning" | "normal";
+  sound: "carry" | "inted" | "normal";
+  performance_index: number;
+  stats: Record<string, unknown>;
+  payload: Record<string, unknown>;
+  played_at: string | null;
+  created_at: string;
+}
+
 export interface MatchRow {
   id: string;
   team_id: string;
