@@ -147,12 +147,12 @@ export function buildPlayerStatSnapshot(
   const kds = sample
     .map((m) => matchKDRatio(m.kills, m.deaths))
     .filter((value): value is number => isFiniteNumber(value));
-  const acs = sample.map((m) => m.acs).filter(isFiniteNumber);
+  const acs = sample.map((m) => m.acs).filter(isPositiveMetric);
   const hs = sample.map((m) => m.headshotPct).filter(isFiniteNumber);
   const kills = sample.map((m) => m.kills).filter(isFiniteNumber);
   const deaths = sample.map((m) => m.deaths).filter(isFiniteNumber);
   const assists = sample.map((m) => m.assists).filter(isFiniteNumber);
-  const adr = sample.map((m) => m.adr).filter(isFiniteNumber);
+  const adr = sample.map((m) => m.adr).filter(isPositiveMetric);
 
   const decided = sample.filter((m) => m.result === "win" || m.result === "loss");
   const wins = decided.filter((m) => m.result === "win").length;
@@ -168,12 +168,12 @@ export function buildPlayerStatSnapshot(
   const momentumPct =
     olderWindow >= 2
       ? diffPct(
-          avgOrNull(sample.slice(0, olderWindow).map((m) => m.acs).filter(isFiniteNumber)),
+          avgOrNull(sample.slice(0, olderWindow).map((m) => m.acs).filter(isPositiveMetric)),
           avgOrNull(
             sample
               .slice(olderWindow, olderWindow * 2)
               .map((m) => m.acs)
-              .filter(isFiniteNumber),
+              .filter(isPositiveMetric),
           ),
         )
       : null;
@@ -265,7 +265,7 @@ export function buildTeamStatsBundle({
     const bucket = byAgent.get(match.agent) ?? { games: 0, wins: 0, acs: [] };
     bucket.games += 1;
     if (match.result === "win") bucket.wins += 1;
-    if (isFiniteNumber(match.acs)) bucket.acs.push(match.acs);
+    if (isPositiveMetric(match.acs)) bucket.acs.push(match.acs);
     byAgent.set(match.agent, bucket);
   }
 
@@ -379,6 +379,10 @@ function diffPct(recent: number | null, older: number | null): number | null {
 
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
+}
+
+function isPositiveMetric(value: unknown): value is number {
+  return isFiniteNumber(value) && value > 0;
 }
 
 function parseTime(value: string | null | undefined): number {

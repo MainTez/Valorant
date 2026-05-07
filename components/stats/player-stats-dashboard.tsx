@@ -118,7 +118,7 @@ export function PlayerStatsDashboard({
       day: "numeric",
     }),
     acs: match.acs,
-  }));
+  })).filter((entry) => isPositiveMetric(entry.acs));
   const rrSeries = history
     .slice(-14)
     .map((entry) => ({
@@ -155,13 +155,13 @@ export function PlayerStatsDashboard({
     },
     {
       label: "ACS",
-      value: summary.acs.toFixed(1),
+      value: formatNumber(summary.acs, 1),
       sublabel: outcomeRank(summary.acs, 240, 190),
       icon: Target,
     },
     {
       label: "ADR",
-      value: summary.adr.toFixed(1),
+      value: formatNumber(summary.adr, 1),
       sublabel: outcomeRank(summary.adr, 155, 125),
       icon: Swords,
     },
@@ -468,7 +468,7 @@ export function PlayerStatsDashboard({
                     <div className="mt-3 grid grid-cols-3 gap-2 text-sm text-white/68">
                       <MiniStat label="Matches" value={String(agent.games)} />
                       <MiniStat label="Win Rate" value={formatPercent(agent.winRate, 0)} />
-                      <MiniStat label="ACS" value={String(agent.acs)} />
+                      <MiniStat label="ACS" value={formatNumber(agent.acs, 0)} />
                     </div>
                   </div>
                 </div>
@@ -769,8 +769,8 @@ function RecentMatchCard({ match, href }: { match: NormalizedMatch; href: string
           <div className="mt-3 grid gap-3 sm:grid-cols-5">
             <MiniStat label="Score" value={`${match.scoreTeam} - ${match.scoreOpponent}`} />
             <MiniStat label="KDA" value={`${match.kills}/${match.deaths}/${match.assists}`} />
-            <MiniStat label="ACS" value={String(match.acs)} />
-            <MiniStat label="ADR" value={String(match.adr)} />
+            <MiniStat label="ACS" value={formatNumber(validCombatMetric(match.acs), 0)} />
+            <MiniStat label="ADR" value={formatNumber(validCombatMetric(match.adr), 0)} />
             <MiniStat label="HS%" value={`${match.headshotPct.toFixed(0)}%`} />
           </div>
         </div>
@@ -916,18 +916,18 @@ function formatActLabel(value: string): string {
 }
 
 function summarizeMatches(matches: NormalizedMatch[]) {
+  const acsValues = matches.map((match) => validCombatMetric(match.acs)).filter(isNumber);
+  const adrValues = matches.map((match) => validCombatMetric(match.adr)).filter(isNumber);
   const totals = matches.reduce(
     (acc, match) => {
       acc.kills += match.kills;
       acc.deaths += match.deaths;
-      acc.acs += match.acs;
-      acc.adr += match.adr;
       acc.hs += match.headshotPct;
       if (match.result === "win") acc.wins += 1;
       if (match.result === "loss") acc.losses += 1;
       return acc;
     },
-    { kills: 0, deaths: 0, acs: 0, adr: 0, hs: 0, wins: 0, losses: 0 },
+    { kills: 0, deaths: 0, hs: 0, wins: 0, losses: 0 },
   );
 
   const sample = matches.length || 1;
@@ -935,21 +935,25 @@ function summarizeMatches(matches: NormalizedMatch[]) {
 
   return {
     kd: totals.kills / Math.max(1, totals.deaths),
-    acs: totals.acs / sample,
-    adr: totals.adr / sample,
+    acs: averageOrNull(acsValues),
+    adr: averageOrNull(adrValues),
     hs: totals.hs / sample,
     winRate: (totals.wins / decided) * 100,
   };
 }
 
 function summarizeAgents(matches: NormalizedMatch[]) {
-  const totals = new Map<string, { games: number; wins: number; acs: number }>();
+  const totals = new Map<string, { games: number; wins: number; acs: number; acsCount: number }>();
 
   for (const match of matches) {
     if (!match.agent) continue;
-    const entry = totals.get(match.agent) ?? { games: 0, wins: 0, acs: 0 };
+    const entry = totals.get(match.agent) ?? { games: 0, wins: 0, acs: 0, acsCount: 0 };
     entry.games += 1;
-    entry.acs += match.acs;
+    const acs = validCombatMetric(match.acs);
+    if (acs != null) {
+      entry.acs += acs;
+      entry.acsCount += 1;
+    }
     if (match.result === "win") entry.wins += 1;
     totals.set(match.agent, entry);
   }
@@ -960,7 +964,7 @@ function summarizeAgents(matches: NormalizedMatch[]) {
       games: values.games,
       usage: matches.length ? (values.games / matches.length) * 100 : 0,
       winRate: values.games ? (values.wins / values.games) * 100 : 0,
-      acs: Math.round(values.acs / Math.max(1, values.games)),
+      acs: values.acsCount ? Math.round(values.acs / values.acsCount) : null,
     }))
     .sort((a, b) => b.games - a.games);
 }
@@ -1006,7 +1010,7 @@ function buildInsightCards({
   history,
 }: {
   hs: number;
-  agents: Array<{ agent: string; games: number; usage: number; winRate: number; acs: number }>;
+  agents: Array<{ agent: string; games: number; usage: number; winRate: number; acs: number | null }>;
   maps: Array<{ map: string; games: number; winRate: number; kd: number }>;
   history: NormalizedMmrHistoryEntry[];
 }) {
@@ -1066,10 +1070,32 @@ function formatPercent(value: number, digits: number) {
   return `${value.toFixed(digits)}%`;
 }
 
-function outcomeRank(value: number, high: number, low: number) {
+function formatNumber(value: number | null, digits: number) {
+  return value != null ? value.toFixed(digits) : "N/A";
+}
+
+function outcomeRank(value: number | null, high: number, low: number) {
+  if (value == null) return "Missing from compact API";
   if (value >= high) return "Strong trend";
   if (value <= low) return "Needs attention";
   return "Stable range";
+}
+
+function validCombatMetric(value: number): number | null {
+  return isPositiveMetric(value) ? value : null;
+}
+
+function isPositiveMetric(value: number): boolean {
+  return Number.isFinite(value) && value > 0;
+}
+
+function isNumber(value: number | null): value is number {
+  return value != null;
+}
+
+function averageOrNull(values: number[]): number | null {
+  if (values.length === 0) return null;
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
 }
 
 function agentMonogram(agent?: string | null) {
