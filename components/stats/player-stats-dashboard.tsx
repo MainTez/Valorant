@@ -83,12 +83,18 @@ export function PlayerStatsDashboard({
   playerHrefBase,
 }: Props) {
   const [matchPage, setMatchPage] = useState(1);
+  const [selectedActKey, setSelectedActKey] = useState<string | null>(null);
+  const actGroups = buildActGroups(matches);
+  const activeAct = actGroups.find((act) => act.key === selectedActKey) ?? actGroups[0] ?? null;
+  const actMatches = activeAct
+    ? matches.filter((match) => matchActKey(match) === activeAct.key)
+    : matches;
   const theme = getRankTheme(mmr?.currentTierId, mmr?.currentTier);
   const rankAsset = getCompetitiveTierAsset(mmr?.currentTierId);
-  const summary = summarizeMatches(matches);
-  const trackerScore = matches.length > 0
+  const summary = summarizeMatches(actMatches);
+  const trackerScore = actMatches.length > 0
     ? buildTrackerScore({
-        sampleSize: matches.length,
+        sampleSize: actMatches.length,
         kdRatio: summary.kd,
         acs: summary.acs,
         adr: summary.adr,
@@ -96,17 +102,17 @@ export function PlayerStatsDashboard({
         winRate: summary.winRate,
       })
     : null;
-  const totalMatchPages = Math.max(1, Math.ceil(matches.length / MATCH_HISTORY_PAGE_SIZE));
+  const totalMatchPages = Math.max(1, Math.ceil(actMatches.length / MATCH_HISTORY_PAGE_SIZE));
   const currentMatchPage = Math.min(matchPage, totalMatchPages);
   const firstMatchIndex = (currentMatchPage - 1) * MATCH_HISTORY_PAGE_SIZE;
-  const visibleMatches = matches.slice(firstMatchIndex, firstMatchIndex + MATCH_HISTORY_PAGE_SIZE);
-  const matchRangeLabel = matches.length
-    ? `${firstMatchIndex + 1}-${Math.min(firstMatchIndex + MATCH_HISTORY_PAGE_SIZE, matches.length)} of ${matches.length}`
+  const visibleMatches = actMatches.slice(firstMatchIndex, firstMatchIndex + MATCH_HISTORY_PAGE_SIZE);
+  const matchRangeLabel = actMatches.length
+    ? `${firstMatchIndex + 1}-${Math.min(firstMatchIndex + MATCH_HISTORY_PAGE_SIZE, actMatches.length)} of ${actMatches.length}`
     : "0 of 0";
-  const agents = summarizeAgents(matches);
-  const maps = summarizeMaps(matches);
-  const outcomes = buildOutcomeBreakdown(matches);
-  const trendData = [...matches].reverse().map((match) => ({
+  const agents = summarizeAgents(actMatches);
+  const maps = summarizeMaps(actMatches);
+  const outcomes = buildOutcomeBreakdown(actMatches);
+  const trendData = [...actMatches].reverse().map((match) => ({
     label: new Date(match.startedAt).toLocaleDateString(undefined, {
       month: "short",
       day: "numeric",
@@ -167,8 +173,8 @@ export function PlayerStatsDashboard({
     },
     {
       label: "Matches",
-      value: String(matches.length),
-      sublabel: "Stored matches fetched",
+      value: String(actMatches.length),
+      sublabel: activeAct ? activeAct.label : "Stored matches fetched",
       icon: Users,
     },
   ];
@@ -286,6 +292,18 @@ export function PlayerStatsDashboard({
         </section>
 
         <section className="grid gap-5">
+          {actGroups.length > 1 ? (
+            <ActSelector
+              acts={actGroups}
+              activeKey={activeAct?.key ?? null}
+              totalMatches={matches.length}
+              onSelect={(key) => {
+                setSelectedActKey(key);
+                setMatchPage(1);
+              }}
+            />
+          ) : null}
+
           <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-6">
             {metricTiles.map((tile) => (
               <MetricTile
@@ -298,7 +316,7 @@ export function PlayerStatsDashboard({
           </div>
 
           <div className="grid gap-5 2xl:grid-cols-[minmax(0,1fr)_minmax(320px,0.95fr)]">
-            <ChartPanel title="ACS Trend" subtitle={`Last ${trendData.length} stored matches`}>
+            <ChartPanel title="ACS Trend" subtitle={`${trendData.length} ${activeAct?.label ?? "stored"} matches`}>
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={trendData}>
                   <defs>
@@ -340,7 +358,7 @@ export function PlayerStatsDashboard({
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
         <Panel
           title="Match History"
-          subtitle={`${matches.length} stored matches fetched`}
+          subtitle={`${actMatches.length} ${activeAct?.label ?? "stored"} matches / ${matches.length} total fetched`}
           action={
             <span className="text-xs uppercase tracking-[0.18em] text-white/38">
               {matchRangeLabel}
@@ -412,7 +430,7 @@ export function PlayerStatsDashboard({
                     <div className="text-right">
                       <div className="font-display text-2xl leading-none text-white">{segment.value}</div>
                       <div className="text-[11px] uppercase tracking-[0.18em] text-white/38">
-                        {matches.length ? `${Math.round((segment.value / matches.length) * 100)}%` : "0%"}
+                        {actMatches.length ? `${Math.round((segment.value / actMatches.length) * 100)}%` : "0%"}
                       </div>
                     </div>
                   </div>
@@ -548,6 +566,52 @@ function MetricTile({
       <div className="mt-2 font-display text-5xl leading-none text-white">{value}</div>
       <div className="mt-2 text-sm text-white/56">{sublabel}</div>
     </div>
+  );
+}
+
+function ActSelector({
+  acts,
+  activeKey,
+  totalMatches,
+  onSelect,
+}: {
+  acts: ActGroup[];
+  activeKey: string | null;
+  totalMatches: number;
+  onSelect: (key: string) => void;
+}) {
+  return (
+    <section className={cn(PANEL_CLASS, "flex flex-col gap-3 md:flex-row md:items-center md:justify-between")}>
+      <div>
+        <div className="text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-white/40">
+          Act
+        </div>
+        <div className="mt-1 text-sm text-white/48">
+          {totalMatches} total stored matches
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {acts.map((act) => {
+          const selected = activeKey === act.key;
+          return (
+            <button
+              key={act.key}
+              type="button"
+              onClick={() => onSelect(act.key)}
+              className={cn(
+                "rounded-xl border px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] transition",
+                selected
+                  ? "border-[#d6a74a]/34 bg-[#d6a74a]/12 text-[#f0c462]"
+                  : "border-white/10 bg-white/[0.03] text-white/50 hover:border-white/18 hover:text-white/78",
+              )}
+            >
+              {act.label}
+              <span className="ml-2 text-white/34">{act.count}</span>
+            </button>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
@@ -786,6 +850,69 @@ function MatchResultRail({
 
 function EmptyPanelCopy({ text }: { text: string }) {
   return <p className="rounded-2xl border border-[#d6a74a]/10 bg-white/[0.025] px-4 py-5 text-sm text-white/55">{text}</p>;
+}
+
+interface ActGroup {
+  key: string;
+  label: string;
+  count: number;
+}
+
+interface StoredMatchRaw {
+  meta?: {
+    season?: string | { id?: string | null; short?: string | null } | null;
+  } | null;
+}
+
+function buildActGroups(matches: NormalizedMatch[]): ActGroup[] {
+  const groups = new Map<string, ActGroup>();
+
+  for (const match of matches) {
+    const act = matchAct(match);
+    const group = groups.get(act.key) ?? { ...act, count: 0 };
+    group.count += 1;
+    groups.set(act.key, group);
+  }
+
+  return [...groups.values()];
+}
+
+function matchActKey(match: NormalizedMatch): string {
+  return matchAct(match).key;
+}
+
+function matchAct(match: NormalizedMatch): Omit<ActGroup, "count"> {
+  const raw = match.raw as StoredMatchRaw | undefined;
+  const season = raw?.meta?.season;
+
+  if (typeof season === "string" && season.trim()) {
+    return {
+      key: season.trim(),
+      label: formatActLabel(season.trim()),
+    };
+  }
+
+  if (season && typeof season === "object") {
+    const short = season.short?.trim();
+    const id = season.id?.trim();
+    const key = id || short;
+    const labelSource = short || id;
+    if (key && labelSource) {
+      return {
+        key,
+        label: formatActLabel(labelSource),
+      };
+    }
+  }
+
+  return { key: "unknown-act", label: "Unknown Act" };
+}
+
+function formatActLabel(value: string): string {
+  const normalized = value.trim().toUpperCase();
+  const compact = normalized.match(/^E(\d+)A(\d+)$/);
+  if (compact) return `E${compact[1]} A${compact[2]}`;
+  return normalized;
 }
 
 function summarizeMatches(matches: NormalizedMatch[]) {
