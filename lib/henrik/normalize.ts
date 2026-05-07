@@ -11,6 +11,8 @@ import type {
   HenrikMatchResponse,
   HenrikMmrHistoryResponse,
   HenrikMatchPlayer,
+  HenrikStoredMatch,
+  HenrikStoredMatchesResponse,
 } from "./types";
 
 export function normalizeAccount(res: HenrikAccountResponse): NormalizedAccount | null {
@@ -60,6 +62,8 @@ function pickPlayer(players: HenrikMatchPlayer[] | undefined, puuid?: string | n
 }
 
 type HenrikMatch = NonNullable<HenrikMatchResponse["data"]>[number];
+type StoredMap = NonNullable<HenrikStoredMatch["meta"]>["map"];
+type StoredCharacter = NonNullable<HenrikStoredMatch["stats"]>["character"];
 
 function resultFor(match: HenrikMatch, playerTeam: string | undefined): Result | null {
   if (!playerTeam) return null;
@@ -140,6 +144,60 @@ export function normalizeMatches(
     .filter((m): m is NormalizedMatch => m !== null);
 }
 
+export function normalizeStoredMatches(
+  res: HenrikStoredMatchesResponse,
+): NormalizedMatch[] {
+  const arr = res.data ?? [];
+  return arr
+    .map((m): NormalizedMatch | null => normalizeStoredMatch(m))
+    .filter((m): m is NormalizedMatch => m !== null);
+}
+
+function normalizeStoredMatch(match: HenrikStoredMatch): NormalizedMatch | null {
+  const meta = match.meta ?? {};
+  const stats = match.stats ?? {};
+  const matchId = meta.id;
+  if (!matchId) return null;
+
+  const teamKey = normalizeTeamKey(stats.team);
+  const otherTeamKey = teamKey === "red" ? "blue" : "red";
+  const teamScore = teamKey ? match.teams?.[teamKey] : undefined;
+  const otherScore = teamKey ? match.teams?.[otherTeamKey] : undefined;
+  const rounds =
+    typeof teamScore === "number" && typeof otherScore === "number"
+      ? teamScore + otherScore
+      : 0;
+  const result = resultFromCompactScore(teamScore, otherScore);
+  const shots = stats.shots ?? {};
+  const headshots = shots.head ?? 0;
+  const bodyshots = shots.body ?? 0;
+  const legshots = shots.leg ?? 0;
+  const totalShots = headshots + bodyshots + legshots;
+  const hsPct = totalShots > 0 ? (headshots / totalShots) * 100 : 0;
+  const score = stats.score ?? 0;
+  const damageDealt = stats.damage?.dealt ?? 0;
+
+  return {
+    matchId,
+    startedAt: dateOrNow(meta.started_at),
+    map: mapName(meta.map),
+    mode: meta.mode ?? "unrated",
+    agent: characterName(stats.character),
+    result,
+    scoreTeam: teamScore ?? 0,
+    scoreOpponent: otherScore ?? 0,
+    kills: stats.kills ?? 0,
+    deaths: stats.deaths ?? 0,
+    assists: stats.assists ?? 0,
+    acs: rounds > 0 ? Math.round(score / rounds) : 0,
+    adr: rounds > 0 ? Math.round(damageDealt / rounds) : 0,
+    headshotPct: Number(hsPct.toFixed(2)),
+    rrChange: null,
+    rankAfter: typeof stats.tier === "number" ? `Tier ${stats.tier}` : null,
+    raw: match,
+  };
+}
+
 export function normalizeMmrHistory(
   res: HenrikMmrHistoryResponse,
 ): NormalizedMmrHistoryEntry[] {
@@ -152,6 +210,46 @@ export function normalizeMmrHistory(
     elo: row.elo ?? null,
     map: row.map?.name ?? null,
   }));
+}
+
+function resultFromCompactScore(
+  teamScore: number | undefined,
+  opponentScore: number | undefined,
+): Result | null {
+  if (typeof teamScore !== "number" || typeof opponentScore !== "number") {
+    return null;
+  }
+  if (teamScore > opponentScore) return "win";
+  if (teamScore < opponentScore) return "loss";
+  return "draw";
+}
+
+function normalizeTeamKey(team: string | undefined): "red" | "blue" | null {
+  const normalized = team?.trim().toLowerCase();
+  return normalized === "red" || normalized === "blue" ? normalized : null;
+}
+
+function mapName(map: StoredMap): string {
+  if (typeof map === "string") return map;
+  if (typeof map === "object" && map !== null && "name" in map) {
+    return typeof map.name === "string" ? map.name : "Unknown";
+  }
+  return "Unknown";
+}
+
+function characterName(character: StoredCharacter): string | null {
+  if (typeof character === "string") return character;
+  if (typeof character === "object" && character !== null && "name" in character) {
+    return typeof character.name === "string" ? character.name : null;
+  }
+  return null;
+}
+
+function dateOrNow(value: string | undefined): string {
+  const date = value ? new Date(value) : null;
+  return date && !Number.isNaN(date.getTime())
+    ? date.toISOString()
+    : new Date().toISOString();
 }
 
 function cryptoId(): string {

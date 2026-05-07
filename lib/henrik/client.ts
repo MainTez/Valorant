@@ -8,12 +8,16 @@ import {
 import type {
   HenrikAccountResponse,
   HenrikMMRResponse,
+  HenrikMatchDetailsResponse,
   HenrikMatchResponse,
   HenrikMmrHistoryResponse,
+  HenrikStoredMatchesResponse,
 } from "./types";
 import { HENRIK_CACHE_TTLS } from "@/lib/constants";
 
 const BASE = "https://api.henrikdev.xyz/valorant";
+const STORED_MATCH_PAGE_SIZE = 10;
+const STORED_MATCH_MAX_PAGES = 500;
 
 export class HenrikApiError extends Error {
   status: number;
@@ -140,11 +144,109 @@ export async function henrikMatches(
   const r = normalizeRegion(region);
   const qs = new URLSearchParams();
   if (opts.size) qs.set("size", String(opts.size));
-  if (opts.mode) qs.set("filter", opts.mode);
+  if (opts.mode) qs.set("mode", opts.mode);
   const q = qs.toString();
   const key = `matches:${r}:${name.toLowerCase()}#${tag.toLowerCase()}:${q}`;
   return henrikFetch<HenrikMatchResponse>(
     `/v3/matches/${r}/${encodeName(name)}/${encodeName(tag)}${q ? `?${q}` : ""}`,
+    { cacheKey: key, ttlSeconds: HENRIK_CACHE_TTLS.matches, force: opts.force },
+  );
+}
+
+export async function henrikStoredMatchesPage(
+  name: string,
+  tag: string,
+  region: HenrikRegion | string = defaultRegion(),
+  opts: { force?: boolean; size?: number; page?: number; mode?: string; map?: string } = {},
+): Promise<HenrikStoredMatchesResponse> {
+  const r = normalizeRegion(region);
+  const page = Math.max(1, Math.floor(opts.page ?? 1));
+  const size = Math.min(STORED_MATCH_PAGE_SIZE, Math.max(1, Math.floor(opts.size ?? STORED_MATCH_PAGE_SIZE)));
+  const qs = new URLSearchParams();
+  qs.set("page", String(page));
+  qs.set("size", String(size));
+  if (opts.mode) qs.set("mode", opts.mode);
+  if (opts.map) qs.set("map", opts.map);
+  const q = qs.toString();
+  const key = `stored-matches:${r}:${name.toLowerCase()}#${tag.toLowerCase()}:${q}`;
+  return henrikFetch<HenrikStoredMatchesResponse>(
+    `/v1/stored-matches/${r}/${encodeName(name)}/${encodeName(tag)}?${q}`,
+    { cacheKey: key, ttlSeconds: HENRIK_CACHE_TTLS.matches, force: opts.force },
+  );
+}
+
+export async function henrikAllStoredMatches(
+  name: string,
+  tag: string,
+  region: HenrikRegion | string = defaultRegion(),
+  opts: { force?: boolean; mode?: string; map?: string; maxPages?: number } = {},
+): Promise<HenrikStoredMatchesResponse> {
+  const data: NonNullable<HenrikStoredMatchesResponse["data"]> = [];
+  const errors: NonNullable<HenrikStoredMatchesResponse["errors"]> = [];
+  let page = 1;
+  let lastResults: HenrikStoredMatchesResponse["results"] | undefined;
+  const maxPages = Math.max(1, Math.floor(opts.maxPages ?? STORED_MATCH_MAX_PAGES));
+
+  while (page <= maxPages) {
+    try {
+      const response = await henrikStoredMatchesPage(name, tag, region, {
+        force: opts.force,
+        size: STORED_MATCH_PAGE_SIZE,
+        page,
+        mode: opts.mode,
+        map: opts.map,
+      });
+      const rows = Array.isArray(response.data) ? response.data : [];
+      const returned = response.results?.returned ?? rows.length;
+      lastResults = response.results;
+
+      if (rows.length === 0 || returned === 0) break;
+
+      data.push(...rows);
+
+      const after = response.results?.after ?? 0;
+      if (after <= 0) break;
+
+      page++;
+    } catch (err) {
+      errors.push({
+        page,
+        message: err instanceof Error ? err.message : "Henrik stored match page failed",
+      });
+      break;
+    }
+  }
+
+  data.sort((left, right) => {
+    const leftTime = new Date(left.meta?.started_at ?? "").getTime();
+    const rightTime = new Date(right.meta?.started_at ?? "").getTime();
+    return (Number.isFinite(rightTime) ? rightTime : 0) - (Number.isFinite(leftTime) ? leftTime : 0);
+  });
+
+  return {
+    status: errors.length ? 206 : 200,
+    name,
+    tag,
+    results: {
+      total: lastResults?.total ?? data.length,
+      returned: data.length,
+      before: lastResults?.before ?? 0,
+      after: lastResults?.after ?? 0,
+    },
+    data,
+    errors: errors.length ? errors : undefined,
+  };
+}
+
+export async function henrikMatchDetails(
+  matchId: string,
+  region: HenrikRegion | string = defaultRegion(),
+  opts: { force?: boolean } = {},
+): Promise<HenrikMatchDetailsResponse> {
+  const r = normalizeRegion(region);
+  const key = `match-details:${r}:${matchId}`;
+  return henrikFetch<HenrikMatchDetailsResponse>(
+    `/v2/match/${encodeName(matchId)}`,
     { cacheKey: key, ttlSeconds: HENRIK_CACHE_TTLS.matches, force: opts.force },
   );
 }

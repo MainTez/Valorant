@@ -157,7 +157,10 @@ set the repository variable `NEXUS_APP_URL` if production moves to another URL.
 All Henrik calls go through server-side proxy routes (`/api/henrik/*`).
 Responses are cached in a `henrik_cache` table with per-endpoint TTLs
 (account 1h, matches 10m, MMR 2m, history 15m). The key never ships to the
-browser.
+browser. Tracker history uses the compact stored-matches endpoint with
+`size=10&page=N`, walking pages until `results.after` reaches `0` or no rows
+are returned. Full match payloads are fetched only when a user opens a specific
+match detail page.
 
 ## AI insights
 
@@ -165,7 +168,7 @@ Two-layer design, always grounded:
 
 1. **Rule-based engine** (`lib/insights/engine.ts`) computes momentum,
    consistency, RR trend, win rate, best agents, weak maps, and a
-   rank-ladder projection from the last 20 matches. Every data point is
+   rank-ladder projection from the stored match sample. Every data point is
    explicit and logged into `ai_predictions.data_points`.
 2. **OpenRouter LLM** (`lib/insights/llm.ts`) receives the engine output
    and writes a 2-3 sentence coach-style summary plus three concrete

@@ -1,8 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { henrikMMR, henrikMatches, henrikMmrHistory } from "@/lib/henrik/client";
+import { henrikMMR, henrikAllStoredMatches, henrikMmrHistory } from "@/lib/henrik/client";
 import {
-  normalizeMatches,
+  normalizeStoredMatches,
   normalizeMMR,
   normalizeMmrHistory,
 } from "@/lib/henrik/normalize";
@@ -36,11 +36,11 @@ export async function GET(request: NextRequest) {
       const region = normalizeRegion(p.region ?? "eu");
       const [mmr, matches, history] = await Promise.all([
         henrikMMR(p.riot_name, p.riot_tag, region),
-        henrikMatches(p.riot_name, p.riot_tag, region, { size: 20 }),
+        henrikAllStoredMatches(p.riot_name, p.riot_tag, region),
         henrikMmrHistory(p.riot_name, p.riot_tag, region),
       ]);
       const mmrN = normalizeMMR(mmr);
-      const matchesN = normalizeMatches(matches, { puuid: p.puuid });
+      const matchesN = normalizeStoredMatches(matches);
       const historyN = normalizeMmrHistory(history);
 
       const engine = runEngine({

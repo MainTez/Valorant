@@ -1,9 +1,9 @@
 import "server-only";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { henrikAccount, henrikMatches, henrikMMR } from "@/lib/henrik/client";
+import { henrikAccount, henrikAllStoredMatches, henrikMMR } from "@/lib/henrik/client";
 import {
   normalizeAccount,
-  normalizeMatches,
+  normalizeStoredMatches,
   normalizeMMR,
 } from "@/lib/henrik/normalize";
 import { normalizeRegion } from "@/lib/henrik/regions";
@@ -35,7 +35,7 @@ export interface SyncPlayerProfileResult {
 
 export async function syncPlayerProfileFromHenrik({
   force = false,
-  matchLimit = 20,
+  matchLimit,
   profile,
   region: requestedRegion,
   riotName,
@@ -55,17 +55,16 @@ export async function syncPlayerProfileFromHenrik({
 
   const [mmrResult, matchesResult] = await Promise.allSettled([
     henrikMMR(account.name, account.tag, region, { force }),
-    henrikMatches(account.name, account.tag, region, { force, size: matchLimit }),
+    henrikAllStoredMatches(account.name, account.tag, region, { force }),
   ]);
 
   const mmr = mmrResult.status === "fulfilled" ? normalizeMMR(mmrResult.value) : null;
   const matches =
     matchesResult.status === "fulfilled"
-      ? normalizeMatches(matchesResult.value, {
-          puuid: account.puuid,
-          name: account.name,
-          tag: account.tag,
-        })
+      ? normalizeStoredMatches(matchesResult.value).slice(
+          0,
+          matchLimit && matchLimit > 0 ? matchLimit : undefined,
+        )
       : [];
   const refreshedRank = mmrResult.status === "fulfilled";
   const refreshedMatches = matchesResult.status === "fulfilled";

@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { AlertTriangle, ChevronLeft } from "lucide-react";
 import { requireSession } from "@/lib/auth/get-session";
-import { henrikAccount, henrikMatches } from "@/lib/henrik/client";
+import { henrikAccount, henrikMatchDetails } from "@/lib/henrik/client";
 import { normalizeAccount, normalizeMatches } from "@/lib/henrik/normalize";
 import { defaultRegion, normalizeRegion } from "@/lib/henrik/regions";
 import { getAgentAsset, getMapAsset } from "@/lib/valorant/assets";
@@ -63,11 +63,11 @@ export default async function PlayerMatchDetailPage({ params, searchParams }: Pr
   const decodedMatchId = decodeURIComponent(matchId);
 
   let accountRes;
-  let matchesRes;
+  let matchRes;
   try {
-    [accountRes, matchesRes] = await Promise.all([
+    [accountRes, matchRes] = await Promise.all([
       henrikAccount(decodedName, decodedTag),
-      henrikMatches(decodedName, decodedTag, region, { size: 20 }),
+      henrikMatchDetails(decodedMatchId, region),
     ]);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Henrik API error";
@@ -105,19 +105,19 @@ export default async function PlayerMatchDetailPage({ params, searchParams }: Pr
     );
   }
 
-  const matches = normalizeMatches(matchesRes, {
+  const matches = normalizeMatches({ status: matchRes.status, data: matchRes.data ? [matchRes.data] : [] }, {
     puuid: account.puuid,
     name: decodedName,
     tag: decodedTag,
   });
-  const match = matches.find((entry) => entry.matchId === decodedMatchId);
+  const match = matches[0] ?? null;
 
   if (!match) {
     return (
       <div className="mx-auto mt-8 max-w-2xl">
         <EmptyState
           title="Match not available"
-          description="This match is not in the current Henrik match window. We currently load the latest 20 matches for the tracker."
+          description="Henrik did not return a full payload for this stored match yet."
           action={
             <Link
               href={`/stats/${encodeURIComponent(decodedName)}/${encodeURIComponent(decodedTag)}?region=${region}`}

@@ -2,10 +2,10 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { getSessionUser } from "@/lib/auth/get-session";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { henrikAccount, henrikMatches, henrikMMR, henrikMmrHistory } from "@/lib/henrik/client";
+import { henrikAccount, henrikAllStoredMatches, henrikMMR, henrikMmrHistory } from "@/lib/henrik/client";
 import {
   normalizeAccount,
-  normalizeMatches,
+  normalizeStoredMatches,
   normalizeMMR,
   normalizeMmrHistory,
 } from "@/lib/henrik/normalize";
@@ -68,12 +68,12 @@ export async function POST(request: NextRequest) {
 
   const [mmrRes, matchesRes, historyRes] = await Promise.all([
     henrikMMR(account.name, account.tag, region),
-    henrikMatches(account.name, account.tag, region, { size: 20 }),
+    henrikAllStoredMatches(account.name, account.tag, region),
     henrikMmrHistory(account.name, account.tag, region),
   ]);
 
   const mmr = normalizeMMR(mmrRes);
-  const matches = normalizeMatches(matchesRes, { puuid: account.puuid });
+  const matches = normalizeStoredMatches(matchesRes);
   const history = normalizeMmrHistory(historyRes);
 
   const engine = runEngine({

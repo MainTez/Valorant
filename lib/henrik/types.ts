@@ -77,6 +77,62 @@ export interface HenrikMatchResponse {
   }>;
 }
 
+export interface HenrikStoredMatch {
+  meta?: {
+    id?: string;
+    map?: { id?: string; name?: string } | string;
+    version?: string;
+    mode?: string;
+    started_at?: string;
+    season?: { id?: string; short?: string };
+    region?: string;
+    cluster?: string;
+  };
+  stats?: {
+    puuid?: string;
+    team?: string;
+    level?: number;
+    character?: { id?: string; name?: string } | string;
+    tier?: number;
+    score?: number;
+    kills?: number;
+    deaths?: number;
+    assists?: number;
+    shots?: {
+      head?: number;
+      body?: number;
+      leg?: number;
+    };
+    damage?: {
+      dealt?: number;
+      received?: number;
+    };
+  };
+  teams?: {
+    red?: number;
+    blue?: number;
+  };
+}
+
+export interface HenrikStoredMatchesResponse {
+  status?: number;
+  name?: string;
+  tag?: string;
+  results?: {
+    total?: number;
+    returned?: number;
+    before?: number;
+    after?: number;
+  };
+  data?: HenrikStoredMatch[];
+  errors?: Array<{ page: number; message: string }>;
+}
+
+export interface HenrikMatchDetailsResponse {
+  status?: number;
+  data?: NonNullable<HenrikMatchResponse["data"]>[number];
+}
+
 export interface HenrikMmrHistoryResponse {
   status?: number;
   data?: Array<{

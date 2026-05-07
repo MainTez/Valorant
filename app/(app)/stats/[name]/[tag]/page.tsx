@@ -5,13 +5,13 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   henrikAccount,
-  henrikMatches,
+  henrikAllStoredMatches,
   henrikMMR,
   henrikMmrHistory,
 } from "@/lib/henrik/client";
 import {
   normalizeAccount,
-  normalizeMatches,
+  normalizeStoredMatches,
   normalizeMMR,
   normalizeMmrHistory,
 } from "@/lib/henrik/normalize";
@@ -48,7 +48,7 @@ export default async function PlayerStatsPage({ params, searchParams }: Props) {
     [accountRes, mmrRes, matchesRes, historyRes] = await Promise.all([
       henrikAccount(decodedName, decodedTag),
       henrikMMR(decodedName, decodedTag, region),
-      henrikMatches(decodedName, decodedTag, region, { size: 20 }),
+      henrikAllStoredMatches(decodedName, decodedTag, region),
       henrikMmrHistory(decodedName, decodedTag, region),
     ]);
   } catch (err) {
@@ -69,11 +69,7 @@ export default async function PlayerStatsPage({ params, searchParams }: Props) {
 
   const account = normalizeAccount(accountRes);
   const mmr = normalizeMMR(mmrRes);
-  const matches = normalizeMatches(matchesRes, {
-    puuid: account?.puuid,
-    name: decodedName,
-    tag: decodedTag,
-  });
+  const matches = normalizeStoredMatches(matchesRes);
   const analyticalMatches = filterCoreStatsMatches(matches);
   const history = normalizeMmrHistory(historyRes);
 
@@ -165,7 +161,7 @@ export default async function PlayerStatsPage({ params, searchParams }: Props) {
       <PlayerStatsDashboard
         account={account}
         mmr={mmr}
-        matches={analyticalMatches}
+        matches={matches}
         history={history}
         region={region}
         onTeam={Boolean(rosterUser)}

@@ -157,7 +157,7 @@ export function PlayerStatsDashboard({
     {
       label: "Matches",
       value: String(matches.length),
-      sublabel: "Core queue sample",
+      sublabel: "Stored matches fetched",
       icon: Users,
     },
   ];
@@ -188,7 +188,7 @@ export function PlayerStatsDashboard({
                 <span className="ml-2 text-white/35">#{account.tag}</span>
               </h1>
               <p className="mt-3 text-sm text-white/54">
-                Clean competitive-only tracker using official Riot rank, map, and agent assets.
+                Compact stored-match tracker using official Riot rank, map, and agent assets.
               </p>
             </div>
             <div
@@ -287,7 +287,7 @@ export function PlayerStatsDashboard({
           </div>
 
           <div className="grid gap-5 2xl:grid-cols-[minmax(0,1fr)_minmax(320px,0.95fr)]">
-            <ChartPanel title="ACS Trend" subtitle={`Last ${trendData.length} core matches`}>
+            <ChartPanel title="ACS Trend" subtitle={`Last ${trendData.length} stored matches`}>
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={trendData}>
                   <defs>
@@ -327,10 +327,10 @@ export function PlayerStatsDashboard({
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
-        <Panel title="Recent Matches" subtitle="Competitive-only recent history">
+        <Panel title="Recent Matches" subtitle={`${matches.length} stored matches fetched`}>
           <div className="space-y-3">
             {recentMatches.length === 0 ? (
-              <EmptyPanelCopy text="No competitive matches available." />
+              <EmptyPanelCopy text="No stored matches available." />
             ) : (
               recentMatches.map((match) => (
                 <RecentMatchCard
@@ -344,7 +344,7 @@ export function PlayerStatsDashboard({
         </Panel>
 
         <div className="grid gap-5">
-          <Panel title="Result Split" subtitle="Core sample only">
+          <Panel title="Result Split" subtitle="Stored match sample">
             <div className="grid gap-4 md:grid-cols-[220px_minmax(0,1fr)] md:items-center">
               <div className="h-[220px]">
                 <ResponsiveContainer width="100%" height="100%">
@@ -847,7 +847,7 @@ function buildInsightCards({
     {
       title: "Aim Discipline",
       body: hs >= 20
-        ? "Headshot rate is sitting in a healthy carry range across the core queues."
+        ? "Headshot rate is sitting in a healthy carry range across the stored sample."
         : "Mechanical output is stable, but first-bullet precision still has room to tighten.",
       highlight: hs >= 20 ? "Keep pressing clean duels" : "Sharpen opening accuracy",
       icon: Crosshair,
