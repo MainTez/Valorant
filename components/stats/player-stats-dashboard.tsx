@@ -3,10 +3,13 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { ComponentType, ReactNode } from "react";
+import { useState } from "react";
 import {
   ArrowUpRight,
   BrainCircuit,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Crosshair,
   Crown,
   Map as MapIcon,
@@ -47,6 +50,7 @@ const DASHBOARD_ACCENT = "#d6a74a";
 const DASHBOARD_ACCENT_SOFT = "rgba(214,167,74,0.18)";
 const PANEL_CLASS =
   "rounded-[24px] border border-[#d6a74a]/12 bg-[linear-gradient(180deg,rgba(18,16,14,0.98)_0%,rgba(10,12,17,0.99)_100%)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]";
+const MATCH_HISTORY_PAGE_SIZE = 10;
 
 interface Props {
   account: NormalizedAccount;
@@ -78,6 +82,7 @@ export function PlayerStatsDashboard({
   insightsHref,
   playerHrefBase,
 }: Props) {
+  const [matchPage, setMatchPage] = useState(1);
   const theme = getRankTheme(mmr?.currentTierId, mmr?.currentTier);
   const rankAsset = getCompetitiveTierAsset(mmr?.currentTierId);
   const summary = summarizeMatches(matches);
@@ -91,7 +96,13 @@ export function PlayerStatsDashboard({
         winRate: summary.winRate,
       })
     : null;
-  const recentMatches = matches.slice(0, 6);
+  const totalMatchPages = Math.max(1, Math.ceil(matches.length / MATCH_HISTORY_PAGE_SIZE));
+  const currentMatchPage = Math.min(matchPage, totalMatchPages);
+  const firstMatchIndex = (currentMatchPage - 1) * MATCH_HISTORY_PAGE_SIZE;
+  const visibleMatches = matches.slice(firstMatchIndex, firstMatchIndex + MATCH_HISTORY_PAGE_SIZE);
+  const matchRangeLabel = matches.length
+    ? `${firstMatchIndex + 1}-${Math.min(firstMatchIndex + MATCH_HISTORY_PAGE_SIZE, matches.length)} of ${matches.length}`
+    : "0 of 0";
   const agents = summarizeAgents(matches);
   const maps = summarizeMaps(matches);
   const outcomes = buildOutcomeBreakdown(matches);
@@ -327,12 +338,20 @@ export function PlayerStatsDashboard({
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
-        <Panel title="Recent Matches" subtitle={`${matches.length} stored matches fetched`}>
+        <Panel
+          title="Match History"
+          subtitle={`${matches.length} stored matches fetched`}
+          action={
+            <span className="text-xs uppercase tracking-[0.18em] text-white/38">
+              {matchRangeLabel}
+            </span>
+          }
+        >
           <div className="space-y-3">
-            {recentMatches.length === 0 ? (
+            {visibleMatches.length === 0 ? (
               <EmptyPanelCopy text="No stored matches available." />
             ) : (
-              recentMatches.map((match) => (
+              visibleMatches.map((match) => (
                 <RecentMatchCard
                   key={match.matchId}
                   match={match}
@@ -341,6 +360,31 @@ export function PlayerStatsDashboard({
               ))
             )}
           </div>
+          {totalMatchPages > 1 ? (
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-white/7 pt-4">
+              <button
+                type="button"
+                onClick={() => setMatchPage((page) => Math.max(1, page - 1))}
+                disabled={currentMatchPage === 1}
+                className="inline-flex h-10 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 text-sm text-white/72 transition hover:border-[#d6a74a]/24 hover:text-white disabled:cursor-not-allowed disabled:opacity-38"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Previous
+              </button>
+              <div className="text-xs uppercase tracking-[0.2em] text-white/42">
+                Page {currentMatchPage} / {totalMatchPages}
+              </div>
+              <button
+                type="button"
+                onClick={() => setMatchPage((page) => Math.min(totalMatchPages, page + 1))}
+                disabled={currentMatchPage === totalMatchPages}
+                className="inline-flex h-10 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 text-sm text-white/72 transition hover:border-[#d6a74a]/24 hover:text-white disabled:cursor-not-allowed disabled:opacity-38"
+              >
+                Next
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          ) : null}
         </Panel>
 
         <div className="grid gap-5">
