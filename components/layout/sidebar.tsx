@@ -16,6 +16,7 @@ import {
   Shield,
   Sparkles,
   Swords,
+  Trophy,
   Users,
   Settings,
 } from "lucide-react";
@@ -47,6 +48,7 @@ const NAV: Array<{
   label: string;
   icon: typeof LayoutDashboard;
   adminOnly?: boolean;
+  teamOnly?: TeamSlug;
   matchPrefix?: string;
 }> = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -54,6 +56,7 @@ const NAV: Array<{
   { href: "/stats", label: "Stats Tracker", icon: LineChart },
   { href: "/insights", label: "AI Insights", icon: Sparkles },
   { href: "/matches", label: "Match Log", icon: Swords },
+  { href: "/tournaments", label: "Tournaments", icon: Trophy, teamOnly: "surf-n-bulls" },
   { href: "/vods", label: "VOD Library", icon: Film },
   { href: "/routines", label: "Routines", icon: ListChecks },
   { href: "/tasks", label: "Tasks", icon: ClipboardList },
@@ -110,7 +113,11 @@ export function Sidebar({ team, user }: Props) {
       </div>
 
       <nav className="flex flex-col gap-1.5">
-        {NAV.filter((n) => !n.adminOnly || user.role === "admin").map((n) => {
+        {NAV.filter((n) => {
+          if (n.adminOnly && user.role !== "admin") return false;
+          if (n.teamOnly && n.teamOnly !== team) return false;
+          return true;
+        }).map((n) => {
           const href = n.matchPrefix === "/chat" ? chatHref : n.href;
           const matchTarget = n.matchPrefix ?? n.href;
           const active =
