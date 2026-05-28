@@ -24,6 +24,7 @@ import {
 
 const BASE_URL = "https://www.ggarena.no/api/paradise/v2";
 const DEFAULT_SURF_QUERY = "Surf'n Bulls";
+const DEFAULT_VALORANT_GAME_ID = 20;
 
 export type GGArenaSnapshotStatus =
   | "ready"
@@ -93,7 +94,21 @@ export async function getSurfBullsArenaSnapshot(): Promise<GGArenaSnapshot> {
 
   try {
     const club = await resolveSurfBullsClub(context);
-    if (!club) {
+    let lookupContext: GGArenaLookupContext = {
+      ...context,
+      clubId: context.clubId ?? club?.id ?? null,
+    };
+
+    const bundle = await resolveCompetitionBundle(lookupContext, warnings);
+    const surfSignup = findSurfSignup(bundle.signups, lookupContext);
+
+    lookupContext = {
+      ...lookupContext,
+      clubId: lookupContext.clubId ?? surfSignup?.clubId ?? null,
+      teamId: lookupContext.teamId ?? surfSignup?.teamId ?? null,
+    };
+
+    if (!club && !surfSignup && bundle.competitions.length === 0 && bundle.divisions.length === 0) {
       return {
         status: "not-found",
         message: "Surf'n Bulls was not found in GGarena.",
@@ -107,17 +122,11 @@ export async function getSurfBullsArenaSnapshot(): Promise<GGArenaSnapshot> {
         standings: [],
         stats: [],
         warnings: [
-          `No club matched "${context.clubQuery}". Set GGARENA_SURF_CLUB_ID if the GGarena name differs.`,
+          `No club, signup, or configured division matched "${context.clubQuery}". Set GGARENA_SURF_TEAM_ID, GGARENA_SURF_COMPETITION_IDS, or GGARENA_SURF_DIVISION_IDS if the GGarena name differs.`,
         ],
       };
     }
 
-    const lookupContext: GGArenaLookupContext = {
-      ...context,
-      clubId: context.clubId ?? club.id,
-    };
-
-    const bundle = await resolveCompetitionBundle(lookupContext, warnings);
     const targetDivisionIds = uniqueNumbers([
       ...parseIdList(process.env.GGARENA_SURF_DIVISION_IDS),
       ...bundle.signups.map((signup) => signup.divisionId),
@@ -146,7 +155,7 @@ export async function getSurfBullsArenaSnapshot(): Promise<GGArenaSnapshot> {
       status: "ready",
       message: null,
       updatedAt,
-      club,
+      club: club ?? syntheticEntityFromSignup(surfSignup),
       competitions: bundle.competitions,
       divisions: bundle.divisions,
       signups: bundle.signups,
@@ -265,7 +274,12 @@ async function resolveCompetitionBundle(
 }
 
 async function fetchCompetitionCandidates() {
-  const payload = await ggarenaFetch("/competition", { limit: 150 });
+  const valorantGameId =
+    parseOptionalInt(process.env.GGARENA_VALORANT_GAME_ID) ?? DEFAULT_VALORANT_GAME_ID;
+  const payload = await ggarenaFetch("/competition", {
+    game_id: valorantGameId,
+    limit: 150,
+  });
   const competitions = unwrapCollection(payload)
     .map(normalizeCompetition)
     .filter((competition): competition is GGArenaCompetition => Boolean(competition));
@@ -293,7 +307,12 @@ async function fetchCompetitionSignups(competitionId: number | null) {
 async function fetchCompetitionDivisions(competitionId: number | null) {
   if (!competitionId) return [];
   return unwrapCollection(await ggarenaFetch(`/competition/${competitionId}/divisions`))
-    .map(normalizeDivision)
+    .map((payload): GGArenaDivision | null => {
+      const division = normalizeDivision(payload);
+      return division
+        ? { ...division, competitionId: division.competitionId ?? competitionId }
+        : null;
+    })
     .filter((division): division is GGArenaDivision => Boolean(division));
 }
 
@@ -444,6 +463,28 @@ function dedupeById<T extends { id: number | null; name: string }>(items: T[]) {
     seen.add(key);
     return true;
   });
+}
+
+function findSurfSignup(signups: GGArenaSignup[], context: GGArenaLookupContext) {
+  return signups.find((signup) => {
+    return (
+      matchesSurfBulls(signup.raw, context) ||
+      matchesSurfBulls(signup.name, context) ||
+      (context.clubId ? signup.clubId === context.clubId : false) ||
+      (context.teamId ? signup.teamId === context.teamId : false)
+    );
+  }) ?? null;
+}
+
+function syntheticEntityFromSignup(signup: GGArenaSignup | null): GGArenaEntity | null {
+  if (!signup) return null;
+  return {
+    id: signup.teamId ?? signup.clubId ?? signup.id,
+    uuid: signup.uuid,
+    name: signup.teamName ?? signup.clubName ?? signup.name,
+    status: signup.status,
+    raw: signup.raw,
+  };
 }
 
 function prioritizeSurfRows<T extends { isSurfBulls: boolean; name: string }>(

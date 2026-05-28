@@ -61,6 +61,35 @@ test("normalizeMatchup identifies opponent and start time for Surf'n Bulls fixtu
   assert.equal(matchup.divisionId, 33);
 });
 
+test("normalizeMatchup handles live GGarena signup sides and start_time", () => {
+  const matchup = normalizeMatchup(
+    {
+      id: 256707,
+      start_time: "2026-05-29T15:00:00.000000Z",
+      signups: [
+        {
+          id: 252490,
+          name: "Surf'n Bulls",
+          team: { id: 201287, name: "Surf'n Bulls" },
+          side: "home",
+        },
+        {
+          id: 252031,
+          name: "Rusty DuckTape",
+          team: { id: 196067, name: "Rusty DuckTape" },
+          side: "away",
+        },
+      ],
+    },
+    { ...context, teamId: 201287 },
+  );
+
+  assert.ok(matchup);
+  assert.equal(matchup.includesSurfBulls, true);
+  assert.equal(matchup.opponentName, "Rusty DuckTape");
+  assert.equal(matchup.startsAt, "2026-05-29T15:00:00.000000Z");
+});
+
 test("standing and stat normalizers unwrap nested table payloads", () => {
   const standings = normalizeStandingRows(
     {

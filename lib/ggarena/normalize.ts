@@ -139,6 +139,8 @@ const NAME_KEYS = [
 const DATE_KEYS = [
   "starts_at",
   "startsAt",
+  "start_time",
+  "startTime",
   "start_at",
   "startAt",
   "scheduled_at",
