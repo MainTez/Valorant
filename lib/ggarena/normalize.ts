@@ -36,9 +36,12 @@ export interface GGArenaMatchupSide {
   clubId: number | null;
   teamId: number | null;
   name: string;
+  side: string | null;
   score: number | null;
   isSurfBulls: boolean;
 }
+
+export type GGArenaMatchupResult = "win" | "loss" | "draw";
 
 export interface GGArenaMatchup extends GGArenaEntity {
   competitionId: number | null;
@@ -50,6 +53,8 @@ export interface GGArenaMatchup extends GGArenaEntity {
   sides: GGArenaMatchupSide[];
   opponentName: string | null;
   includesSurfBulls: boolean;
+  surfResult: GGArenaMatchupResult | null;
+  scoreline: string | null;
 }
 
 export interface GGArenaStandingRow {
@@ -285,6 +290,8 @@ export function normalizeMatchup(
     sides.find((side) => !side.isSurfBulls)?.name ??
     sides.find((side) => side.name)?.name ??
     null;
+  const surfResult = resolveSurfResult(record, sides);
+  const scoreline = formatSurfScoreline(sides);
   const label =
     sides.length >= 2
       ? sides.map((side) => side.name).join(" vs ")
@@ -310,6 +317,8 @@ export function normalizeMatchup(
     sides,
     opponentName,
     includesSurfBulls,
+    surfResult,
+    scoreline,
   };
 }
 
@@ -401,6 +410,15 @@ function extractSides(
 ): GGArenaMatchupSide[] {
   const candidates: unknown[] = [];
 
+  const homeSignup = record.home_signup ?? record.homeSignup;
+  const awaySignup = record.away_signup ?? record.awaySignup;
+  if (homeSignup !== undefined || awaySignup !== undefined) {
+    candidates.push(
+      withSideMetadata(homeSignup, "home", readNumber(record, ["home_score", "homeScore"])),
+      withSideMetadata(awaySignup, "away", readNumber(record, ["away_score", "awayScore"])),
+    );
+  }
+
   for (const key of SIDE_ARRAY_KEYS) {
     const value = record[key];
     if (Array.isArray(value)) candidates.push(...value);
@@ -417,8 +435,16 @@ function extractSides(
     const rightName = readString(record, ["team2_name", "team_2_name", "away_name"]);
     if (leftName || rightName) {
       candidates.push(
-        { name: leftName ?? "Team 1", score: readNumber(record, ["team1_score", "home_score"]) },
-        { name: rightName ?? "Team 2", score: readNumber(record, ["team2_score", "away_score"]) },
+        {
+          name: leftName ?? "Team 1",
+          side: "home",
+          score: readNumber(record, ["team1_score", "home_score"]),
+        },
+        {
+          name: rightName ?? "Team 2",
+          side: "away",
+          score: readNumber(record, ["team2_score", "away_score"]),
+        },
       );
     }
   }
@@ -442,6 +468,7 @@ function normalizeSide(
       clubId: null,
       teamId: null,
       name: value,
+      side: null,
       score: null,
       isSurfBulls: matchesSurfBulls(value, context),
     };
@@ -468,12 +495,56 @@ function normalizeSide(
     clubId,
     teamId,
     name,
+    side: readString(value, ["side"]) ?? null,
     score: readNumber(value, ["score", "points", "rounds", "wins", "result"]),
     isSurfBulls:
       (context?.clubId ? clubId === context.clubId : false) ||
       (context?.teamId ? teamId === context.teamId : false) ||
       matchesSurfBulls(value, context),
   };
+}
+
+function withSideMetadata(value: unknown, side: string, score: number | null) {
+  if (!isRecord(value)) return value;
+  return {
+    ...value,
+    side,
+    score: score ?? readNumber(value, ["score", "points", "rounds", "wins", "result"]),
+  };
+}
+
+function resolveSurfResult(
+  record: RawRecord,
+  sides: GGArenaMatchupSide[],
+): GGArenaMatchupResult | null {
+  const surfSide = sides.find((side) => side.isSurfBulls);
+  if (!surfSide) return null;
+
+  const opponentSide = sides.find((side) => !side.isSurfBulls);
+  const winningSide = readString(record, ["winning_side", "winningSide"]);
+  if (winningSide && surfSide.side) {
+    const winning = normalizeText(winningSide);
+    const surf = normalizeText(surfSide.side);
+    if (winning && surf === winning) return "win";
+    if (winning && opponentSide?.side && normalizeText(opponentSide.side) === winning) {
+      return "loss";
+    }
+  }
+
+  if (opponentSide && surfSide.score !== null && opponentSide.score !== null) {
+    if (surfSide.score === opponentSide.score) return "draw";
+    return surfSide.score > opponentSide.score ? "win" : "loss";
+  }
+
+  return null;
+}
+
+function formatSurfScoreline(sides: GGArenaMatchupSide[]) {
+  const surfSide = sides.find((side) => side.isSurfBulls);
+  const opponentSide = sides.find((side) => !side.isSurfBulls);
+  if (!surfSide || !opponentSide) return null;
+  if (surfSide.score === null || opponentSide.score === null) return null;
+  return `${surfSide.score}-${opponentSide.score}`;
 }
 
 function extractTabularRows(payload: unknown): RawRecord[] {

@@ -90,6 +90,58 @@ test("normalizeMatchup handles live GGarena signup sides and start_time", () => 
   assert.equal(matchup.startsAt, "2026-05-29T15:00:00.000000Z");
 });
 
+test("normalizeMatchup derives Surf'n Bulls W/L from detailed GGarena scores", () => {
+  const loss = normalizeMatchup(
+    {
+      id: 256621,
+      start_time: "2026-04-24T18:00:00.000000Z",
+      finished_at: "2026-04-24T19:30:06.000000Z",
+      home_score: 2,
+      away_score: 0,
+      winning_side: "home",
+      home_signup: {
+        id: 251872,
+        name: "Rotaryon Zeviatán",
+        team: { id: 195698, name: "Rotaryon Zeviatán" },
+      },
+      away_signup: {
+        id: 252490,
+        name: "Surf'n Bulls",
+        team: { id: 201287, name: "Surf'n Bulls" },
+      },
+    },
+    { ...context, teamId: 201287 },
+  );
+  const win = normalizeMatchup(
+    {
+      id: 256648,
+      home_score: 2,
+      away_score: 1,
+      winning_side: "home",
+      home_signup: {
+        id: 252490,
+        name: "Surf'n Bulls",
+        team: { id: 201287, name: "Surf'n Bulls" },
+      },
+      away_signup: {
+        id: 251818,
+        name: "Gitta NextGen",
+        team: { id: 209384, name: "Gitta NextGen" },
+      },
+    },
+    { ...context, teamId: 201287 },
+  );
+
+  assert.ok(loss);
+  assert.equal(loss.opponentName, "Rotaryon Zeviatán");
+  assert.equal(loss.surfResult, "loss");
+  assert.equal(loss.scoreline, "0-2");
+  assert.ok(win);
+  assert.equal(win.opponentName, "Gitta NextGen");
+  assert.equal(win.surfResult, "win");
+  assert.equal(win.scoreline, "2-1");
+});
+
 test("standing normalizer preserves division scope for all table payloads", () => {
   const standings = normalizeStandingRows(
     {

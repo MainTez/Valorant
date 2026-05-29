@@ -286,14 +286,36 @@ function MatchupList({
               </div>
               <div className="text-right text-sm text-[color:var(--color-muted)]">
                 <div>{matchup.startsAt ? formatNorwayDateTime(matchup.startsAt) : "TBD"}</div>
-                <div className="mt-1 uppercase tracking-[0.12em]">
-                  {matchup.status ?? "open"}
-                </div>
+                <MatchupResult matchup={matchup} />
               </div>
             </div>
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function MatchupResult({ matchup }: { matchup: GGArenaMatchup }) {
+  if (!matchup.surfResult) {
+    return (
+      <div className="mt-1 uppercase tracking-[0.12em]">
+        {matchup.status ?? "open"}
+      </div>
+    );
+  }
+
+  const variant =
+    matchup.surfResult === "win"
+      ? "success"
+      : matchup.surfResult === "loss"
+        ? "danger"
+        : "warning";
+
+  return (
+    <div className="mt-1 flex justify-end gap-2">
+      <Badge variant={variant}>{formatMatchupResult(matchup.surfResult)}</Badge>
+      {matchup.scoreline ? <Badge variant="outline">{matchup.scoreline}</Badge> : null}
     </div>
   );
 }
@@ -455,4 +477,10 @@ function formatNumber(value: number | null) {
 
 function formatMetric(value: number) {
   return Number.isInteger(value) ? value.toLocaleString() : value.toFixed(2);
+}
+
+function formatMatchupResult(result: NonNullable<GGArenaMatchup["surfResult"]>) {
+  if (result === "win") return "W";
+  if (result === "loss") return "L";
+  return "D";
 }

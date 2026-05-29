@@ -364,7 +364,28 @@ async function fetchSurfMatchups(
     );
   }
 
-  return surfMatchups;
+  return enrichMatchupDetails(surfMatchups, context, warnings);
+}
+
+async function enrichMatchupDetails(
+  matchups: GGArenaMatchup[],
+  context: GGArenaLookupContext,
+  warnings: string[],
+) {
+  return Promise.all(
+    matchups.map(async (matchup) => {
+      if (!matchup.id) return matchup;
+      try {
+        const detailed = normalizeMatchup(await ggarenaFetch(`/matchup/${matchup.id}`), context);
+        return detailed?.includesSurfBulls ? detailed : matchup;
+      } catch {
+        warnings.push(
+          `GGarena matchup ${matchup.id} details could not be loaded; score result may be missing.`,
+        );
+        return matchup;
+      }
+    }),
+  );
 }
 
 async function fetchStandings(

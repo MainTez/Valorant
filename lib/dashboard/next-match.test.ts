@@ -37,6 +37,8 @@ function tournamentMatchup(overrides: Partial<GGArenaMatchup>): GGArenaMatchup {
     sides: [],
     opponentName: "Enemy Team",
     includesSurfBulls: true,
+    surfResult: null,
+    scoreline: null,
     ...overrides,
   };
 }
