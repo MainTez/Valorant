@@ -6,6 +6,7 @@ import {
   groupStandingRows,
   isStandingGroupOpenByDefault,
 } from "@/lib/ggarena/standings";
+import { Badge } from "@/components/ui/badge";
 import {
   findTournamentStatPlayerByKey,
   findTournamentStatTeamByKey,
@@ -148,8 +149,11 @@ function StandingsTable({
               >
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 transition hover:bg-white/[0.03] [&::-webkit-details-marker]:hidden">
                   <div className="min-w-0">
-                    <div className="font-display text-lg tracking-wide">
-                      {group.scope}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-display text-lg tracking-wide">
+                        {group.scope}
+                      </span>
+                      {surfRow ? <Badge>Surf division</Badge> : null}
                     </div>
                     <div className="mt-1 text-xs uppercase tracking-[0.12em] text-[color:var(--color-muted)]">
                       {group.rows.length} teams
@@ -183,9 +187,11 @@ function StandingsTable({
                             tabIndex={0}
                             title={`Show tournament stats for ${row.name}`}
                             className={
-                              row.isSurfBulls
-                                ? "cursor-pointer border-b border-white/6 bg-[color:var(--accent-dim)] transition hover:bg-[color:var(--accent-dim)]"
-                                : "cursor-pointer border-b border-white/6 transition hover:bg-white/[0.03]"
+                              isActive
+                                ? "cursor-pointer border-b border-white/6 bg-white/[0.05] transition hover:bg-white/[0.07]"
+                                : row.isSurfBulls
+                                  ? "cursor-pointer border-b border-white/6 bg-[color:var(--accent-dim)] transition hover:bg-[color:var(--accent-dim)]"
+                                  : "cursor-pointer border-b border-white/6 transition hover:bg-white/[0.03]"
                             }
                             onClick={() => onSelectTeam(row)}
                             onKeyDown={(event) => selectRowFromKeyboard(event, row)}
@@ -265,6 +271,7 @@ function StatsTable({
           {groups.map((group) => {
             const isOpen = openScopes.has(group.scope);
             const selectedInGroup = activeTeam !== null && activeTeam.scope === group.scope;
+            const isSurfDivision = group.teams.some((team) => team.isSurfBulls);
             return (
               <div key={group.scope}>
                 <button
@@ -274,8 +281,11 @@ function StatsTable({
                   onClick={() => onToggleScope(group.scope)}
                 >
                   <div className="min-w-0">
-                    <div className="font-display text-lg tracking-wide">
-                      {group.scope}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-display text-lg tracking-wide">
+                        {group.scope}
+                      </span>
+                      {isSurfDivision ? <Badge>Surf division</Badge> : null}
                     </div>
                     <div className="mt-1 text-xs uppercase tracking-[0.12em] text-[color:var(--color-muted)]">
                       {group.teams.length} teams

@@ -18,6 +18,7 @@ import {
   normalizeSignup,
   normalizeStandingRows,
   normalizeStatRows,
+  normalizeTeamPlayerRows,
   sortMatchups,
   unwrapCollection,
 } from "@/lib/ggarena/normalize";
@@ -128,12 +129,19 @@ export async function getSurfBullsArenaSnapshot(): Promise<GGArenaSnapshot> {
       };
     }
 
+    const allTournamentDivisions = selectTournamentDivisions({
+      configuredDivisionIds: [],
+      divisions: bundle.divisions,
+      signups: bundle.signups,
+    });
     const configuredDivisionIds = parseIdList(process.env.GGARENA_SURF_DIVISION_IDS);
-    const targetDivisions = selectTournamentDivisions({
+    const configuredDivisions = selectTournamentDivisions({
       configuredDivisionIds,
       divisions: bundle.divisions,
       signups: bundle.signups,
     });
+    const targetDivisions =
+      allTournamentDivisions.length > 0 ? allTournamentDivisions : configuredDivisions;
     const targetDivisionIds = uniqueNumbers(targetDivisions.map((division) => division.id));
     const targetCompetitionIds = uniqueNumbers([
       ...parseIdList(process.env.GGARENA_SURF_COMPETITION_IDS),
@@ -150,6 +158,7 @@ export async function getSurfBullsArenaSnapshot(): Promise<GGArenaSnapshot> {
       fetchStats(targetDivisions, targetCompetitions, lookupContext),
     ]);
 
+    const enrichedStats = await hydrateStatsWithTeamRosters(stats, standings, warnings);
     const sorted = sortMatchups(matchups);
     const upcoming = sorted.filter((matchup) => isUpcomingMatchup(matchup));
     const recent = sorted
@@ -168,7 +177,7 @@ export async function getSurfBullsArenaSnapshot(): Promise<GGArenaSnapshot> {
       nextMatchups: upcoming.slice(0, 6),
       recentMatchups: recent,
       standings: sortScopedRows(standings),
-      stats: sortScopedRows(stats),
+      stats: sortScopedRows(enrichedStats),
       warnings,
     };
   } catch (error) {
@@ -190,6 +199,98 @@ export async function getSurfBullsArenaSnapshot(): Promise<GGArenaSnapshot> {
       warnings,
     };
   }
+}
+
+async function hydrateStatsWithTeamRosters(
+  stats: GGArenaStatRow[],
+  standings: GGArenaStandingRow[],
+  warnings: string[],
+) {
+  if (stats.length === 0 || standings.length === 0) return stats;
+
+  const rosterTeams = uniqueStandingTeams(standings);
+  if (rosterTeams.length === 0) return stats;
+
+  let failedRosters = 0;
+  const rosterEntries = (
+    await mapWithConcurrency(rosterTeams, 8, async (team) => {
+      try {
+        const players = normalizeTeamPlayerRows(
+          await ggarenaFetch(`/team/${team.id}/players`),
+          team.id,
+          team.name,
+        );
+        return players.map((player) => ({ player, team }));
+      } catch {
+        failedRosters += 1;
+        return [];
+      }
+    })
+  ).flat();
+
+  if (failedRosters > 0) {
+    warnings.push(
+      `GGarena rosters could not be loaded for ${failedRosters} teams; some tournament stat groups may be incomplete.`,
+    );
+  }
+
+  const scopedRoster = new Map<string, StandingTeamSeed>();
+  const fallbackRoster = new Map<number, StandingTeamSeed[]>();
+
+  for (const { player, team } of rosterEntries) {
+    if (player.userId === null) continue;
+    scopedRoster.set(`${team.scope}::${player.userId}`, team);
+    const fallback = fallbackRoster.get(player.userId) ?? [];
+    fallback.push(team);
+    fallbackRoster.set(player.userId, fallback);
+  }
+
+  return stats.map((row) => {
+    const playerId = row.playerId ?? row.id;
+    if (playerId === null) return row;
+
+    const scope = row.scope ?? "Tournament";
+    const team =
+      scopedRoster.get(`${scope}::${playerId}`) ??
+      fallbackRoster.get(playerId)?.[0] ??
+      null;
+    if (!team) return row;
+
+    return {
+      ...row,
+      teamId: team.id,
+      teamName: team.name,
+      isSurfBulls: row.isSurfBulls || team.isSurfBulls,
+    };
+  });
+}
+
+interface StandingTeamSeed {
+  id: number;
+  name: string;
+  scope: string;
+  isSurfBulls: boolean;
+}
+
+function uniqueStandingTeams(standings: GGArenaStandingRow[]) {
+  const seen = new Set<string>();
+  const teams: StandingTeamSeed[] = [];
+
+  for (const row of standings) {
+    if (row.id === null) continue;
+    const scope = row.scope ?? "Tournament";
+    const key = `${scope}::${row.id}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    teams.push({
+      id: row.id,
+      name: row.name,
+      scope,
+      isSurfBulls: row.isSurfBulls,
+    });
+  }
+
+  return teams;
 }
 
 async function resolveSurfBullsClub(context: GGArenaLookupContext) {
@@ -492,6 +593,28 @@ function dedupeById<T extends { id: number | null; name: string }>(items: T[]) {
     seen.add(key);
     return true;
   });
+}
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  mapper: (item: T, index: number) => Promise<R>,
+) {
+  const results: R[] = [];
+  let nextIndex = 0;
+  const workers = Array.from(
+    { length: Math.min(limit, items.length) },
+    async () => {
+      while (nextIndex < items.length) {
+        const index = nextIndex;
+        nextIndex += 1;
+        results[index] = await mapper(items[index], index);
+      }
+    },
+  );
+
+  await Promise.all(workers);
+  return results;
 }
 
 function findSurfSignup(signups: GGArenaSignup[], context: GGArenaLookupContext) {

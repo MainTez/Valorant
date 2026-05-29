@@ -6,6 +6,7 @@ import {
   normalizeSignup,
   normalizeStandingRows,
   normalizeStatRows,
+  normalizeTeamPlayerRows,
 } from "./normalize.ts";
 
 const context = {
@@ -148,7 +149,16 @@ test("standing normalizer preserves division scope for all table payloads", () =
       data: {
         rows: [
           { rank: 1, team: { name: "Surf'n Bulls", id: 202 }, played: 4, wins: 3, losses: 1, points: 9 },
-          { rank: 2, team: { name: "Oslo Aim" }, played: 4, wins: 2, losses: 2, points: 6 },
+          {
+            id: 9,
+            rank: 2,
+            signup_id: 300,
+            signup: { id: 300, name: "Oslo Aim", team_id: 303, team: { id: 303, name: "Oslo Aim" } },
+            played: 4,
+            wins: 2,
+            losses: 2,
+            points: 6,
+          },
         ],
       },
     },
@@ -160,7 +170,9 @@ test("standing normalizer preserves division scope for all table payloads", () =
   assert.equal(standings[0]?.isSurfBulls, true);
   assert.equal(standings[0]?.points, 9);
   assert.equal(standings[0]?.scope, "Division 1");
+  assert.equal(standings[0]?.id, 202);
   assert.equal(standings[1]?.scope, "Division 1");
+  assert.equal(standings[1]?.id, 303);
 });
 
 test("stat normalizer keeps every numeric tournament metric instead of truncating to assists", () => {
@@ -176,7 +188,7 @@ test("stat normalizer keeps every numeric tournament metric instead of truncatin
           first_bloods: 7,
           headshots: 44,
           kills: 42,
-          user_id: 7,
+          paradise_user_id: 7,
         },
       ],
     },
@@ -190,6 +202,7 @@ test("stat normalizer keeps every numeric tournament metric instead of truncatin
     stats[0]?.metrics.map((metric) => metric.key),
     ["assists", "combat_score", "damage", "deaths", "first_bloods", "headshots", "kills"],
   );
+  assert.equal(stats[0]?.playerId, 7);
 });
 
 test("stat normalizer keeps team identity separate from player identity", () => {
@@ -214,4 +227,24 @@ test("stat normalizer keeps team identity separate from player identity", () => 
   assert.equal(stats[0]?.teamName, "Surf'n Bulls");
   assert.equal(stats[0]?.teamId, 201287);
   assert.equal(stats[0]?.isSurfBulls, true);
+});
+
+test("team player normalizer maps roster users to the selected team", () => {
+  const players = normalizeTeamPlayerRows(
+    [
+      {
+        id: 209237,
+        role: "leader",
+        user: { id: 129167, user_name: "TrePinne" },
+      },
+    ],
+    201287,
+    "Surf'n Bulls",
+  );
+
+  assert.equal(players.length, 1);
+  assert.equal(players[0]?.userId, 129167);
+  assert.equal(players[0]?.name, "TrePinne");
+  assert.equal(players[0]?.teamId, 201287);
+  assert.equal(players[0]?.teamName, "Surf'n Bulls");
 });

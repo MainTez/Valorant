@@ -88,6 +88,14 @@ export interface GGArenaStatRow {
   metrics: GGArenaStatMetric[];
 }
 
+export interface GGArenaTeamPlayer {
+  userId: number | null;
+  name: string;
+  teamId: number;
+  teamName: string;
+  raw: RawRecord;
+}
+
 const COLLECTION_KEYS = [
   "data",
   "items",
@@ -332,13 +340,30 @@ export function normalizeStandingRows(
   scope: string | null = null,
 ): GGArenaStandingRow[] {
   return extractTabularRows(payload).map((record, index) => {
+    const signupRecord = findNestedRecord(record, ["signup"]);
+    const nestedTeamRecord =
+      findNestedRecord(record, ["team"]) ??
+      (signupRecord ? findNestedRecord(signupRecord, ["team"]) : null);
     const name =
-      readStringFromNested(record, ["team", "signup", "club", "user"], NAME_KEYS) ??
+      (nestedTeamRecord ? readString(nestedTeamRecord, NAME_KEYS) : null) ??
+      (signupRecord ? readString(signupRecord, NAME_KEYS) : null) ??
+      readStringFromNested(record, ["club", "user"], NAME_KEYS) ??
       readString(record, NAME_KEYS) ??
       `Row ${index + 1}`;
+    const signupId =
+      readNumber(record, ["signup_id", "signupId"]) ??
+      (signupRecord ? readNumber(signupRecord, ["id"]) : null);
+    const teamId =
+      readNumber(record, ["team_id", "teamId"]) ??
+      (signupRecord ? readNumber(signupRecord, ["team_id", "teamId"]) : null) ??
+      (nestedTeamRecord ? readNumber(nestedTeamRecord, ["id"]) : null);
 
     return {
-      id: readNumber(record, ["id", "team_id", "teamId", "signup_id", "signupId"]),
+      id:
+        teamId ??
+        signupId ??
+        readNumber(record, ["id"]) ??
+        readNestedId(record, ["club"]),
       name,
       scope,
       played: readNumber(record, ["played", "matches_played", "matchesPlayed", "mp", "matches"]),
@@ -384,10 +409,27 @@ export function normalizeStatRows(
       const name = playerName ?? teamName ?? fallbackName;
 
       return {
-        id: readNumber(record, ["id", "user_id", "userId", "player_id", "playerId", "team_id", "teamId"]),
+        id: readNumber(record, [
+          "id",
+          "user_id",
+          "userId",
+          "player_id",
+          "playerId",
+          "paradise_user_id",
+          "paradiseUserId",
+          "team_id",
+          "teamId",
+        ]),
         name,
         playerId:
-          readNumber(record, ["user_id", "userId", "player_id", "playerId"]) ??
+          readNumber(record, [
+            "user_id",
+            "userId",
+            "player_id",
+            "playerId",
+            "paradise_user_id",
+            "paradiseUserId",
+          ]) ??
           readNestedId(record, ["user", "player"]),
         playerName,
         teamId:
@@ -616,6 +658,8 @@ function numericMetrics(record: RawRecord): GGArenaStatMetric[] {
     "clubId",
     "user_id",
     "userId",
+    "paradise_user_id",
+    "paradiseUserId",
     "signup_id",
     "signupId",
     "competition_id",
@@ -642,6 +686,34 @@ function numericMetrics(record: RawRecord): GGArenaStatMetric[] {
       return [];
     })
     .sort((a, b) => a.label.localeCompare(b.label));
+}
+
+export function normalizeTeamPlayerRows(
+  payload: unknown,
+  teamId: number,
+  teamName: string,
+): GGArenaTeamPlayer[] {
+  return unwrapCollection(payload)
+    .map((value, index): GGArenaTeamPlayer | null => {
+      if (!isRecord(value)) return null;
+      const userRecord = findNestedRecord(value, ["user", "player"]);
+      const userId =
+        readNumber(value, ["user_id", "userId", "paradise_user_id", "paradiseUserId"]) ??
+        (userRecord ? readNumber(userRecord, ["id"]) : null);
+      const name =
+        (userRecord ? readString(userRecord, ["user_name", "userName", ...NAME_KEYS]) : null) ??
+        readString(value, NAME_KEYS) ??
+        `Player ${index + 1}`;
+
+      return {
+        userId,
+        name,
+        teamId,
+        teamName,
+        raw: value,
+      };
+    })
+    .filter((row): row is GGArenaTeamPlayer => Boolean(row));
 }
 
 function readDate(record: RawRecord): string | null {
