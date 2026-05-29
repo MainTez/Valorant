@@ -212,7 +212,12 @@ export default async function DashboardPage() {
       </section>
 
       <section className="grid grid-cols-1 gap-4 xl:grid-cols-[1.4fr_1fr]">
-        <RecentMatches matches={(recentMatches ?? []) as MatchRow[]} />
+        <RecentMatches
+          matches={(recentMatches ?? []) as MatchRow[]}
+          tournamentMatches={
+            tournamentSnapshot?.status === "ready" ? tournamentSnapshot.recentMatchups : []
+          }
+        />
         <RecentActivity events={activity} />
       </section>
     </div>
