@@ -88,6 +88,76 @@ test("tournament stats include every standings team even before player rows atta
   );
 });
 
+test("tournament stats attach player rows to standings teams when GGarena IDs differ", () => {
+  const rows = [
+    stat({
+      id: 101,
+      playerId: 101,
+      name: "MainTez",
+      playerName: "MainTez",
+      teamId: 201287,
+      teamName: "Surf'n Bulls",
+      scope: "3. divisjon",
+      isSurfBulls: true,
+    }),
+  ];
+  const standings = [
+    standing({
+      id: 252490,
+      name: "Surf'n Bulls",
+      scope: "3. divisjon",
+      isSurfBulls: true,
+    }),
+  ];
+
+  const groups = groupTournamentStatsByTeam(rows, standings);
+
+  assert.equal(groups.length, 1);
+  assert.deepEqual(
+    groups[0]?.teams.map((team) => [team.id, team.name, team.players.map((player) => player.name)]),
+    [[252490, "Surf'n Bulls", ["MainTez"]]],
+  );
+});
+
+test("tournament stats use standings scope when GGarena returns competition-wide stats for one division", () => {
+  const rows = [
+    stat({ id: 101, playerId: 101, name: "Alpha Player", playerName: "Alpha Player", teamId: 10, teamName: "Alpha", scope: "3. divisjon" }),
+    stat({ id: 201, playerId: 201, name: "Bravo Player", playerName: "Bravo Player", teamId: 20, teamName: "Bravo", scope: "3. divisjon" }),
+    stat({ id: 301, playerId: 301, name: "MainTez", playerName: "MainTez", teamId: 30, teamName: "Surf'n Bulls", scope: "3. divisjon", isSurfBulls: true }),
+  ];
+  const standings = [
+    standing({ id: 10, name: "Alpha", scope: "1. divisjon" }),
+    standing({ id: 20, name: "Bravo", scope: "2. divisjon" }),
+    standing({ id: 30, name: "Surf'n Bulls", scope: "3. divisjon", isSurfBulls: true }),
+  ];
+
+  const groups = groupTournamentStatsByTeam(rows, standings);
+
+  assert.deepEqual(
+    groups.map((group) => [
+      group.scope,
+      group.teams.map((team) => [team.name, team.players.map((player) => player.name)]),
+    ]),
+    [
+      ["1. divisjon", [["Alpha", ["Alpha Player"]]]],
+      ["2. divisjon", [["Bravo", ["Bravo Player"]]]],
+      ["3. divisjon", [["Surf'n Bulls", ["MainTez"]]]],
+    ],
+  );
+});
+
+test("tournament stats dedupe repeated player rows after division scope correction", () => {
+  const rows = [
+    stat({ id: 101, playerId: 101, name: "Alpha Player", playerName: "Alpha Player", teamId: 10, teamName: "Alpha", scope: "1. divisjon", metrics: [{ key: "kills", label: "Kills", value: 10 }] }),
+    stat({ id: 101, playerId: 101, name: "Alpha Player", playerName: "Alpha Player", teamId: 10, teamName: "Alpha", scope: "2. divisjon", metrics: [{ key: "kills", label: "Kills", value: 10 }] }),
+  ];
+  const standings = [standing({ id: 10, name: "Alpha", scope: "1. divisjon" })];
+
+  const groups = groupTournamentStatsByTeam(rows, standings);
+
+  assert.deepEqual(groups[0]?.teams[0]?.players.map((player) => player.name), ["Alpha Player"]);
+});
+
 test("tournament stats default selection opens Surf'n Bulls and its first player", () => {
   const rows = [
     stat({ id: 201, playerId: 201, name: "Enemy", playerName: "Enemy", teamId: 30, teamName: "Enemy Team" }),
