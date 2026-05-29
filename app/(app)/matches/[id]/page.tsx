@@ -7,6 +7,7 @@ import { CoachNotesSection } from "@/components/matches/coach-notes-section";
 import { VodPlayer } from "@/components/vods/vod-player";
 import { requireSession } from "@/lib/auth/get-session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { formatNorwayDateTime } from "@/lib/timezone";
 import { canDeleteMatch, resolveMatchVodSource } from "@/lib/vods";
 import { cn } from "@/lib/utils";
 import type { CoachNoteRow, MatchRow, UserRow } from "@/types/domain";
@@ -115,7 +116,7 @@ export default async function MatchDetailPage({ params, searchParams }: Props) {
 
       <section className="surface p-5 grid grid-cols-2 md:grid-cols-4 gap-6 text-sm">
         <Detail icon={<MapIcon className="h-4 w-4" />} label="Map" value={m.map} />
-        <Detail icon={<Calendar className="h-4 w-4" />} label="Date" value={new Date(m.date).toLocaleString()} />
+        <Detail icon={<Calendar className="h-4 w-4" />} label="Date" value={formatNorwayDateTime(m.date)} />
         <Detail label="Type" value={m.type} />
         <Detail
           label="VOD"

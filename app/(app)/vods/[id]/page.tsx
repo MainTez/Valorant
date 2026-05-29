@@ -5,6 +5,7 @@ import { MatchVodManager } from "@/components/matches/match-vod-manager";
 import { VodPlayer } from "@/components/vods/vod-player";
 import { requireSession } from "@/lib/auth/get-session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { formatNorwayDateTime } from "@/lib/timezone";
 import { resolveMatchVodSource } from "@/lib/vods";
 import type { MatchRow } from "@/types/domain";
 
@@ -55,7 +56,7 @@ export default async function VodDetailPage({ params }: Props) {
           </div>
           <div className="inline-flex items-center justify-end gap-2">
             <Calendar className="h-4 w-4" />
-            <span>{new Date(m.date).toLocaleString()}</span>
+            <span>{formatNorwayDateTime(m.date)}</span>
           </div>
           <Link href={`/matches/${m.id}`} className="text-[color:var(--accent)] hover:underline">
             Open match details

@@ -34,6 +34,7 @@ import {
 import { TeamEmblem } from "@/components/common/team-emblem";
 import { RankBadge } from "@/components/common/rank-badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { formatNorway } from "@/lib/timezone";
 import { cn, fmtInt, fmtNumber, initials, relativeTime } from "@/lib/utils";
 import type { TeamSlug } from "@/lib/constants";
 
@@ -697,7 +698,7 @@ export function TrackerDashboard({
                   label="Date"
                   value={
                     upcomingMatch?.startAt
-                      ? new Date(upcomingMatch.startAt).toLocaleDateString(undefined, {
+                      ? formatNorway(upcomingMatch.startAt, {
                           month: "short",
                           day: "numeric",
                         })

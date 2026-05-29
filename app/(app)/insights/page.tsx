@@ -6,6 +6,7 @@ import { EmptyState } from "@/components/common/empty-state";
 import { ConfidenceMeter } from "@/components/insights/confidence-meter";
 import { Badge } from "@/components/ui/badge";
 import { RankBadge } from "@/components/common/rank-badge";
+import { formatNorwayDate } from "@/lib/timezone";
 import type { AiPredictionRow, PlayerProfileRow } from "@/types/domain";
 
 export const dynamic = "force-dynamic";
@@ -95,7 +96,7 @@ export default async function TeamInsightsPage() {
                     <div className="text-xs text-[color:var(--color-muted)] mt-0.5">
                       Synced{" "}
                       {p.last_synced_at
-                        ? new Date(p.last_synced_at).toLocaleDateString()
+                        ? formatNorwayDate(p.last_synced_at)
                         : "never"}
                     </div>
                   </div>

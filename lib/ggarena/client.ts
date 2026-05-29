@@ -21,6 +21,7 @@ import {
   sortMatchups,
   unwrapCollection,
 } from "@/lib/ggarena/normalize";
+import { selectTournamentDivisions } from "@/lib/ggarena/scope";
 
 const BASE_URL = "https://www.ggarena.no/api/paradise/v2";
 const DEFAULT_SURF_QUERY = "Surf'n Bulls";
@@ -127,21 +128,26 @@ export async function getSurfBullsArenaSnapshot(): Promise<GGArenaSnapshot> {
       };
     }
 
-    const targetDivisionIds = uniqueNumbers([
-      ...parseIdList(process.env.GGARENA_SURF_DIVISION_IDS),
-      ...bundle.signups.map((signup) => signup.divisionId),
-      ...bundle.divisions.map((division) => division.id),
-    ]);
+    const configuredDivisionIds = parseIdList(process.env.GGARENA_SURF_DIVISION_IDS);
+    const targetDivisions = selectTournamentDivisions({
+      configuredDivisionIds,
+      divisions: bundle.divisions,
+      signups: bundle.signups,
+    });
+    const targetDivisionIds = uniqueNumbers(targetDivisions.map((division) => division.id));
     const targetCompetitionIds = uniqueNumbers([
       ...parseIdList(process.env.GGARENA_SURF_COMPETITION_IDS),
       ...bundle.signups.map((signup) => signup.competitionId),
       ...bundle.competitions.map((competition) => competition.id),
     ]);
+    const targetCompetitions = bundle.competitions.filter((competition) =>
+      targetCompetitionIds.includes(competition.id ?? -1),
+    );
 
     const [matchups, standings, stats] = await Promise.all([
       fetchSurfMatchups(targetDivisionIds, targetCompetitionIds, lookupContext, warnings),
-      fetchStandings(targetDivisionIds, targetCompetitionIds, lookupContext),
-      fetchStats(targetDivisionIds, targetCompetitionIds, lookupContext),
+      fetchStandings(targetDivisions, targetCompetitions, lookupContext),
+      fetchStats(targetDivisions, targetCompetitions, lookupContext),
     ]);
 
     const sorted = sortMatchups(matchups);
@@ -161,8 +167,8 @@ export async function getSurfBullsArenaSnapshot(): Promise<GGArenaSnapshot> {
       signups: bundle.signups,
       nextMatchups: upcoming.slice(0, 6),
       recentMatchups: recent,
-      standings: prioritizeSurfRows(standings, lookupContext).slice(0, 18),
-      stats: prioritizeSurfRows(stats, lookupContext).slice(0, 18),
+      standings: sortScopedRows(standings),
+      stats: sortScopedRows(stats),
       warnings,
     };
   } catch (error) {
@@ -262,13 +268,7 @@ async function resolveCompetitionBundle(
     signups: dedupeById(relevantBundles.flatMap((bundle) => bundle.signups)),
     divisions: dedupeById([
       ...configuredDivisions,
-      ...relevantBundles.flatMap((bundle) => {
-        const signupDivisionIds = new Set(
-          bundle.signups.map((signup) => signup.divisionId).filter(Boolean),
-        );
-        if (signupDivisionIds.size === 0) return bundle.divisions;
-        return bundle.divisions.filter((division) => signupDivisionIds.has(division.id));
-      }),
+      ...relevantBundles.flatMap((bundle) => bundle.divisions),
     ]),
   };
 }
@@ -368,33 +368,41 @@ async function fetchSurfMatchups(
 }
 
 async function fetchStandings(
-  divisionIds: number[],
-  competitionIds: number[],
+  divisions: GGArenaDivision[],
+  competitions: GGArenaCompetition[],
   context: GGArenaLookupContext,
 ) {
-  const payloads = await Promise.all([
-    ...divisionIds.map((id) => ggarenaFetch(`/division/${id}/tables`)),
-    ...competitionIds.map((id) => ggarenaFetch(`/competition/${id}/tables`)),
-  ]);
+  const payloads = await Promise.all(
+    divisions.length > 0
+      ? divisions.map(async (division) => ({
+          scope: division.name,
+          payload: await ggarenaFetch(`/division/${division.id}/tables`),
+        }))
+      : competitions.map(async (competition) => ({
+          scope: competition.name,
+          payload: await ggarenaFetch(`/competition/${competition.id}/tables`),
+        })),
+  );
 
-  return payloads.flatMap((payload) => normalizeStandingRows(payload, context));
+  return payloads.flatMap(({ scope, payload }) => normalizeStandingRows(payload, context, scope));
 }
 
 async function fetchStats(
-  divisionIds: number[],
-  competitionIds: number[],
+  divisions: GGArenaDivision[],
+  competitions: GGArenaCompetition[],
   context: GGArenaLookupContext,
 ) {
-  const payloads = await Promise.all([
-    ...divisionIds.map(async (id) => ({
-      scope: `Division ${id}`,
-      payload: await ggarenaFetch(`/division/${id}/stats`),
-    })),
-    ...competitionIds.map(async (id) => ({
-      scope: `Competition ${id}`,
-      payload: await ggarenaFetch(`/competition/${id}/stats`),
-    })),
-  ]);
+  const payloads = await Promise.all(
+    divisions.length > 0
+      ? divisions.map(async (division) => ({
+          scope: division.name,
+          payload: await ggarenaFetch(`/division/${division.id}/stats`),
+        }))
+      : competitions.map(async (competition) => ({
+          scope: competition.name,
+          payload: await ggarenaFetch(`/competition/${competition.id}/stats`),
+        })),
+  );
 
   return payloads.flatMap(({ scope, payload }) => normalizeStatRows(payload, scope, context));
 }
@@ -487,14 +495,13 @@ function syntheticEntityFromSignup(signup: GGArenaSignup | null): GGArenaEntity 
   };
 }
 
-function prioritizeSurfRows<T extends { isSurfBulls: boolean; name: string }>(
-  rows: T[],
-  context: GGArenaLookupContext,
-) {
+function sortScopedRows<T extends { scope: string | null; rank?: number | null; name: string }>(rows: T[]) {
   return [...rows].sort((a, b) => {
-    const aSurf = a.isSurfBulls || matchesSurfBulls(a.name, context);
-    const bSurf = b.isSurfBulls || matchesSurfBulls(b.name, context);
-    if (aSurf !== bSurf) return aSurf ? -1 : 1;
+    const scope = (a.scope ?? "").localeCompare(b.scope ?? "", undefined, { numeric: true });
+    if (scope !== 0) return scope;
+    if (a.rank != null || b.rank != null) {
+      return (a.rank ?? Number.MAX_SAFE_INTEGER) - (b.rank ?? Number.MAX_SAFE_INTEGER);
+    }
     return a.name.localeCompare(b.name);
   });
 }

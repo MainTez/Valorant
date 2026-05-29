@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { EmptyState } from "@/components/common/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { ScheduleEventDialog } from "@/components/calendar/schedule-event-dialog";
+import { formatNorway, formatNorwayTime, norwayDateKey } from "@/lib/timezone";
 import type { ScheduleEventRow, UserRow } from "@/types/domain";
 
 export const dynamic = "force-dynamic";
@@ -71,7 +72,7 @@ export default async function CalendarPage() {
           {[...grouped.entries()].map(([day, dayEvents]) => (
             <div key={day} className="surface p-5">
               <div className="eyebrow mb-3">
-                {new Date(day).toLocaleDateString(undefined, {
+                {formatNorway(new Date(`${day}T12:00:00.000Z`), {
                   weekday: "long",
                   month: "short",
                   day: "numeric",
@@ -127,7 +128,7 @@ export default async function CalendarPage() {
 function groupByDay(events: ScheduleEventRow[]): Map<string, ScheduleEventRow[]> {
   const map = new Map<string, ScheduleEventRow[]>();
   for (const e of events) {
-    const key = new Date(e.start_at).toISOString().slice(0, 10);
+    const key = norwayDateKey(e.start_at);
     const bucket = map.get(key) ?? [];
     bucket.push(e);
     map.set(key, bucket);
@@ -142,10 +143,7 @@ function formatTimeRange(event: ScheduleEventRow): string {
 }
 
 function formatEventTime(value: string): string {
-  return new Date(value).toLocaleTimeString(undefined, {
-    hour: "numeric",
-    minute: "2-digit",
-  });
+  return formatNorwayTime(value);
 }
 
 function memberName(member: Pick<UserRow, "display_name" | "email">): string {

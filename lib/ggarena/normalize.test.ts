@@ -90,7 +90,7 @@ test("normalizeMatchup handles live GGarena signup sides and start_time", () => 
   assert.equal(matchup.startsAt, "2026-05-29T15:00:00.000000Z");
 });
 
-test("standing and stat normalizers unwrap nested table payloads", () => {
+test("standing normalizer preserves division scope for all table payloads", () => {
   const standings = normalizeStandingRows(
     {
       data: {
@@ -101,19 +101,34 @@ test("standing and stat normalizers unwrap nested table payloads", () => {
       },
     },
     context,
+    "Division 1",
   );
 
   assert.equal(standings.length, 2);
   assert.equal(standings[0]?.isSurfBulls, true);
   assert.equal(standings[0]?.points, 9);
+  assert.equal(standings[0]?.scope, "Division 1");
+  assert.equal(standings[1]?.scope, "Division 1");
+});
 
+test("stat normalizer keeps every numeric tournament metric instead of truncating to assists", () => {
   const stats = normalizeStatRows(
     {
       data: [
-        { player: { name: "MainTez" }, kills: 42, deaths: 31, acs: 244.5, user_id: 7 },
+        {
+          player: { name: "MainTez" },
+          assists: 18,
+          combat_score: 244.5,
+          damage: 3120,
+          deaths: 31,
+          first_bloods: 7,
+          headshots: 44,
+          kills: 42,
+          user_id: 7,
+        },
       ],
     },
-    "Division 33",
+    "Division 3",
     context,
   );
 
@@ -121,6 +136,6 @@ test("standing and stat normalizers unwrap nested table payloads", () => {
   assert.equal(stats[0]?.name, "MainTez");
   assert.deepEqual(
     stats[0]?.metrics.map((metric) => metric.key),
-    ["acs", "deaths", "kills"],
+    ["assists", "combat_score", "damage", "deaths", "first_bloods", "headshots", "kills"],
   );
 });

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { DeleteMatchButton } from "@/components/matches/delete-match-button";
+import { formatNorwayDate } from "@/lib/timezone";
 import { canDeleteMatch, resolveMatchVodSource } from "@/lib/vods";
 import { cn } from "@/lib/utils";
 import type { MatchRow, Role } from "@/types/domain";
@@ -73,11 +74,7 @@ export function MatchLogTable({
                     <Td>{m.map}</Td>
                     <Td className="capitalize">{m.type}</Td>
                     <Td className="text-[color:var(--color-muted)]">
-                      {new Date(m.date).toLocaleDateString(undefined, {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })}
+                      {formatNorwayDate(m.date)}
                     </Td>
                     <Td>
                       {vodSource.kind !== "missing" ? (

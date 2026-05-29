@@ -37,6 +37,7 @@ updated: 2026-04-29
 - [[2026-04-23]] — pulled latest main, added private MP4 VOD uploads, VOD library/playback, and documented ADRs 0005/0006
 - [[2026-04-23-vip-session-vod-upload-fix]] — fixed VOD upload "Match not found" by restoring real Supabase session for VIP agent login
 - [[2026-04-29]] — added coach/admin calendar event management and updated roadmap status
+- [[2026-05-29]] — fixed tournament dashboard link, Norway timezone handling, GGarena standings scope, and full stat metrics
 
 ## Meta
 

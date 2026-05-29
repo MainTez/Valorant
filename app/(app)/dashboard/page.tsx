@@ -11,6 +11,7 @@ import { ImportantNote } from "@/components/dashboard/important-note";
 import { QuickActions } from "@/components/dashboard/quick-actions";
 import { RecentMatches } from "@/components/dashboard/recent-matches";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
+import { norwayDayBoundsUtc } from "@/lib/timezone";
 import { personalizeRoutineForUser } from "@/lib/routines/player-routines";
 import type {
   ActivityEventRow,
@@ -31,11 +32,8 @@ export default async function DashboardPage() {
   const { user, team } = await requireSession();
   const supabase = await createSupabaseServerClient();
 
-  const startOfDay = new Date();
-  startOfDay.setHours(0, 0, 0, 0);
-  const endOfDay = new Date();
-  endOfDay.setHours(23, 59, 59, 999);
-  const today = new Date().toISOString().slice(0, 10);
+  const todayBounds = norwayDayBoundsUtc();
+  const today = todayBounds.date;
 
   const [
     { data: upcomingEvents },
@@ -61,8 +59,8 @@ export default async function DashboardPage() {
       .from("schedule_events")
       .select("*")
       .eq("team_id", team.id)
-      .gte("start_at", startOfDay.toISOString())
-      .lte("start_at", endOfDay.toISOString())
+      .gte("start_at", todayBounds.startIso)
+      .lte("start_at", todayBounds.endIso)
       .order("start_at", { ascending: true }),
     supabase
       .from("matches")
@@ -199,7 +197,7 @@ export default async function DashboardPage() {
         <ScheduleTimeline events={(todaysEvents ?? []) as ScheduleEventRow[]} />
         <div className="grid grid-rows-[1fr_auto] gap-4">
           <ImportantNote note={important} />
-          <QuickActions />
+          <QuickActions team={teamSlug} />
         </div>
       </section>
 

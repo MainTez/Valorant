@@ -10,6 +10,7 @@ import { PlayerSearch } from "@/components/stats/player-search";
 import { EmptyState } from "@/components/common/empty-state";
 import { RankBadge } from "@/components/common/rank-badge";
 import { defaultRegion } from "@/lib/henrik/regions";
+import { formatNorwayDate } from "@/lib/timezone";
 import { relativeTime } from "@/lib/utils";
 import type { PlayerProfileRow, TrackedStatRow, UserRow } from "@/types/domain";
 
@@ -284,7 +285,7 @@ export default async function StatsIndexPage() {
                     </div>
                     <div className="text-xs text-white/38">
                       {profile.last_synced_at
-                        ? `Synced ${new Date(profile.last_synced_at).toLocaleDateString()}`
+                        ? `Synced ${formatNorwayDate(profile.last_synced_at)}`
                         : "Not synced yet"}
                     </div>
                   </div>

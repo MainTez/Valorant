@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Calendar, Map as MapIcon, Swords } from "lucide-react";
+import { formatNorwayDateTime } from "@/lib/timezone";
 import { resolveMatchVodSource } from "@/lib/vods";
 import type { MatchRow } from "@/types/domain";
 
@@ -28,7 +29,7 @@ export function VodCard({ match }: { match: MatchRow }) {
         </div>
         <div className="flex items-center gap-2">
           <Calendar className="h-4 w-4" />
-          <span>{new Date(match.date).toLocaleString()}</span>
+          <span>{formatNorwayDateTime(match.date)}</span>
         </div>
         <div className="flex items-center gap-2">
           <Swords className="h-4 w-4" />

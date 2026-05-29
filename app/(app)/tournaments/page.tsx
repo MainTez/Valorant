@@ -13,6 +13,7 @@ import type { LucideIcon } from "lucide-react";
 import { EmptyState } from "@/components/common/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { requireSession } from "@/lib/auth/get-session";
+import { formatNorwayDateTime } from "@/lib/timezone";
 import {
   type GGArenaSnapshot,
   getSurfBullsArenaSnapshot,
@@ -67,7 +68,6 @@ export default async function TournamentsPage() {
 function TournamentDashboard({ snapshot }: { snapshot: GGArenaSnapshot }) {
   const next = snapshot.nextMatchups[0] ?? null;
   const surfStanding = snapshot.standings.find((row) => row.isSurfBulls) ?? null;
-  const surfStats = snapshot.stats.filter((row) => row.isSurfBulls);
 
   return (
     <>
@@ -94,7 +94,7 @@ function TournamentDashboard({ snapshot }: { snapshot: GGArenaSnapshot }) {
 
       <section className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_1fr]">
         <StandingsTable rows={snapshot.standings} />
-        <StatsTable rows={surfStats.length > 0 ? surfStats : snapshot.stats} />
+        <StatsTable rows={snapshot.stats} />
       </section>
 
       {snapshot.warnings.length > 0 ? (
@@ -181,9 +181,9 @@ function NextTournamentMatch({
         <div className="mt-auto flex flex-wrap items-center justify-between gap-3 border-t border-white/7 pt-4 text-sm text-[color:var(--color-muted)]">
           <span className="flex items-center gap-2">
             <CalendarClock className="h-4 w-4" />
-            {matchup?.startsAt ? formatDateTime(matchup.startsAt) : "No start time"}
+            {matchup?.startsAt ? formatNorwayDateTime(matchup.startsAt) : "No start time"}
           </span>
-          <span>Updated {formatDateTime(updatedAt)}</span>
+          <span>Updated {formatNorwayDateTime(updatedAt)}</span>
         </div>
       </div>
     </div>
@@ -280,7 +280,7 @@ function MatchupList({
                 </div>
               </div>
               <div className="text-right text-sm text-[color:var(--color-muted)]">
-                <div>{matchup.startsAt ? formatDateTime(matchup.startsAt) : "TBD"}</div>
+                <div>{matchup.startsAt ? formatNorwayDateTime(matchup.startsAt) : "TBD"}</div>
                 <div className="mt-1 uppercase tracking-[0.12em]">
                   {matchup.status ?? "open"}
                 </div>
@@ -314,7 +314,8 @@ function StandingsTable({ rows }: { rows: GGArenaStandingRow[] }) {
           <table className="w-full min-w-[520px] text-left text-sm">
             <thead className="text-[11px] uppercase tracking-[0.14em] text-[color:var(--color-muted)]">
               <tr className="border-b border-white/7">
-                <th className="px-5 py-3">Team</th>
+                <th className="px-5 py-3">Division</th>
+                <th className="px-3 py-3">Team</th>
                 <th className="px-3 py-3 text-right">P</th>
                 <th className="px-3 py-3 text-right">W</th>
                 <th className="px-3 py-3 text-right">D</th>
@@ -325,14 +326,17 @@ function StandingsTable({ rows }: { rows: GGArenaStandingRow[] }) {
             <tbody>
               {rows.map((row) => (
                 <tr
-                  key={`${row.id ?? row.name}-${row.rank ?? ""}`}
+                  key={`${row.scope ?? "table"}-${row.id ?? row.name}-${row.rank ?? ""}`}
                   className={
                     row.isSurfBulls
                       ? "border-b border-white/6 bg-[color:var(--accent-dim)]"
                       : "border-b border-white/6"
                   }
                 >
-                  <td className="px-5 py-3">
+                  <td className="px-5 py-3 text-[color:var(--color-muted)]">
+                    {row.scope ?? "Tournament"}
+                  </td>
+                  <td className="px-3 py-3">
                     <span className="font-display tracking-wide">
                       {row.rank ? `${row.rank}. ` : ""}
                       {row.name}
@@ -387,8 +391,8 @@ function StatsTable({ rows }: { rows: GGArenaStatRow[] }) {
                     </div>
                   ) : null}
                 </div>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                  {row.metrics.slice(0, 3).map((metric) => (
+                <div className="grid max-w-full grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+                  {row.metrics.map((metric) => (
                     <div key={metric.key} className="text-right">
                       <div className="text-[10px] uppercase tracking-[0.12em] text-[color:var(--color-muted)]">
                         {metric.label}
@@ -415,17 +419,6 @@ function formatStandingDetail(row: GGArenaStandingRow | null) {
     row.played === null ? null : `${row.played} played`,
   ].filter(Boolean);
   return parts.join(" · ") || row.name;
-}
-
-function formatDateTime(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "TBD";
-  return date.toLocaleString(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
 }
 
 function formatNumber(value: number | null) {

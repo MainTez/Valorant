@@ -2,6 +2,7 @@ import { Calendar, Clock, Map as MapIcon, Shield } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { TeamEmblem } from "@/components/common/team-emblem";
 import type { TeamSlug } from "@/lib/constants";
+import { formatNorwayDate, formatNorwayTime } from "@/lib/timezone";
 import type { ScheduleEventRow } from "@/types/domain";
 import Link from "next/link";
 
@@ -12,7 +13,7 @@ interface Props {
 }
 
 export function NextMatchCard({ team, teamName, event }: Props) {
-  const when = event ? new Date(event.start_at) : null;
+  const when = event?.start_at ?? null;
   return (
     <div className="surface-accent relative overflow-hidden h-full">
       <div
@@ -59,21 +60,12 @@ export function NextMatchCard({ team, teamName, event }: Props) {
           <div className="flex items-center gap-5">
             <span className="flex items-center gap-1.5">
               <Calendar className="h-4 w-4" />
-              {when
-                ? when.toLocaleDateString(undefined, {
-                    month: "short",
-                    day: "numeric",
-                    year: "numeric",
-                  })
-                : "Not scheduled"}
+              {when ? formatNorwayDate(when) : "Not scheduled"}
             </span>
             {when ? (
               <span className="flex items-center gap-1.5">
                 <Clock className="h-4 w-4" />
-                {when.toLocaleTimeString(undefined, {
-                  hour: "numeric",
-                  minute: "2-digit",
-                })}
+                {formatNorwayTime(when)}
               </span>
             ) : null}
             {event?.location ? (

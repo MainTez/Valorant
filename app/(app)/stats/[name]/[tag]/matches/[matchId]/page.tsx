@@ -5,6 +5,7 @@ import { requireSession } from "@/lib/auth/get-session";
 import { henrikAccount, henrikMatchDetails } from "@/lib/henrik/client";
 import { normalizeAccount, normalizeMatches } from "@/lib/henrik/normalize";
 import { defaultRegion, normalizeRegion } from "@/lib/henrik/regions";
+import { formatNorwayDateTime } from "@/lib/timezone";
 import { getAgentAsset, getMapAsset } from "@/lib/valorant/assets";
 import { EmptyState } from "@/components/common/empty-state";
 import type { NormalizedAccount } from "@/types/domain";
@@ -347,12 +348,5 @@ function formatDuration(seconds: number | null | undefined) {
 }
 
 function formatStartedAt(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatNorwayDateTime(value, value);
 }

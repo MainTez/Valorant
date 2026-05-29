@@ -28,6 +28,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { RankBadge } from "@/components/common/rank-badge";
+import { formatNorway } from "@/lib/timezone";
 import { cn, fmtInt, fmtNumber, relativeTime } from "@/lib/utils";
 import { filterCoreStatsMatches } from "@/lib/stats/match-filters";
 import type {
@@ -1320,7 +1321,7 @@ function formatPercent(value: number | null, digits = 0): string {
 }
 
 function shortDate(value: string) {
-  return new Date(value).toLocaleDateString(undefined, {
+  return formatNorway(value, {
     month: "short",
     day: "numeric",
   });

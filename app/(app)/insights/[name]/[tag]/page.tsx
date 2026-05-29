@@ -8,6 +8,7 @@ import { DataSources } from "@/components/insights/data-sources";
 import { GenerateButton } from "@/components/insights/generate-button";
 import { EmptyState } from "@/components/common/empty-state";
 import { defaultRegion, normalizeRegion } from "@/lib/henrik/regions";
+import { formatNorwayDateTime } from "@/lib/timezone";
 import type { AiPredictionRow, PlayerProfileRow } from "@/types/domain";
 
 export const dynamic = "force-dynamic";
@@ -103,10 +104,7 @@ export default async function InsightsPage({ params, searchParams }: Props) {
           />
           <p className="text-xs text-[color:var(--color-muted)]">
             Generated{" "}
-            {new Date(prediction.generated_at).toLocaleString(undefined, {
-              dateStyle: "medium",
-              timeStyle: "short",
-            })}{" "}
+            {formatNorwayDateTime(prediction.generated_at)}{" "}
             · engine {prediction.engine_version} ·{" "}
             {prediction.llm_used ? "AI-enhanced" : "rules only"}
           </p>

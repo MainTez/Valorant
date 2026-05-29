@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { fromNorwayDateTimeLocalInput, toNorwayDateTimeLocalInput } from "@/lib/timezone";
 import { cn } from "@/lib/utils";
 import type { ScheduleEventRow, UserRow } from "@/types/domain";
 
@@ -311,26 +312,22 @@ function defaultStartAt(): string {
 }
 
 function toDateTimeLocal(value: string | null): string {
-  if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
-  return localDate.toISOString().slice(0, 16);
+  return toNorwayDateTimeLocalInput(value);
 }
 
 function toIsoString(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
+  try {
+    return fromNorwayDateTimeLocalInput(value);
+  } catch {
     throw new Error("Start time must be a valid date");
   }
-  return date.toISOString();
 }
 
 function optionalIsoString(value: string): string | null {
   if (!value) return null;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
+  try {
+    return fromNorwayDateTimeLocalInput(value);
+  } catch {
     throw new Error("End time must be a valid date");
   }
-  return date.toISOString();
 }

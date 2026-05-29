@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Target } from "lucide-react";
+import { formatNorwayTime } from "@/lib/timezone";
 import type { ScheduleEventRow } from "@/types/domain";
 
 export function ScheduleTimeline({ events }: { events: ScheduleEventRow[] }) {
@@ -13,16 +14,12 @@ export function ScheduleTimeline({ events }: { events: ScheduleEventRow[] }) {
           </p>
         ) : (
           events.slice(0, 6).map((e) => {
-            const t = new Date(e.start_at);
             return (
               <div key={e.id} className="flex items-center gap-3">
                 <div className="flex items-center gap-2 w-20 shrink-0">
                   <span className="h-1.5 w-1.5 rounded-full bg-[color:var(--accent)] shadow-[0_0_8px_var(--accent)]" />
                   <span className="font-display tracking-wide text-sm">
-                    {t.toLocaleTimeString(undefined, {
-                      hour: "numeric",
-                      minute: "2-digit",
-                    })}
+                    {formatNorwayTime(e.start_at)}
                   </span>
                 </div>
                 <div className="flex-1 flex items-center justify-between gap-3">

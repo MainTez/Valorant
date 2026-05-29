@@ -1,9 +1,10 @@
 import { Calendar, Clock, Map as MapIcon, Swords } from "lucide-react";
 import Link from "next/link";
+import { formatNorwayDate, formatNorwayTime } from "@/lib/timezone";
 import type { ScheduleEventRow } from "@/types/domain";
 
 export function UpcomingMatchCard({ event }: { event: ScheduleEventRow | null }) {
-  const when = event ? new Date(event.start_at) : null;
+  const when = event?.start_at ?? null;
   return (
     <div className="surface p-5 h-full flex flex-col">
       <div className="flex items-center justify-between">
@@ -26,24 +27,13 @@ export function UpcomingMatchCard({ event }: { event: ScheduleEventRow | null })
         <Calendar className="h-4 w-4 text-[color:var(--color-muted)] mt-0.5" />
         <span className="text-[color:var(--color-muted)]">Date</span>
         <span>
-          {when
-            ? when.toLocaleDateString(undefined, {
-                month: "long",
-                day: "numeric",
-                year: "numeric",
-              })
-            : "—"}
+          {when ? formatNorwayDate(when) : "—"}
         </span>
 
         <Clock className="h-4 w-4 text-[color:var(--color-muted)] mt-0.5" />
         <span className="text-[color:var(--color-muted)]">Time</span>
         <span>
-          {when
-            ? when.toLocaleTimeString(undefined, {
-                hour: "numeric",
-                minute: "2-digit",
-              })
-            : "—"}
+          {when ? formatNorwayTime(when) : "—"}
         </span>
       </div>
       <Link

@@ -9,6 +9,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { formatNorway } from "@/lib/timezone";
 import type { NormalizedMatch } from "@/types/domain";
 
 export function FormChart({ matches }: { matches: NormalizedMatch[] }) {
@@ -18,7 +19,7 @@ export function FormChart({ matches }: { matches: NormalizedMatch[] }) {
       i: i + 1,
       acs: m.acs,
       kd: m.deaths === 0 ? m.kills : Number((m.kills / Math.max(1, m.deaths)).toFixed(2)),
-      date: new Date(m.startedAt).toLocaleDateString(undefined, {
+      date: formatNorway(m.startedAt, {
         month: "short",
         day: "numeric",
       }),

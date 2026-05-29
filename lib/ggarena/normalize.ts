@@ -55,6 +55,7 @@ export interface GGArenaMatchup extends GGArenaEntity {
 export interface GGArenaStandingRow {
   id: number | null;
   name: string;
+  scope: string | null;
   played: number | null;
   wins: number | null;
   draws: number | null;
@@ -315,6 +316,7 @@ export function normalizeMatchup(
 export function normalizeStandingRows(
   payload: unknown,
   context?: Partial<GGArenaLookupContext>,
+  scope: string | null = null,
 ): GGArenaStandingRow[] {
   return extractTabularRows(payload).map((record, index) => {
     const name =
@@ -325,6 +327,7 @@ export function normalizeStandingRows(
     return {
       id: readNumber(record, ["id", "team_id", "teamId", "signup_id", "signupId"]),
       name,
+      scope,
       played: readNumber(record, ["played", "matches_played", "matchesPlayed", "mp", "matches"]),
       wins: readNumber(record, ["wins", "won", "w"]),
       draws: readNumber(record, ["draws", "draw", "d"]),
@@ -353,7 +356,7 @@ export function normalizeStatRows(
         name,
         scope,
         isSurfBulls: matchesSurfBulls(record, context),
-        metrics: numericMetrics(record).slice(0, 5),
+        metrics: numericMetrics(record),
       };
     })
     .filter((row) => row.metrics.length > 0);

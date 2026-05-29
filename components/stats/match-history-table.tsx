@@ -1,3 +1,4 @@
+import { formatNorway } from "@/lib/timezone";
 import { cn } from "@/lib/utils";
 import type { NormalizedMatch } from "@/types/domain";
 
@@ -59,7 +60,7 @@ export function MatchHistoryTable({ matches }: { matches: NormalizedMatch[] }) {
                   <Td>{m.headshotPct.toFixed(0)}%</Td>
                   <Td className="capitalize">{m.mode}</Td>
                   <Td className="text-[color:var(--color-muted)]">
-                    {new Date(m.startedAt).toLocaleDateString(undefined, {
+                    {formatNorway(m.startedAt, {
                       month: "short",
                       day: "numeric",
                     })}

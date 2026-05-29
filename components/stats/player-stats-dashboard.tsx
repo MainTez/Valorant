@@ -36,6 +36,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { TrackerScoreBadge } from "@/components/stats/tracker-score-badge";
 import { buildTrackerScore } from "@/lib/stats/tracker-score";
+import { formatNorway } from "@/lib/timezone";
 import { getAgentAsset, getAgentIcon, getMapAsset } from "@/lib/valorant/assets";
 import { getCompetitiveTierAsset, getRankTheme } from "@/lib/valorant/ranks";
 import { cn } from "@/lib/utils";
@@ -113,7 +114,7 @@ export function PlayerStatsDashboard({
   const maps = summarizeMaps(actMatches);
   const outcomes = buildOutcomeBreakdown(actMatches);
   const trendData = [...actMatches].reverse().map((match) => ({
-    label: new Date(match.startedAt).toLocaleDateString(undefined, {
+    label: formatNorway(match.startedAt, {
       month: "short",
       day: "numeric",
     }),
@@ -122,7 +123,7 @@ export function PlayerStatsDashboard({
   const rrSeries = history
     .slice(-14)
     .map((entry) => ({
-      label: new Date(entry.date).toLocaleDateString(undefined, {
+      label: formatNorway(entry.date, {
         month: "short",
         day: "numeric",
       }),
