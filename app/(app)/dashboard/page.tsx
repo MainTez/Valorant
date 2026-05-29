@@ -12,6 +12,10 @@ import { QuickActions } from "@/components/dashboard/quick-actions";
 import { RecentMatches } from "@/components/dashboard/recent-matches";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
 import {
+  buildDashboardLastMatchResult,
+  buildDashboardRecentResults,
+} from "@/lib/dashboard/last-match";
+import {
   buildDashboardNextMatches,
   pickDashboardNextMatch,
 } from "@/lib/dashboard/next-match";
@@ -48,7 +52,6 @@ export default async function DashboardPage() {
     { data: upcomingEvents },
     { data: todaysEvents },
     { data: recentMatches },
-    { data: lastMatchRows },
     { data: profileRows },
     { data: routines },
     { data: progressRows },
@@ -78,12 +81,6 @@ export default async function DashboardPage() {
       .eq("team_id", team.id)
       .order("date", { ascending: false })
       .limit(5),
-    supabase
-      .from("matches")
-      .select("*")
-      .eq("team_id", team.id)
-      .order("date", { ascending: false })
-      .limit(1),
     user.riot_name && user.riot_tag
       ? supabase
           .from("player_profiles")
@@ -143,8 +140,17 @@ export default async function DashboardPage() {
     tournamentMatchups,
   });
 
-  const lastMatch = ((lastMatchRows ?? []) as MatchRow[])[0] ?? null;
-  const recentResults = ((recentMatches ?? []) as MatchRow[]).map((match) => match.result);
+  const localRecentMatches = (recentMatches ?? []) as MatchRow[];
+  const recentTournamentMatchups =
+    tournamentSnapshot?.status === "ready" ? tournamentSnapshot.recentMatchups : [];
+  const lastMatch = buildDashboardLastMatchResult({
+    localMatches: localRecentMatches,
+    tournamentMatchups: recentTournamentMatchups,
+  });
+  const recentResults = buildDashboardRecentResults({
+    localMatches: localRecentMatches,
+    tournamentMatchups: recentTournamentMatchups,
+  }).map((match) => match.result);
   const winTrend = buildWinTrend(recentResults);
   const focus = ((focusNotes ?? []) as TeamNoteRow[])[0] ?? null;
   const important = ((importantNotes ?? []) as TeamNoteRow[])[0] ?? focus ?? null;

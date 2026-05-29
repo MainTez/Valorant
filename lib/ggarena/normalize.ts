@@ -79,6 +79,10 @@ export interface GGArenaStatMetric {
 export interface GGArenaStatRow {
   id: number | null;
   name: string;
+  playerId: number | null;
+  playerName: string | null;
+  teamId: number | null;
+  teamName: string | null;
   scope: string | null;
   isSurfBulls: boolean;
   metrics: GGArenaStatMetric[];
@@ -355,14 +359,41 @@ export function normalizeStatRows(
 ): GGArenaStatRow[] {
   return extractTabularRows(payload)
     .map((record, index) => {
-      const name =
-        readStringFromNested(record, ["user", "player", "team", "signup", "club"], NAME_KEYS) ??
-        readString(record, NAME_KEYS) ??
-        `Entry ${index + 1}`;
+      const playerName =
+        readStringFromNested(record, ["user", "player"], NAME_KEYS) ??
+        readString(record, [
+          "player_name",
+          "playerName",
+          "user_name",
+          "userName",
+          "username",
+          "riot_id",
+          "riotId",
+        ]);
+      const teamName =
+        readStringFromNested(record, ["team", "signup", "club"], NAME_KEYS) ??
+        readString(record, [
+          "team_name",
+          "teamName",
+          "signup_name",
+          "signupName",
+          "club_name",
+          "clubName",
+        ]);
+      const fallbackName = readString(record, NAME_KEYS) ?? `Entry ${index + 1}`;
+      const name = playerName ?? teamName ?? fallbackName;
 
       return {
-        id: readNumber(record, ["id", "user_id", "userId", "team_id", "teamId"]),
+        id: readNumber(record, ["id", "user_id", "userId", "player_id", "playerId", "team_id", "teamId"]),
         name,
+        playerId:
+          readNumber(record, ["user_id", "userId", "player_id", "playerId"]) ??
+          readNestedId(record, ["user", "player"]),
+        playerName,
+        teamId:
+          readNumber(record, ["team_id", "teamId", "signup_id", "signupId", "club_id", "clubId"]) ??
+          readNestedId(record, ["team", "signup", "club"]),
+        teamName,
         scope,
         isSurfBulls: matchesSurfBulls(record, context),
         metrics: numericMetrics(record),

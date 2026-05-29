@@ -191,3 +191,27 @@ test("stat normalizer keeps every numeric tournament metric instead of truncatin
     ["assists", "combat_score", "damage", "deaths", "first_bloods", "headshots", "kills"],
   );
 });
+
+test("stat normalizer keeps team identity separate from player identity", () => {
+  const stats = normalizeStatRows(
+    {
+      data: [
+        {
+          player: { id: 7, name: "MainTez" },
+          team: { id: 201287, name: "Surf'n Bulls" },
+          kills: 42,
+        },
+      ],
+    },
+    "Division 3",
+    { ...context, teamId: 201287 },
+  );
+
+  assert.equal(stats.length, 1);
+  assert.equal(stats[0]?.name, "MainTez");
+  assert.equal(stats[0]?.playerName, "MainTez");
+  assert.equal(stats[0]?.playerId, 7);
+  assert.equal(stats[0]?.teamName, "Surf'n Bulls");
+  assert.equal(stats[0]?.teamId, 201287);
+  assert.equal(stats[0]?.isSurfBulls, true);
+});

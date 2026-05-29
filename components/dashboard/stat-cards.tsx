@@ -1,12 +1,13 @@
 "use client";
 
 import { ResponsiveContainer, LineChart, Line } from "recharts";
-import type { MatchRow, PlayerProfileRow } from "@/types/domain";
+import type { PlayerProfileRow } from "@/types/domain";
+import type { DashboardLastMatchResult } from "@/lib/dashboard/last-match";
 import { RankBadge } from "@/components/common/rank-badge";
 import { cn, fmtInt, fmtNumber } from "@/lib/utils";
 
 interface Props {
-  lastMatch: MatchRow | null;
+  lastMatch: DashboardLastMatchResult | null;
   profile: PlayerProfileRow | null;
   recentResults: Array<"win" | "loss" | "draw">;
   winTrend: number[];
@@ -36,10 +37,10 @@ export function StatCards({ lastMatch, profile, recentResults, winTrend }: Props
               {lastMatch.result === "win" ? "VICTORY" : lastMatch.result === "loss" ? "DEFEAT" : "DRAW"}
             </div>
             <div className="stat-number mt-1">
-              {lastMatch.score_us} - {lastMatch.score_them}
+              {lastMatch.scoreline}
             </div>
             <div className="text-xs text-[color:var(--color-muted)] mt-1 truncate">
-              vs {lastMatch.opponent} · {lastMatch.map}
+              vs {lastMatch.opponent} · {lastMatch.detail}
             </div>
           </>
         ) : (

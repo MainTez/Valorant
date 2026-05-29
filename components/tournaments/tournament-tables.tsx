@@ -7,10 +7,15 @@ import {
   isStandingGroupOpenByDefault,
 } from "@/lib/ggarena/standings";
 import {
-  findTournamentStatForStanding,
-  getDefaultTournamentStatKey,
-  getTournamentStatRowKey,
-  groupTournamentStatRows,
+  findTournamentStatPlayerByKey,
+  findTournamentStatTeamByKey,
+  findTournamentStatTeamForStanding,
+  getDefaultTournamentStatSelection,
+  getTournamentStatPlayerKey,
+  getTournamentStatTeamKey,
+  groupTournamentStatsByTeam,
+  type TournamentStatGroup,
+  type TournamentStatTeam,
 } from "@/lib/ggarena/tournament-stats";
 import type {
   GGArenaStandingRow,
@@ -23,25 +28,40 @@ interface TournamentTablesProps {
 }
 
 export function TournamentTables({ standings, stats }: TournamentTablesProps) {
-  const [selectedStatKey, setSelectedStatKey] = useState<string | null>(() =>
-    getDefaultTournamentStatKey(stats),
+  const statGroups = groupTournamentStatsByTeam(stats, standings);
+  const defaultSelection = getDefaultTournamentStatSelection(statGroups);
+  const [selectedTeamKey, setSelectedTeamKey] = useState<string | null>(
+    defaultSelection.teamKey,
+  );
+  const [selectedPlayerKey, setSelectedPlayerKey] = useState<string | null>(
+    defaultSelection.playerKey,
   );
   const [openStatScopes, setOpenStatScopes] = useState<Set<string>>(() => {
-    const defaultRow = getSelectedStatRow(stats, getDefaultTournamentStatKey(stats));
-    return defaultRow ? new Set([statScope(defaultRow)]) : new Set();
+    const defaultTeam = findTournamentStatTeamByKey(statGroups, defaultSelection.teamKey);
+    return defaultTeam ? new Set([defaultTeam.scope]) : new Set();
   });
 
-  const activeStat = getSelectedStatRow(stats, selectedStatKey);
-  const activeStatKey = getTournamentStatRowKey(activeStat);
+  const activeTeam = findTournamentStatTeamByKey(statGroups, selectedTeamKey);
+  const activePlayer =
+    findTournamentStatPlayerByKey(activeTeam, selectedPlayerKey) ??
+    activeTeam?.players[0] ??
+    null;
+  const activeTeamKey = getTournamentStatTeamKey(activeTeam);
+  const activePlayerKey = getTournamentStatPlayerKey(activePlayer);
 
-  function selectStat(row: GGArenaStatRow) {
-    setSelectedStatKey(getTournamentStatRowKey(row));
-    setOpenStatScopes((current) => new Set(current).add(statScope(row)));
+  function selectTeam(team: TournamentStatTeam) {
+    setSelectedTeamKey(getTournamentStatTeamKey(team));
+    setSelectedPlayerKey(getTournamentStatPlayerKey(team.players[0]));
+    setOpenStatScopes((current) => new Set(current).add(team.scope));
   }
 
   function selectStanding(row: GGArenaStandingRow) {
-    const matchingStat = findTournamentStatForStanding(row, stats);
-    if (matchingStat) selectStat(matchingStat);
+    const matchingTeam = findTournamentStatTeamForStanding(row, statGroups);
+    if (matchingTeam) selectTeam(matchingTeam);
+  }
+
+  function selectPlayer(row: GGArenaStatRow) {
+    setSelectedPlayerKey(getTournamentStatPlayerKey(row));
   }
 
   function toggleStatScope(scope: string) {
@@ -59,17 +79,20 @@ export function TournamentTables({ standings, stats }: TournamentTablesProps) {
   return (
     <section className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_1fr]">
       <StandingsTable
-        activeStatKey={activeStatKey}
+        activeTeamKey={activeTeamKey}
         rows={standings}
-        stats={stats}
+        statGroups={statGroups}
         onSelectTeam={selectStanding}
       />
       <StatsTable
-        activeKey={activeStatKey}
-        activeRow={activeStat}
+        activePlayerKey={activePlayerKey}
+        activePlayer={activePlayer}
+        activeTeam={activeTeam}
+        activeTeamKey={activeTeamKey}
+        groups={statGroups}
         openScopes={openStatScopes}
-        rows={stats}
-        onSelectTeam={selectStat}
+        onSelectPlayer={selectPlayer}
+        onSelectTeam={selectTeam}
         onToggleScope={toggleStatScope}
       />
     </section>
@@ -77,14 +100,14 @@ export function TournamentTables({ standings, stats }: TournamentTablesProps) {
 }
 
 function StandingsTable({
-  activeStatKey,
+  activeTeamKey,
   rows,
-  stats,
+  statGroups,
   onSelectTeam,
 }: {
-  activeStatKey: string | null;
+  activeTeamKey: string | null;
   rows: GGArenaStandingRow[];
-  stats: GGArenaStatRow[];
+  statGroups: TournamentStatGroup[];
   onSelectTeam: (row: GGArenaStandingRow) => void;
 }) {
   const groups = groupStandingRows(rows);
@@ -149,10 +172,10 @@ function StandingsTable({
                     </thead>
                     <tbody>
                       {group.rows.map((row) => {
-                        const matchingStat = findTournamentStatForStanding(row, stats);
+                        const matchingTeam = findTournamentStatTeamForStanding(row, statGroups);
                         const isActive =
-                          matchingStat !== null &&
-                          getTournamentStatRowKey(matchingStat) === activeStatKey;
+                          matchingTeam !== null &&
+                          getTournamentStatTeamKey(matchingTeam) === activeTeamKey;
                         return (
                           <tr
                             key={`${group.scope}-${row.id ?? row.name}-${row.rank ?? ""}`}
@@ -202,34 +225,38 @@ function StandingsTable({
 }
 
 function StatsTable({
-  activeKey,
-  activeRow,
+  activePlayerKey,
+  activePlayer,
+  activeTeam,
+  activeTeamKey,
+  groups,
   openScopes,
-  rows,
+  onSelectPlayer,
   onSelectTeam,
   onToggleScope,
 }: {
-  activeKey: string | null;
-  activeRow: GGArenaStatRow | null;
+  activePlayerKey: string | null;
+  activePlayer: GGArenaStatRow | null;
+  activeTeam: TournamentStatTeam | null;
+  activeTeamKey: string | null;
+  groups: TournamentStatGroup[];
   openScopes: Set<string>;
-  rows: GGArenaStatRow[];
-  onSelectTeam: (row: GGArenaStatRow) => void;
+  onSelectPlayer: (row: GGArenaStatRow) => void;
+  onSelectTeam: (team: TournamentStatTeam) => void;
   onToggleScope: (scope: string) => void;
 }) {
-  const groups = groupTournamentStatRows(rows);
-
   return (
     <div className="surface overflow-hidden">
       <div className="flex items-center justify-between gap-3 border-b border-white/7 p-5">
         <div>
           <div className="eyebrow">Tournament Stats</div>
           <div className="mt-1 text-sm text-[color:var(--color-muted)]">
-            Open one team at a time from the division dropdowns
+            Choose a division, then a team, then a player
           </div>
         </div>
         <BarChart3 className="h-5 w-5 text-[color:var(--accent)]" />
       </div>
-      {rows.length === 0 ? (
+      {groups.length === 0 ? (
         <div className="px-5 py-10 text-center text-sm text-[color:var(--color-muted)]">
           No stat rows returned.
         </div>
@@ -237,8 +264,7 @@ function StatsTable({
         <div className="divide-y divide-white/7">
           {groups.map((group) => {
             const isOpen = openScopes.has(group.scope);
-            const selectedInGroup =
-              activeRow !== null && statScope(activeRow) === group.scope;
+            const selectedInGroup = activeTeam !== null && activeTeam.scope === group.scope;
             return (
               <div key={group.scope}>
                 <button
@@ -252,8 +278,8 @@ function StatsTable({
                       {group.scope}
                     </div>
                     <div className="mt-1 text-xs uppercase tracking-[0.12em] text-[color:var(--color-muted)]">
-                      {group.rows.length} teams
-                      {selectedInGroup && activeRow ? ` · showing ${activeRow.name}` : ""}
+                      {group.teams.length} teams
+                      {selectedInGroup && activeTeam ? ` · showing ${activeTeam.name}` : ""}
                     </div>
                   </div>
                   <ChevronDown
@@ -267,31 +293,38 @@ function StatsTable({
                 {isOpen ? (
                   <div className="space-y-4 border-t border-white/7 px-5 pb-5 pt-4">
                     <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                      {group.rows.map((row) => {
-                        const rowKey = getTournamentStatRowKey(row);
-                        const isActive = rowKey === activeKey;
+                      {group.teams.map((team) => {
+                        const teamKey = getTournamentStatTeamKey(team);
+                        const isActive = teamKey === activeTeamKey;
                         return (
                           <button
-                            key={rowKey ?? row.name}
+                            key={teamKey ?? team.name}
                             type="button"
                             className={
                               isActive
                                 ? "rounded-lg border border-[color:var(--accent-soft)] bg-[color:var(--accent-dim)] px-3 py-2 text-left text-[color:var(--accent)]"
                                 : "rounded-lg border border-white/7 bg-white/[0.02] px-3 py-2 text-left transition hover:border-[color:var(--accent-soft)] hover:text-[color:var(--accent)]"
                             }
-                            onClick={() => onSelectTeam(row)}
+                            onClick={() => onSelectTeam(team)}
                           >
                             <span className="block truncate font-display tracking-wide">
-                              {row.name}
+                              {team.name}
                             </span>
                             <span className="mt-1 block text-[11px] uppercase tracking-[0.12em] text-[color:var(--color-muted)]">
-                              {row.metrics.length} metrics
+                              {team.players.length} players
                             </span>
                           </button>
                         );
                       })}
                     </div>
-                    {selectedInGroup && activeRow ? <StatDetail row={activeRow} /> : null}
+                    {selectedInGroup && activeTeam ? (
+                      <TeamStatDetail
+                        activePlayer={activePlayer}
+                        activePlayerKey={activePlayerKey}
+                        team={activeTeam}
+                        onSelectPlayer={onSelectPlayer}
+                      />
+                    ) : null}
                   </div>
                 ) : null}
               </div>
@@ -303,23 +336,73 @@ function StatsTable({
   );
 }
 
-function StatDetail({ row }: { row: GGArenaStatRow }) {
+function TeamStatDetail({
+  activePlayer,
+  activePlayerKey,
+  team,
+  onSelectPlayer,
+}: {
+  activePlayer: GGArenaStatRow | null;
+  activePlayerKey: string | null;
+  team: TournamentStatTeam;
+  onSelectPlayer: (row: GGArenaStatRow) => void;
+}) {
   return (
     <div className="rounded-xl border border-white/7 bg-black/15 p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="truncate font-display text-xl tracking-wide">
-            {row.name}
+            {team.name}
           </div>
           <div className="mt-1 text-xs uppercase tracking-[0.12em] text-[color:var(--color-muted)]">
-            {row.scope ?? "Tournament"}
+            {team.scope}
           </div>
         </div>
-        {row.isSurfBulls ? (
+        {team.isSurfBulls ? (
           <div className="rounded-full border border-[color:var(--accent-soft)] px-3 py-1 text-xs uppercase tracking-[0.14em] text-[color:var(--accent)]">
             Surf'n Bulls
           </div>
         ) : null}
+      </div>
+
+      {team.players.length > 0 ? (
+        <>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {team.players.map((player) => {
+              const playerKey = getTournamentStatPlayerKey(player);
+              const isActive = playerKey === activePlayerKey;
+              return (
+                <button
+                  key={playerKey ?? player.name}
+                  type="button"
+                  className={
+                    isActive
+                      ? "rounded-full border border-[color:var(--accent-soft)] bg-[color:var(--accent-dim)] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--accent)]"
+                      : "rounded-full border border-white/7 bg-white/[0.02] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--color-muted)] transition hover:border-[color:var(--accent-soft)] hover:text-[color:var(--accent)]"
+                  }
+                  onClick={() => onSelectPlayer(player)}
+                >
+                  {formatPlayerName(player)}
+                </button>
+              );
+            })}
+          </div>
+          {activePlayer ? <PlayerStatDetail row={activePlayer} /> : null}
+        </>
+      ) : (
+        <div className="mt-4 rounded-lg border border-dashed border-white/10 px-4 py-6 text-center text-sm text-[color:var(--color-muted)]">
+          No player stats returned for this team yet.
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PlayerStatDetail({ row }: { row: GGArenaStatRow }) {
+  return (
+    <div className="mt-4 rounded-xl border border-white/7 bg-white/[0.02] p-4">
+      <div className="truncate font-display text-lg tracking-wide">
+        {formatPlayerName(row)}
       </div>
       <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
         {row.metrics.map((metric) => (
@@ -337,14 +420,6 @@ function StatDetail({ row }: { row: GGArenaStatRow }) {
   );
 }
 
-function getSelectedStatRow(rows: GGArenaStatRow[], key: string | null) {
-  return rows.find((row) => getTournamentStatRowKey(row) === key) ?? null;
-}
-
-function statScope(row: GGArenaStatRow) {
-  return row.scope ?? "Tournament";
-}
-
 function formatStandingDetail(row: GGArenaStandingRow | null) {
   if (!row) return "Standings pending";
   const parts = [
@@ -360,4 +435,10 @@ function formatNumber(value: number | null) {
 
 function formatMetric(value: number) {
   return Number.isInteger(value) ? value.toLocaleString() : value.toFixed(2);
+}
+
+function formatPlayerName(row: GGArenaStatRow) {
+  if (row.playerName) return row.playerName;
+  if (row.teamName && row.teamName === row.name) return "Team total";
+  return row.name;
 }
