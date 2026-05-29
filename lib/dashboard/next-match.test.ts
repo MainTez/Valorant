@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { pickDashboardNextMatch } from "./next-match.ts";
+import {
+  buildDashboardNextMatches,
+  pickDashboardNextMatch,
+} from "./next-match.ts";
 import type { GGArenaMatchup } from "../ggarena/normalize.ts";
 import type { ScheduleEventRow } from "../../types/domain.ts";
 
@@ -42,6 +45,48 @@ function tournamentMatchup(overrides: Partial<GGArenaMatchup>): GGArenaMatchup {
     ...overrides,
   };
 }
+
+test("dashboard next matches include scheduled and GGarena fixtures in time order", () => {
+  const matches = buildDashboardNextMatches({
+    upcomingEvents: [
+      scheduleEvent({
+        id: "practice-1",
+        title: "Team review",
+        kind: "review",
+        start_at: "2026-05-29T16:00:00.000Z",
+      }),
+      scheduleEvent({
+        id: "scrim-1",
+        title: "Scrim vs Wolves",
+        kind: "scrim",
+        start_at: "2026-05-29T19:00:00.000Z",
+      }),
+      scheduleEvent({
+        id: "match-1",
+        title: "League Match vs Lynx",
+        kind: "match",
+        start_at: "2026-05-30T18:00:00.000Z",
+      }),
+    ],
+    tournamentMatchups: [
+      tournamentMatchup({
+        id: 88,
+        uuid: "matchup-88",
+        opponentName: "Earlier Enemy",
+        startsAt: "2026-05-29T18:00:00.000Z",
+      }),
+    ],
+  });
+
+  assert.deepEqual(
+    matches.map((match) => [match.source, match.title, match.startAt]),
+    [
+      ["ggarena", "Earlier Enemy", "2026-05-29T18:00:00.000Z"],
+      ["schedule", "Scrim vs Wolves", "2026-05-29T19:00:00.000Z"],
+      ["schedule", "League Match vs Lynx", "2026-05-30T18:00:00.000Z"],
+    ],
+  );
+});
 
 test("dashboard next match falls back to the upcoming GGarena tournament fixture", () => {
   const picked = pickDashboardNextMatch({

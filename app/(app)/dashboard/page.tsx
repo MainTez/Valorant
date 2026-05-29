@@ -11,7 +11,10 @@ import { ImportantNote } from "@/components/dashboard/important-note";
 import { QuickActions } from "@/components/dashboard/quick-actions";
 import { RecentMatches } from "@/components/dashboard/recent-matches";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
-import { pickDashboardNextMatch } from "@/lib/dashboard/next-match";
+import {
+  buildDashboardNextMatches,
+  pickDashboardNextMatch,
+} from "@/lib/dashboard/next-match";
 import { getSurfBullsArenaSnapshot } from "@/lib/ggarena/client";
 import { norwayDayBoundsUtc } from "@/lib/timezone";
 import { personalizeRoutineForUser } from "@/lib/routines/player-routines";
@@ -129,16 +132,16 @@ export default async function DashboardPage() {
   ]);
 
   const scheduleEvents = (upcomingEvents ?? []) as ScheduleEventRow[];
+  const tournamentMatchups =
+    tournamentSnapshot?.status === "ready" ? tournamentSnapshot.nextMatchups : [];
+  const nextMatches = buildDashboardNextMatches({
+    upcomingEvents: scheduleEvents,
+    tournamentMatchups,
+  });
   const nextMatchEvent = pickDashboardNextMatch({
     upcomingEvents: scheduleEvents,
-    tournamentMatchups:
-      tournamentSnapshot?.status === "ready" ? tournamentSnapshot.nextMatchups : [],
+    tournamentMatchups,
   });
-
-  const upcomingMatch =
-    scheduleEvents.find(
-      (event) => event.kind === "match" || event.kind === "scrim",
-    ) ?? null;
 
   const lastMatch = ((lastMatchRows ?? []) as MatchRow[])[0] ?? null;
   const recentResults = ((recentMatches ?? []) as MatchRow[]).map((match) => match.result);
@@ -203,7 +206,7 @@ export default async function DashboardPage() {
       </section>
 
       <section className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_1.3fr_1fr]">
-        <UpcomingMatchCard event={upcomingMatch} />
+        <UpcomingMatchCard event={nextMatches[0] ?? null} matches={nextMatches} />
         <ScheduleTimeline events={(todaysEvents ?? []) as ScheduleEventRow[]} />
         <div className="grid grid-rows-[1fr_auto] gap-4">
           <ImportantNote note={important} />

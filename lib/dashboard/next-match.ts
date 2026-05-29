@@ -14,6 +14,21 @@ export interface DashboardNextMatch {
   source: DashboardNextMatchSource;
 }
 
+export function buildDashboardNextMatches({
+  upcomingEvents,
+  tournamentMatchups,
+}: {
+  upcomingEvents: ScheduleEventRow[];
+  tournamentMatchups: GGArenaMatchup[];
+}): DashboardNextMatch[] {
+  const scheduledMatches = upcomingEvents
+    .filter((event) => event.kind === "match" || event.kind === "scrim")
+    .map(scheduleEventToDashboardMatch);
+  const tournamentMatches = tournamentMatchups.map(tournamentMatchupToDashboardMatch);
+
+  return sortDashboardMatches([...scheduledMatches, ...tournamentMatches]);
+}
+
 export function pickDashboardNextMatch({
   upcomingEvents,
   tournamentMatchups,
@@ -21,14 +36,10 @@ export function pickDashboardNextMatch({
   upcomingEvents: ScheduleEventRow[];
   tournamentMatchups: GGArenaMatchup[];
 }): DashboardNextMatch | null {
-  const scheduledMatches = upcomingEvents
-    .filter((event) => event.kind === "match" || event.kind === "scrim")
-    .map(scheduleEventToDashboardMatch);
-  const tournamentMatches = tournamentMatchups.map(tournamentMatchupToDashboardMatch);
-  const matchCandidates = sortDashboardMatches([
-    ...scheduledMatches,
-    ...tournamentMatches,
-  ]);
+  const matchCandidates = buildDashboardNextMatches({
+    upcomingEvents,
+    tournamentMatchups,
+  });
 
   if (matchCandidates.length > 0) return matchCandidates[0];
 

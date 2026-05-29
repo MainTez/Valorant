@@ -1,9 +1,7 @@
 import { notFound } from "next/navigation";
 import {
   AlertTriangle,
-  BarChart3,
   CalendarClock,
-  ChevronDown,
   CheckCircle2,
   ExternalLink,
   Shield,
@@ -12,6 +10,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { EmptyState } from "@/components/common/empty-state";
+import { TournamentTables } from "@/components/tournaments/tournament-tables";
 import { Badge } from "@/components/ui/badge";
 import { requireSession } from "@/lib/auth/get-session";
 import { formatNorwayDateTime } from "@/lib/timezone";
@@ -19,14 +18,9 @@ import {
   type GGArenaSnapshot,
   getSurfBullsArenaSnapshot,
 } from "@/lib/ggarena/client";
-import {
-  groupStandingRows,
-  isStandingGroupOpenByDefault,
-} from "@/lib/ggarena/standings";
 import type {
   GGArenaMatchup,
   GGArenaStandingRow,
-  GGArenaStatRow,
 } from "@/lib/ggarena/normalize";
 
 export const dynamic = "force-dynamic";
@@ -97,10 +91,7 @@ function TournamentDashboard({ snapshot }: { snapshot: GGArenaSnapshot }) {
         <MatchupList title="Recent officials" matchups={snapshot.recentMatchups} empty="No recent tournament results returned." />
       </section>
 
-      <section className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_1fr]">
-        <StandingsTable rows={snapshot.standings} />
-        <StatsTable rows={snapshot.stats} />
-      </section>
+      <TournamentTables standings={snapshot.standings} stats={snapshot.stats} />
 
       {snapshot.warnings.length > 0 ? (
         <section className="surface p-4">
@@ -320,148 +311,6 @@ function MatchupResult({ matchup }: { matchup: GGArenaMatchup }) {
   );
 }
 
-function StandingsTable({ rows }: { rows: GGArenaStandingRow[] }) {
-  const groups = groupStandingRows(rows);
-
-  return (
-    <div className="surface overflow-hidden">
-      <div className="flex items-center justify-between gap-3 border-b border-white/7 p-5">
-        <div>
-          <div className="eyebrow">Standings</div>
-          <div className="mt-1 text-sm text-[color:var(--color-muted)]">
-            Divisions are collapsed to keep the table compact
-          </div>
-        </div>
-        <Table2 className="h-5 w-5 text-[color:var(--accent)]" />
-      </div>
-      {groups.length === 0 ? (
-        <div className="px-5 py-10 text-center text-sm text-[color:var(--color-muted)]">
-          No standings returned.
-        </div>
-      ) : (
-        <div className="divide-y divide-white/7">
-          {groups.map((group) => {
-            const surfRow = group.rows.find((row) => row.isSurfBulls) ?? null;
-            return (
-              <details
-                key={group.scope}
-                className="group"
-                open={isStandingGroupOpenByDefault(group, groups.length)}
-              >
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 transition hover:bg-white/[0.03] [&::-webkit-details-marker]:hidden">
-                  <div className="min-w-0">
-                    <div className="font-display text-lg tracking-wide">
-                      {group.scope}
-                    </div>
-                    <div className="mt-1 text-xs uppercase tracking-[0.12em] text-[color:var(--color-muted)]">
-                      {group.rows.length} teams
-                      {surfRow ? ` · Surf'n Bulls ${formatStandingDetail(surfRow)}` : ""}
-                    </div>
-                  </div>
-                  <ChevronDown className="h-4 w-4 shrink-0 text-[color:var(--color-muted)] transition group-open:rotate-180" />
-                </summary>
-                <div className="overflow-x-auto border-t border-white/7">
-                  <table className="w-full min-w-[460px] text-left text-sm">
-                    <thead className="text-[11px] uppercase tracking-[0.14em] text-[color:var(--color-muted)]">
-                      <tr className="border-b border-white/7">
-                        <th className="px-5 py-3">Team</th>
-                        <th className="px-3 py-3 text-right">P</th>
-                        <th className="px-3 py-3 text-right">W</th>
-                        <th className="px-3 py-3 text-right">D</th>
-                        <th className="px-3 py-3 text-right">L</th>
-                        <th className="px-5 py-3 text-right">Pts</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {group.rows.map((row) => (
-                        <tr
-                          key={`${group.scope}-${row.id ?? row.name}-${row.rank ?? ""}`}
-                          className={
-                            row.isSurfBulls
-                              ? "border-b border-white/6 bg-[color:var(--accent-dim)]"
-                              : "border-b border-white/6"
-                          }
-                        >
-                          <td className="px-5 py-3">
-                            <span className="font-display tracking-wide">
-                              {row.rank ? `${row.rank}. ` : ""}
-                              {row.name}
-                            </span>
-                          </td>
-                          <td className="px-3 py-3 text-right">{formatNumber(row.played)}</td>
-                          <td className="px-3 py-3 text-right">{formatNumber(row.wins)}</td>
-                          <td className="px-3 py-3 text-right">{formatNumber(row.draws)}</td>
-                          <td className="px-3 py-3 text-right">{formatNumber(row.losses)}</td>
-                          <td className="px-5 py-3 text-right font-semibold">{formatNumber(row.points)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </details>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function StatsTable({ rows }: { rows: GGArenaStatRow[] }) {
-  return (
-    <div className="surface overflow-hidden">
-      <div className="flex items-center justify-between gap-3 border-b border-white/7 p-5">
-        <div>
-          <div className="eyebrow">Tournament Stats</div>
-          <div className="mt-1 text-sm text-[color:var(--color-muted)]">
-            GGarena game data
-          </div>
-        </div>
-        <BarChart3 className="h-5 w-5 text-[color:var(--accent)]" />
-      </div>
-      {rows.length === 0 ? (
-        <div className="px-5 py-10 text-center text-sm text-[color:var(--color-muted)]">
-          No stat rows returned.
-        </div>
-      ) : (
-        <div className="divide-y divide-white/7">
-          {rows.map((row) => (
-            <div
-              key={`${row.id ?? row.name}-${row.scope ?? ""}`}
-              className={row.isSurfBulls ? "bg-[color:var(--accent-dim)] p-4" : "p-4"}
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <div className="truncate font-display text-lg tracking-wide">
-                    {row.name}
-                  </div>
-                  {row.scope ? (
-                    <div className="mt-1 text-xs uppercase tracking-[0.12em] text-[color:var(--color-muted)]">
-                      {row.scope}
-                    </div>
-                  ) : null}
-                </div>
-                <div className="grid max-w-full grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-                  {row.metrics.map((metric) => (
-                    <div key={metric.key} className="text-right">
-                      <div className="text-[10px] uppercase tracking-[0.12em] text-[color:var(--color-muted)]">
-                        {metric.label}
-                      </div>
-                      <div className="font-display text-lg">
-                        {formatMetric(metric.value)}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 function formatStandingDetail(row: GGArenaStandingRow | null) {
   if (!row) return "Standings pending";
   const parts = [
@@ -469,14 +318,6 @@ function formatStandingDetail(row: GGArenaStandingRow | null) {
     row.played === null ? null : `${row.played} played`,
   ].filter(Boolean);
   return parts.join(" · ") || row.name;
-}
-
-function formatNumber(value: number | null) {
-  return value === null ? "—" : value.toLocaleString();
-}
-
-function formatMetric(value: number) {
-  return Number.isInteger(value) ? value.toLocaleString() : value.toFixed(2);
 }
 
 function formatMatchupResult(result: NonNullable<GGArenaMatchup["surfResult"]>) {

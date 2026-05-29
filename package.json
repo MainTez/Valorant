@@ -17,7 +17,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "node --no-warnings --test lib/vods.test.ts lib/auth/public-paths.test.ts lib/auth/vip.test.ts lib/routines/player-routines.test.ts lib/stats/tracker-score.test.ts lib/stats/match-moments.test.ts lib/ggarena/normalize.test.ts lib/ggarena/scope.test.ts lib/ggarena/standings.test.ts lib/timezone.test.ts lib/dashboard/quick-actions.test.ts lib/dashboard/next-match.test.ts",
+    "test": "node --no-warnings --test lib/vods.test.ts lib/auth/public-paths.test.ts lib/auth/vip.test.ts lib/routines/player-routines.test.ts lib/stats/tracker-score.test.ts lib/stats/match-moments.test.ts lib/ggarena/normalize.test.ts lib/ggarena/scope.test.ts lib/ggarena/standings.test.ts lib/ggarena/tournament-stats.test.ts lib/timezone.test.ts lib/dashboard/quick-actions.test.ts lib/dashboard/next-match.test.ts",
     "type-check": "tsc --noEmit"
   },
   "build": {

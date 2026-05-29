@@ -41,6 +41,20 @@ test("groupStandingRows keeps teams under expandable division groups", () => {
   );
 });
 
+test("standings rows are sorted from highest to lowest points inside each division", () => {
+  const groups = groupStandingRows([
+    standing({ id: 10, name: "Alpha", points: 3, rank: 3 }),
+    standing({ id: 20, name: "Bravo", points: 9, rank: 1 }),
+    standing({ id: 30, name: "Charlie", points: 6, rank: 2 }),
+    standing({ id: 40, name: "Delta", points: null, rank: null }),
+  ]);
+
+  assert.deepEqual(
+    groups[0]?.rows.map((row) => row.name),
+    ["Bravo", "Charlie", "Alpha", "Delta"],
+  );
+});
+
 test("only Surf's division opens by default when multiple standings groups exist", () => {
   const groups = groupStandingRows([
     standing({ id: 10, name: "Alpha", scope: "1. divisjon" }),
