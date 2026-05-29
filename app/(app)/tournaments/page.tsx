@@ -3,6 +3,7 @@ import {
   AlertTriangle,
   BarChart3,
   CalendarClock,
+  ChevronDown,
   CheckCircle2,
   ExternalLink,
   Shield,
@@ -18,6 +19,10 @@ import {
   type GGArenaSnapshot,
   getSurfBullsArenaSnapshot,
 } from "@/lib/ggarena/client";
+import {
+  groupStandingRows,
+  isStandingGroupOpenByDefault,
+} from "@/lib/ggarena/standings";
 import type {
   GGArenaMatchup,
   GGArenaStandingRow,
@@ -294,63 +299,86 @@ function MatchupList({
 }
 
 function StandingsTable({ rows }: { rows: GGArenaStandingRow[] }) {
+  const groups = groupStandingRows(rows);
+
   return (
     <div className="surface overflow-hidden">
       <div className="flex items-center justify-between gap-3 border-b border-white/7 p-5">
         <div>
           <div className="eyebrow">Standings</div>
           <div className="mt-1 text-sm text-[color:var(--color-muted)]">
-            Tournament table
+            Divisions are collapsed to keep the table compact
           </div>
         </div>
         <Table2 className="h-5 w-5 text-[color:var(--accent)]" />
       </div>
-      {rows.length === 0 ? (
+      {groups.length === 0 ? (
         <div className="px-5 py-10 text-center text-sm text-[color:var(--color-muted)]">
           No standings returned.
         </div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[520px] text-left text-sm">
-            <thead className="text-[11px] uppercase tracking-[0.14em] text-[color:var(--color-muted)]">
-              <tr className="border-b border-white/7">
-                <th className="px-5 py-3">Division</th>
-                <th className="px-3 py-3">Team</th>
-                <th className="px-3 py-3 text-right">P</th>
-                <th className="px-3 py-3 text-right">W</th>
-                <th className="px-3 py-3 text-right">D</th>
-                <th className="px-3 py-3 text-right">L</th>
-                <th className="px-5 py-3 text-right">Pts</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr
-                  key={`${row.scope ?? "table"}-${row.id ?? row.name}-${row.rank ?? ""}`}
-                  className={
-                    row.isSurfBulls
-                      ? "border-b border-white/6 bg-[color:var(--accent-dim)]"
-                      : "border-b border-white/6"
-                  }
-                >
-                  <td className="px-5 py-3 text-[color:var(--color-muted)]">
-                    {row.scope ?? "Tournament"}
-                  </td>
-                  <td className="px-3 py-3">
-                    <span className="font-display tracking-wide">
-                      {row.rank ? `${row.rank}. ` : ""}
-                      {row.name}
-                    </span>
-                  </td>
-                  <td className="px-3 py-3 text-right">{formatNumber(row.played)}</td>
-                  <td className="px-3 py-3 text-right">{formatNumber(row.wins)}</td>
-                  <td className="px-3 py-3 text-right">{formatNumber(row.draws)}</td>
-                  <td className="px-3 py-3 text-right">{formatNumber(row.losses)}</td>
-                  <td className="px-5 py-3 text-right font-semibold">{formatNumber(row.points)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="divide-y divide-white/7">
+          {groups.map((group) => {
+            const surfRow = group.rows.find((row) => row.isSurfBulls) ?? null;
+            return (
+              <details
+                key={group.scope}
+                className="group"
+                open={isStandingGroupOpenByDefault(group, groups.length)}
+              >
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 transition hover:bg-white/[0.03] [&::-webkit-details-marker]:hidden">
+                  <div className="min-w-0">
+                    <div className="font-display text-lg tracking-wide">
+                      {group.scope}
+                    </div>
+                    <div className="mt-1 text-xs uppercase tracking-[0.12em] text-[color:var(--color-muted)]">
+                      {group.rows.length} teams
+                      {surfRow ? ` · Surf'n Bulls ${formatStandingDetail(surfRow)}` : ""}
+                    </div>
+                  </div>
+                  <ChevronDown className="h-4 w-4 shrink-0 text-[color:var(--color-muted)] transition group-open:rotate-180" />
+                </summary>
+                <div className="overflow-x-auto border-t border-white/7">
+                  <table className="w-full min-w-[460px] text-left text-sm">
+                    <thead className="text-[11px] uppercase tracking-[0.14em] text-[color:var(--color-muted)]">
+                      <tr className="border-b border-white/7">
+                        <th className="px-5 py-3">Team</th>
+                        <th className="px-3 py-3 text-right">P</th>
+                        <th className="px-3 py-3 text-right">W</th>
+                        <th className="px-3 py-3 text-right">D</th>
+                        <th className="px-3 py-3 text-right">L</th>
+                        <th className="px-5 py-3 text-right">Pts</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {group.rows.map((row) => (
+                        <tr
+                          key={`${group.scope}-${row.id ?? row.name}-${row.rank ?? ""}`}
+                          className={
+                            row.isSurfBulls
+                              ? "border-b border-white/6 bg-[color:var(--accent-dim)]"
+                              : "border-b border-white/6"
+                          }
+                        >
+                          <td className="px-5 py-3">
+                            <span className="font-display tracking-wide">
+                              {row.rank ? `${row.rank}. ` : ""}
+                              {row.name}
+                            </span>
+                          </td>
+                          <td className="px-3 py-3 text-right">{formatNumber(row.played)}</td>
+                          <td className="px-3 py-3 text-right">{formatNumber(row.wins)}</td>
+                          <td className="px-3 py-3 text-right">{formatNumber(row.draws)}</td>
+                          <td className="px-3 py-3 text-right">{formatNumber(row.losses)}</td>
+                          <td className="px-5 py-3 text-right font-semibold">{formatNumber(row.points)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </details>
+            );
+          })}
         </div>
       )}
     </div>

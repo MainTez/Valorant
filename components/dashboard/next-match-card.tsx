@@ -2,18 +2,18 @@ import { Calendar, Clock, Map as MapIcon, Shield } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { TeamEmblem } from "@/components/common/team-emblem";
 import type { TeamSlug } from "@/lib/constants";
+import type { DashboardNextMatch } from "@/lib/dashboard/next-match";
 import { formatNorwayDate, formatNorwayTime } from "@/lib/timezone";
-import type { ScheduleEventRow } from "@/types/domain";
 import Link from "next/link";
 
 interface Props {
   team: TeamSlug;
   teamName: string;
-  event: ScheduleEventRow | null;
+  event: DashboardNextMatch | null;
 }
 
 export function NextMatchCard({ team, teamName, event }: Props) {
-  const when = event?.start_at ?? null;
+  const when = event?.startAt ?? null;
   return (
     <div className="surface-accent relative overflow-hidden h-full">
       <div
@@ -75,8 +75,11 @@ export function NextMatchCard({ team, teamName, event }: Props) {
               </span>
             ) : null}
           </div>
-          <Link href="/calendar" className="btn-ghost !px-3 !py-1.5 text-[color:var(--accent)]">
-            View match details →
+          <Link
+            href={event?.detailsHref ?? "/calendar"}
+            className="btn-ghost !px-3 !py-1.5 text-[color:var(--accent)]"
+          >
+            {event?.detailsLabel ?? "View match details →"}
           </Link>
         </div>
       </div>

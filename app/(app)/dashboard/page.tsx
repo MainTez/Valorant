@@ -11,6 +11,8 @@ import { ImportantNote } from "@/components/dashboard/important-note";
 import { QuickActions } from "@/components/dashboard/quick-actions";
 import { RecentMatches } from "@/components/dashboard/recent-matches";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
+import { pickDashboardNextMatch } from "@/lib/dashboard/next-match";
+import { getSurfBullsArenaSnapshot } from "@/lib/ggarena/client";
 import { norwayDayBoundsUtc } from "@/lib/timezone";
 import { personalizeRoutineForUser } from "@/lib/routines/player-routines";
 import type {
@@ -34,6 +36,10 @@ export default async function DashboardPage() {
 
   const todayBounds = norwayDayBoundsUtc();
   const today = todayBounds.date;
+  const tournamentSnapshotPromise =
+    team.slug === "surf-n-bulls"
+      ? getSurfBullsArenaSnapshot()
+      : Promise.resolve(null);
 
   const [
     { data: upcomingEvents },
@@ -47,6 +53,7 @@ export default async function DashboardPage() {
     { data: importantNotes },
     { data: activityRows },
     { data: membersRaw },
+    tournamentSnapshot,
   ] = await Promise.all([
     supabase
       .from("schedule_events")
@@ -118,15 +125,18 @@ export default async function DashboardPage() {
       .from("users")
       .select("id, display_name, avatar_url, email")
       .eq("team_id", team.id),
+    tournamentSnapshotPromise,
   ]);
 
-  const nextMatchEvent =
-    ((upcomingEvents ?? []) as ScheduleEventRow[]).find(
-      (event) => event.kind === "match" || event.kind === "scrim",
-    ) ?? ((upcomingEvents ?? []) as ScheduleEventRow[])[0] ?? null;
+  const scheduleEvents = (upcomingEvents ?? []) as ScheduleEventRow[];
+  const nextMatchEvent = pickDashboardNextMatch({
+    upcomingEvents: scheduleEvents,
+    tournamentMatchups:
+      tournamentSnapshot?.status === "ready" ? tournamentSnapshot.nextMatchups : [],
+  });
 
   const upcomingMatch =
-    ((upcomingEvents ?? []) as ScheduleEventRow[]).find(
+    scheduleEvents.find(
       (event) => event.kind === "match" || event.kind === "scrim",
     ) ?? null;
 
