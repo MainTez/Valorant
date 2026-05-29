@@ -27,6 +27,7 @@ export function groupTournamentStatsByTeam(
 ): TournamentStatGroup[] {
   const groups = new Map<string, Map<string, TournamentStatTeam>>();
   const standingLookup = buildStandingLookup(standings);
+  const hasStandingTeams = standings.length > 0;
 
   for (const standing of standings) {
     upsertTeam(groups, {
@@ -40,6 +41,8 @@ export function groupTournamentStatsByTeam(
 
   for (const row of rows) {
     const standing = findStandingForStatRow(row, standingLookup);
+    if (!standing && hasStandingTeams) continue;
+
     const scope = standing?.scope ?? statScope(row);
     const seed = standing
       ? buildTeamFromStanding(standing, row, scope)

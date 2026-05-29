@@ -88,6 +88,44 @@ test("tournament stats include every standings team even before player rows atta
   );
 });
 
+test("tournament stats do not create fake teams from unmatched player rows when standings exist", () => {
+  const rows = [
+    stat({
+      id: 101,
+      playerId: 101,
+      name: "MainTez",
+      playerName: "MainTez",
+      teamId: 20,
+      teamName: "Surf'n Bulls",
+      scope: "3. divisjon",
+      isSurfBulls: true,
+    }),
+    stat({
+      id: 999,
+      playerId: 999,
+      name: "aimeeboo",
+      playerName: null,
+      teamId: null,
+      teamName: null,
+      scope: "3. divisjon",
+    }),
+  ];
+  const standings = [
+    standing({ id: 20, name: "Surf'n Bulls", scope: "3. divisjon", isSurfBulls: true }),
+    standing({ id: 30, name: "Rotaryon Zeviatán", scope: "3. divisjon" }),
+  ];
+
+  const groups = groupTournamentStatsByTeam(rows, standings);
+
+  assert.deepEqual(
+    groups[0]?.teams.map((team) => [team.name, team.players.map((player) => player.name)]),
+    [
+      ["Surf'n Bulls", ["MainTez"]],
+      ["Rotaryon Zeviatán", []],
+    ],
+  );
+});
+
 test("tournament stats attach player rows to standings teams when GGarena IDs differ", () => {
   const rows = [
     stat({
