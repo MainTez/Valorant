@@ -91,12 +91,38 @@ test("dashboard next matches include scheduled and GGarena fixtures in time orde
 test("dashboard next match falls back to the upcoming GGarena tournament fixture", () => {
   const picked = pickDashboardNextMatch({
     upcomingEvents: [scheduleEvent({ kind: "review" })],
-    tournamentMatchups: [tournamentMatchup({})],
+    tournamentMatchups: [
+      tournamentMatchup({
+        sides: [
+          {
+            id: 1,
+            clubId: null,
+            teamId: 201287,
+            name: "Surf'n Bulls",
+            logoUrl: null,
+            side: "home",
+            score: null,
+            isSurfBulls: true,
+          },
+          {
+            id: 2,
+            clubId: null,
+            teamId: 303,
+            name: "Enemy Team",
+            logoUrl: "https://ggarena.example/enemy.png",
+            side: "away",
+            score: null,
+            isSurfBulls: false,
+          },
+        ],
+      }),
+    ],
   });
 
   assert.deepEqual(picked, {
     id: "ggarena-matchup-77",
     title: "Enemy Team",
+    opponentLogoUrl: "https://ggarena.example/enemy.png",
     kind: "tournament",
     startAt: "2026-05-29T18:00:00.000Z",
     location: "2. divisjon · Round 3",

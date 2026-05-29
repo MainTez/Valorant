@@ -12,6 +12,7 @@ import {
   findTournamentStatTeamByKey,
   findTournamentStatTeamForStanding,
   getDefaultTournamentStatSelection,
+  getTournamentPlayerImprovementSuggestions,
   getTournamentStatPlayerKey,
   getTournamentStatTeamKey,
   groupTournamentStatsByTeam,
@@ -409,6 +410,8 @@ function TeamStatDetail({
 }
 
 function PlayerStatDetail({ row }: { row: GGArenaStatRow }) {
+  const suggestions = getTournamentPlayerImprovementSuggestions(row);
+
   return (
     <div className="mt-4 rounded-xl border border-white/7 bg-white/[0.02] p-4">
       <div className="truncate font-display text-lg tracking-wide">
@@ -425,6 +428,21 @@ function PlayerStatDetail({ row }: { row: GGArenaStatRow }) {
             </div>
           </div>
         ))}
+      </div>
+      <div className="mt-4 rounded-lg border border-white/7 bg-black/15 p-4">
+        <div className="text-[10px] uppercase tracking-[0.14em] text-[color:var(--color-muted)]">
+          What to improve
+        </div>
+        <div className="mt-3 grid grid-cols-1 gap-2 lg:grid-cols-3">
+          {suggestions.map((suggestion) => (
+            <div
+              key={suggestion}
+              className="rounded-lg border border-white/7 bg-white/[0.02] p-3 text-sm leading-5 text-white/78"
+            >
+              {suggestion}
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

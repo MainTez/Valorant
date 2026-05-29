@@ -6,6 +6,11 @@ import { TEAMS, type TeamSlug, DEFAULT_CHANNELS } from "@/lib/constants";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
 import { ChatRail } from "@/components/layout/chat-rail";
+import {
+  ACTIVE_TOURNAMENT_OPT_IN_KEY,
+  buildTournamentOptInSummary,
+} from "@/lib/tournaments/opt-in";
+import type { TournamentOptInRow, UserRow } from "@/types/domain";
 
 export default async function AppLayout({
   children,
@@ -20,7 +25,7 @@ export default async function AppLayout({
     ? (session.team.slug as TeamSlug)
     : "surf-n-bulls";
 
-  const [{ data: channels }, { data: members }] = await Promise.all([
+  const [{ data: channels }, { data: members }, { data: tournamentOptIns }] = await Promise.all([
     supabase
       .from("chat_channels")
       .select("id, slug, name")
@@ -31,6 +36,13 @@ export default async function AppLayout({
       .select("id, display_name, email, avatar_url, status")
       .eq("team_id", session.team.id)
       .order("display_name", { ascending: true }),
+    session.team.slug === "surf-n-bulls"
+      ? supabase
+          .from("tournament_opt_ins")
+          .select("user_id, status, updated_at")
+          .eq("team_id", session.team.id)
+          .eq("tournament_key", ACTIVE_TOURNAMENT_OPT_IN_KEY)
+      : Promise.resolve({ data: [] }),
   ]);
 
   const channelList =
@@ -55,6 +67,15 @@ export default async function AppLayout({
   const membersById = Object.fromEntries(
     (members ?? []).map((m) => [m.id, m]),
   );
+  const tournamentOptIn =
+    session.team.slug === "surf-n-bulls"
+      ? buildTournamentOptInSummary({
+          tournamentKey: ACTIVE_TOURNAMENT_OPT_IN_KEY,
+          currentUserId: session.user.id,
+          members: (members ?? []) as Pick<UserRow, "id" | "display_name" | "email" | "avatar_url">[],
+          optIns: (tournamentOptIns ?? []) as Pick<TournamentOptInRow, "user_id" | "status" | "updated_at">[],
+        })
+      : null;
   const messages = (recent ?? [])
     .slice()
     .reverse()
@@ -97,6 +118,7 @@ export default async function AppLayout({
               role: session.user.role,
             }}
             teamName={session.team.name}
+            tournamentOptIn={tournamentOptIn}
           />
           <div className="flex-1 min-w-0 px-5 py-5 animate-slide-up xl:px-6">{children}</div>
         </main>

@@ -10,27 +10,55 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { EmptyState } from "@/components/common/empty-state";
+import { TeamMark } from "@/components/common/team-mark";
 import { TournamentTables } from "@/components/tournaments/tournament-tables";
+import { TournamentOptInPanel } from "@/components/tournaments/tournament-opt-in";
 import { Badge } from "@/components/ui/badge";
 import { requireSession } from "@/lib/auth/get-session";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { formatNorwayDateTime } from "@/lib/timezone";
 import {
   type GGArenaSnapshot,
   getSurfBullsArenaSnapshot,
 } from "@/lib/ggarena/client";
+import {
+  ACTIVE_TOURNAMENT_OPT_IN_KEY,
+  buildTournamentOptInSummary,
+  type TournamentOptInSummary,
+} from "@/lib/tournaments/opt-in";
 import type {
   GGArenaMatchup,
   GGArenaStandingRow,
 } from "@/lib/ggarena/normalize";
+import type { TournamentOptInRow, UserRow } from "@/types/domain";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Tournaments" };
 
 export default async function TournamentsPage() {
-  const { team } = await requireSession();
+  const { user, team } = await requireSession();
   if (team.slug !== "surf-n-bulls") notFound();
 
-  const snapshot = await getSurfBullsArenaSnapshot();
+  const supabase = await createSupabaseServerClient();
+  const [snapshot, { data: members }, { data: optIns }] = await Promise.all([
+    getSurfBullsArenaSnapshot(),
+    supabase
+      .from("users")
+      .select("id, display_name, email, avatar_url")
+      .eq("team_id", team.id)
+      .order("display_name", { ascending: true }),
+    supabase
+      .from("tournament_opt_ins")
+      .select("user_id, status, updated_at")
+      .eq("team_id", team.id)
+      .eq("tournament_key", ACTIVE_TOURNAMENT_OPT_IN_KEY),
+  ]);
+  const optInSummary = buildTournamentOptInSummary({
+    tournamentKey: ACTIVE_TOURNAMENT_OPT_IN_KEY,
+    currentUserId: user.id,
+    members: (members ?? []) as Pick<UserRow, "id" | "display_name" | "email" | "avatar_url">[],
+    optIns: (optIns ?? []) as Pick<TournamentOptInRow, "user_id" | "status" | "updated_at">[],
+  });
 
   return (
     <div className="flex max-w-[1400px] flex-col gap-5">
@@ -56,7 +84,7 @@ export default async function TournamentsPage() {
       </header>
 
       {snapshot.status === "ready" ? (
-        <TournamentDashboard snapshot={snapshot} />
+        <TournamentDashboard snapshot={snapshot} optInSummary={optInSummary} />
       ) : (
         <UnavailableState snapshot={snapshot} />
       )}
@@ -64,7 +92,13 @@ export default async function TournamentsPage() {
   );
 }
 
-function TournamentDashboard({ snapshot }: { snapshot: GGArenaSnapshot }) {
+function TournamentDashboard({
+  optInSummary,
+  snapshot,
+}: {
+  optInSummary: TournamentOptInSummary;
+  snapshot: GGArenaSnapshot;
+}) {
   const next = snapshot.nextMatchups[0] ?? null;
   const surfStanding = snapshot.standings.find((row) => row.isSurfBulls) ?? null;
 
@@ -85,6 +119,8 @@ function TournamentDashboard({ snapshot }: { snapshot: GGArenaSnapshot }) {
           detail={formatStandingDetail(surfStanding)}
         />
       </section>
+
+      <TournamentOptInPanel initialSummary={optInSummary} />
 
       <section className="grid grid-cols-1 gap-4 xl:grid-cols-[1.1fr_0.9fr]">
         <MatchupList title="Next fixtures" matchups={snapshot.nextMatchups} empty="No upcoming fixtures returned." />
@@ -136,6 +172,9 @@ function NextTournamentMatch({
   matchup: GGArenaMatchup | null;
   updatedAt: string;
 }) {
+  const surfSide = matchup?.sides.find((side) => side.isSurfBulls) ?? null;
+  const opponentSide = matchup?.sides.find((side) => !side.isSurfBulls) ?? null;
+
   return (
     <div className="surface-accent relative min-h-[270px] overflow-hidden p-5">
       <div
@@ -157,11 +196,18 @@ function NextTournamentMatch({
 
         {matchup ? (
           <div className="mt-7 grid grid-cols-[1fr_auto_1fr] items-center gap-4">
-            <TeamBlock name="Surf'n Bulls" active />
+            <TeamBlock
+              name={surfSide?.name ?? "Surf'n Bulls"}
+              logoUrl={surfSide?.logoUrl ?? "/teams/surf-n-bulls-logo.png"}
+              active
+            />
             <div className="font-display text-4xl tracking-[0.2em] text-[color:var(--color-muted)]">
               VS
             </div>
-            <TeamBlock name={matchup.opponentName ?? "Opponent TBD"} />
+            <TeamBlock
+              name={opponentSide?.name ?? matchup.opponentName ?? "Opponent TBD"}
+              logoUrl={opponentSide?.logoUrl}
+            />
           </div>
         ) : (
           <div className="mt-10 flex flex-1 items-center justify-center text-center">
@@ -186,18 +232,18 @@ function NextTournamentMatch({
   );
 }
 
-function TeamBlock({ name, active = false }: { name: string; active?: boolean }) {
+function TeamBlock({
+  active = false,
+  logoUrl,
+  name,
+}: {
+  active?: boolean;
+  logoUrl?: string | null;
+  name: string;
+}) {
   return (
     <div className="min-w-0 text-center">
-      <div
-        className={
-          active
-            ? "mx-auto grid h-[88px] w-[88px] place-items-center rounded-xl border border-[color:var(--accent-soft)] bg-[color:var(--accent-dim)] text-[color:var(--accent)]"
-            : "mx-auto grid h-[88px] w-[88px] place-items-center rounded-xl border border-white/10 bg-white/[0.025] text-[color:var(--color-muted)]"
-        }
-      >
-        <Shield className="h-9 w-9" />
-      </div>
+      <TeamMark name={name} logoUrl={logoUrl} active={active} size="lg" className="mx-auto" />
       <div className="mt-3 truncate font-display text-sm tracking-[0.12em]">
         {name}
       </div>
@@ -260,27 +306,32 @@ function MatchupList({
         </div>
       ) : (
         <div className="flex flex-col gap-2">
-          {matchups.map((matchup) => (
-            <div
-              key={matchup.uuid ?? matchup.id ?? `${matchup.name}-${matchup.startsAt}`}
-              className="grid grid-cols-[1fr_auto] gap-3 rounded-lg border border-white/7 bg-white/[0.02] p-3"
-            >
-              <div className="min-w-0">
-                <div className="truncate font-display text-lg tracking-wide">
-                  {matchup.opponentName ?? matchup.name}
+          {matchups.map((matchup) => {
+            const opponentSide = matchup.sides.find((side) => !side.isSurfBulls) ?? null;
+            const opponentName = opponentSide?.name ?? matchup.opponentName ?? matchup.name;
+            return (
+              <div
+                key={matchup.uuid ?? matchup.id ?? `${matchup.name}-${matchup.startsAt}`}
+                className="grid grid-cols-[auto_1fr_auto] gap-3 rounded-lg border border-white/7 bg-white/[0.02] p-3"
+              >
+                <TeamMark name={opponentName} logoUrl={opponentSide?.logoUrl} size="sm" />
+                <div className="min-w-0">
+                  <div className="truncate font-display text-lg tracking-wide">
+                    {opponentName}
+                  </div>
+                  <div className="mt-1 truncate text-xs uppercase tracking-[0.12em] text-[color:var(--color-muted)]">
+                    {[matchup.competitionName, matchup.divisionName, matchup.roundName]
+                      .filter(Boolean)
+                      .join(" · ") || "Tournament"}
+                  </div>
                 </div>
-                <div className="mt-1 truncate text-xs uppercase tracking-[0.12em] text-[color:var(--color-muted)]">
-                  {[matchup.competitionName, matchup.divisionName, matchup.roundName]
-                    .filter(Boolean)
-                    .join(" · ") || "Tournament"}
+                <div className="text-right text-sm text-[color:var(--color-muted)]">
+                  <div>{matchup.startsAt ? formatNorwayDateTime(matchup.startsAt) : "TBD"}</div>
+                  <MatchupResult matchup={matchup} />
                 </div>
               </div>
-              <div className="text-right text-sm text-[color:var(--color-muted)]">
-                <div>{matchup.startsAt ? formatNorwayDateTime(matchup.startsAt) : "TBD"}</div>
-                <MatchupResult matchup={matchup} />
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

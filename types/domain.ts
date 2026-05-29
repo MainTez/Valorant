@@ -208,6 +208,16 @@ export interface ScheduleEventRow {
   created_at: string;
 }
 
+export interface TournamentOptInRow {
+  id: string;
+  team_id: string;
+  user_id: string;
+  tournament_key: string;
+  status: "in" | "out";
+  created_at: string;
+  updated_at: string;
+}
+
 export interface TeamNoteRow {
   id: string;
   team_id: string;

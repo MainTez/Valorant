@@ -36,6 +36,7 @@ export interface GGArenaMatchupSide {
   clubId: number | null;
   teamId: number | null;
   name: string;
+  logoUrl: string | null;
   side: string | null;
   score: number | null;
   isSurfBulls: boolean;
@@ -169,6 +170,24 @@ const DATE_KEYS = [
   "time",
   "deadline_at",
   "deadlineAt",
+];
+
+const IMAGE_KEYS = [
+  "logo_url",
+  "logoUrl",
+  "image_url",
+  "imageUrl",
+  "icon_url",
+  "iconUrl",
+  "avatar_url",
+  "avatarUrl",
+  "picture_url",
+  "pictureUrl",
+  "logo",
+  "image",
+  "icon",
+  "avatar",
+  "picture",
 ];
 
 export function isRecord(value: unknown): value is RawRecord {
@@ -541,6 +560,7 @@ function normalizeSide(
       clubId: null,
       teamId: null,
       name: value,
+      logoUrl: null,
       side: null,
       score: null,
       isSurfBulls: matchesSurfBulls(value, context),
@@ -568,6 +588,7 @@ function normalizeSide(
     clubId,
     teamId,
     name,
+    logoUrl: readImageUrl(value) ?? (teamRecord ? readImageUrl(teamRecord) : null),
     side: readString(value, ["side"]) ?? null,
     score: readNumber(value, ["score", "points", "rounds", "wins", "result"]),
     isSurfBulls:
@@ -757,6 +778,24 @@ function readStringFromNested(
 ): string | null {
   const nested = findNestedRecord(record, nestedKeys);
   return nested ? readString(nested, valueKeys) : null;
+}
+
+function readImageUrl(record: RawRecord): string | null {
+  const direct = readString(record, IMAGE_KEYS);
+  if (direct && isLikelyImageUrl(direct)) return direct;
+
+  for (const key of ["logo", "image", "icon", "avatar", "picture", "team", "club", "signup"]) {
+    const value = record[key];
+    if (!isRecord(value)) continue;
+    const nested = readString(value, ["url", "src", "path", ...IMAGE_KEYS]);
+    if (nested && isLikelyImageUrl(nested)) return nested;
+  }
+
+  return null;
+}
+
+function isLikelyImageUrl(value: string) {
+  return /^https?:\/\//i.test(value) || value.startsWith("/");
 }
 
 function findNestedRecord(record: RawRecord, keys: string[]): RawRecord | null {

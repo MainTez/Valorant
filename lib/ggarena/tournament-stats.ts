@@ -129,6 +129,60 @@ export function findTournamentStatPlayerByKey(
   return team.players.find((player) => getTournamentStatPlayerKey(player) === key) ?? null;
 }
 
+export function getTournamentPlayerImprovementSuggestions(row: GGArenaStatRow) {
+  const kills = metricValue(row, ["kills", "kill", "k"]);
+  const deaths = metricValue(row, ["deaths", "death", "d"]);
+  const assists = metricValue(row, ["assists", "assist", "a"]);
+  const headshotPct = metricValue(row, [
+    "headshots",
+    "headshot percentage",
+    "headshot pct",
+    "hs percentage",
+    "hs pct",
+    "hs",
+  ]);
+  const acs = metricValue(row, ["combat score", "average combat score", "acs"]);
+  const adr = metricValue(row, ["damage", "average damage per round", "adr"]);
+  const firstBloods = metricValue(row, ["first bloods", "firstbloods", "first kills", "fk"]);
+  const suggestions: string[] = [];
+
+  if (kills !== null && deaths !== null && deaths > kills) {
+    suggestions.push("Take fewer solo first contacts; hold tradeable angles before swinging.");
+  }
+
+  if (headshotPct !== null && normalizePercent(headshotPct) < 24) {
+    suggestions.push("Raise headshot rate with crosshair-placement deathmatch before officials.");
+  }
+
+  if (assists !== null && assists <= 2) {
+    suggestions.push("Use utility before contact so teammates get easier trades.");
+  }
+
+  if (acs !== null && acs < 180) {
+    suggestions.push("Fight closer to teammates and convert utility into traded damage.");
+  }
+
+  if (adr !== null && adr < 120) {
+    suggestions.push("Keep rifle ready during rotations and clear common angles slower.");
+  }
+
+  if (firstBloods !== null && firstBloods === 0) {
+    suggestions.push("Create one planned opening fight with flash, stun, or double swing support.");
+  }
+
+  if (kills !== null && deaths !== null && kills >= deaths * 1.25) {
+    suggestions.push("Keep the duel output; add clearer mid-round calls after first contact.");
+  }
+
+  if (suggestions.length === 0) {
+    suggestions.push("Review one lost round and name the timing, utility, or spacing mistake.");
+    suggestions.push("Set one measurable focus before next map and track it after the match.");
+    suggestions.push("Keep comms short: location, damage, utility, then next action.");
+  }
+
+  return dedupeStrings(suggestions).slice(0, 3);
+}
+
 function upsertTeam(
   groups: Map<string, Map<string, TournamentStatTeam>>,
   seed: TournamentStatTeam,
@@ -268,6 +322,28 @@ function findByPreferredScope(rows: GGArenaStandingRow[], scope: string) {
 function sortTeams(a: TournamentStatTeam, b: TournamentStatTeam) {
   if (a.isSurfBulls !== b.isSurfBulls) return a.isSurfBulls ? -1 : 1;
   return a.name.localeCompare(b.name);
+}
+
+function metricValue(row: GGArenaStatRow, aliases: string[]) {
+  const normalizedAliases = aliases.map(normalizeMetricName);
+  const metric = row.metrics.find((item) => {
+    const key = normalizeMetricName(item.key);
+    const label = normalizeMetricName(item.label);
+    return normalizedAliases.some((alias) => alias === key || alias === label);
+  });
+  return metric?.value ?? null;
+}
+
+function normalizeMetricName(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
+function normalizePercent(value: number) {
+  return value <= 1 ? value * 100 : value;
+}
+
+function dedupeStrings(values: string[]) {
+  return [...new Set(values)];
 }
 
 function normalizeName(name: string) {

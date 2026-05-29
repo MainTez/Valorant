@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   findTournamentStatTeamForStanding,
   getDefaultTournamentStatSelection,
+  getTournamentPlayerImprovementSuggestions,
   getTournamentStatPlayerKey,
   getTournamentStatTeamKey,
   groupTournamentStatsByTeam,
@@ -227,4 +228,21 @@ test("a standings row opens the matching tournament stat team in the same divisi
   assert.equal(matched?.name, "Bravo");
   assert.equal(matched?.scope, "2. divisjon");
   assert.equal(matched?.players[0]?.name, "Bravo Player");
+});
+
+test("tournament player improvements point at weak tournament stat areas", () => {
+  const suggestions = getTournamentPlayerImprovementSuggestions(
+    stat({
+      metrics: [
+        { key: "kills", label: "Kills", value: 8 },
+        { key: "deaths", label: "Deaths", value: 14 },
+        { key: "assists", label: "Assists", value: 1 },
+        { key: "combat_score", label: "Combat Score", value: 160 },
+      ],
+    }),
+  );
+
+  assert.equal(suggestions.length, 3);
+  assert.match(suggestions[0], /solo first contacts/);
+  assert.match(suggestions.join(" "), /utility/);
 });

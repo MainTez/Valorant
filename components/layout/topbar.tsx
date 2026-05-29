@@ -14,6 +14,8 @@ import { initials } from "@/lib/utils";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { TournamentOptInTopbar } from "@/components/tournaments/tournament-opt-in";
+import type { TournamentOptInSummary } from "@/lib/tournaments/opt-in";
 
 interface Props {
   user: {
@@ -23,9 +25,10 @@ interface Props {
     role: "player" | "coach" | "admin";
   };
   teamName: string;
+  tournamentOptIn: TournamentOptInSummary | null;
 }
 
-export function Topbar({ user, teamName }: Props) {
+export function Topbar({ user, teamName, tournamentOptIn }: Props) {
   const router = useRouter();
 
   async function signOut() {
@@ -50,12 +53,16 @@ export function Topbar({ user, teamName }: Props) {
         </div>
       </div>
 
-      <button
-        aria-label="Notifications"
-        className="grid h-12 w-12 place-items-center rounded-[1rem] border border-white/10 bg-white/[0.025] text-[color:var(--color-muted)] hover:border-[color:var(--accent-soft)] hover:text-[color:var(--accent)] transition"
-      >
-        <Bell className="h-[18px] w-[18px]" />
-      </button>
+      {tournamentOptIn ? (
+        <TournamentOptInTopbar initialSummary={tournamentOptIn} />
+      ) : (
+        <button
+          aria-label="Notifications"
+          className="grid h-12 w-12 place-items-center rounded-[1rem] border border-white/10 bg-white/[0.025] text-[color:var(--color-muted)] transition hover:border-[color:var(--accent-soft)] hover:text-[color:var(--accent)]"
+        >
+          <Bell className="h-[18px] w-[18px]" />
+        </button>
+      )}
 
       <Link
         href="/calendar"

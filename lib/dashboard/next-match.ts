@@ -6,6 +6,7 @@ export type DashboardNextMatchSource = "schedule" | "ggarena";
 export interface DashboardNextMatch {
   id: string;
   title: string;
+  opponentLogoUrl: string | null;
   kind: string;
   startAt: string | null;
   location: string | null;
@@ -51,6 +52,7 @@ function scheduleEventToDashboardMatch(event: ScheduleEventRow): DashboardNextMa
   return {
     id: `schedule-${event.id}`,
     title: event.title,
+    opponentLogoUrl: null,
     kind: event.kind,
     startAt: event.start_at,
     location: event.location,
@@ -61,9 +63,12 @@ function scheduleEventToDashboardMatch(event: ScheduleEventRow): DashboardNextMa
 }
 
 function tournamentMatchupToDashboardMatch(matchup: GGArenaMatchup): DashboardNextMatch {
+  const opponent = matchup.sides.find((side) => !side.isSurfBulls) ?? null;
+
   return {
     id: `ggarena-matchup-${matchup.id ?? matchup.uuid ?? matchup.name}`,
-    title: matchup.opponentName ?? matchup.name ?? "Opponent TBD",
+    title: opponent?.name ?? matchup.opponentName ?? matchup.name ?? "Opponent TBD",
+    opponentLogoUrl: opponent?.logoUrl ?? null,
     kind: "tournament",
     startAt: matchup.startsAt,
     location:

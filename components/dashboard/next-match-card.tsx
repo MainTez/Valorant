@@ -1,6 +1,7 @@
-import { Calendar, Clock, Map as MapIcon, Shield } from "lucide-react";
+import { Calendar, Clock, Map as MapIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { TeamEmblem } from "@/components/common/team-emblem";
+import { TeamMark } from "@/components/common/team-mark";
 import type { TeamSlug } from "@/lib/constants";
 import type { DashboardNextMatch } from "@/lib/dashboard/next-match";
 import { formatNorwayDate, formatNorwayTime } from "@/lib/timezone";
@@ -44,12 +45,11 @@ export function NextMatchCard({ team, teamName, event }: Props) {
           </div>
 
           <div className="flex flex-col items-center">
-            <div
-              className="h-[90px] w-[90px] rounded-xl border border-white/10 bg-white/[0.02] grid place-items-center"
-              aria-hidden
-            >
-              <Shield className="h-10 w-10 text-[color:var(--color-muted)]" />
-            </div>
+            <TeamMark
+              name={event?.title ?? "TBD"}
+              logoUrl={event?.opponentLogoUrl}
+              size="lg"
+            />
             <div className="mt-3 font-display tracking-[0.12em] text-sm text-[color:var(--color-muted)]">
               {event?.title ?? "TBD"}
             </div>
