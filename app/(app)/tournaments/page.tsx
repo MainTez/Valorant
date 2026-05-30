@@ -24,13 +24,15 @@ import {
 import {
   ACTIVE_TOURNAMENT_OPT_IN_KEY,
   buildTournamentOptInSummary,
+  TOURNAMENT_OPT_IN_OBJECT_TYPE,
+  TOURNAMENT_OPT_IN_VERBS,
   type TournamentOptInSummary,
 } from "@/lib/tournaments/opt-in";
 import type {
   GGArenaMatchup,
   GGArenaStandingRow,
 } from "@/lib/ggarena/normalize";
-import type { TournamentOptInRow, UserRow } from "@/types/domain";
+import type { ActivityEventRow, UserRow } from "@/types/domain";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Tournaments" };
@@ -40,7 +42,7 @@ export default async function TournamentsPage() {
   if (team.slug !== "surf-n-bulls") notFound();
 
   const supabase = await createSupabaseServerClient();
-  const [snapshot, { data: members }, { data: optIns }] = await Promise.all([
+  const [snapshot, { data: members }, { data: optInEvents }] = await Promise.all([
     getSurfBullsArenaSnapshot(),
     supabase
       .from("users")
@@ -48,16 +50,20 @@ export default async function TournamentsPage() {
       .eq("team_id", team.id)
       .order("display_name", { ascending: true }),
     supabase
-      .from("tournament_opt_ins")
-      .select("user_id, status, updated_at")
+      .from("activity_events")
+      .select("actor_id, verb, object_id, payload, created_at")
       .eq("team_id", team.id)
-      .eq("tournament_key", ACTIVE_TOURNAMENT_OPT_IN_KEY),
+      .eq("object_type", TOURNAMENT_OPT_IN_OBJECT_TYPE)
+      .eq("object_id", ACTIVE_TOURNAMENT_OPT_IN_KEY)
+      .in("verb", [...TOURNAMENT_OPT_IN_VERBS])
+      .order("created_at", { ascending: false })
+      .limit(250),
   ]);
   const optInSummary = buildTournamentOptInSummary({
     tournamentKey: ACTIVE_TOURNAMENT_OPT_IN_KEY,
     currentUserId: user.id,
     members: (members ?? []) as Pick<UserRow, "id" | "display_name" | "email" | "avatar_url">[],
-    optIns: (optIns ?? []) as Pick<TournamentOptInRow, "user_id" | "status" | "updated_at">[],
+    events: (optInEvents ?? []) as Pick<ActivityEventRow, "actor_id" | "verb" | "object_id" | "payload" | "created_at">[],
   });
 
   return (

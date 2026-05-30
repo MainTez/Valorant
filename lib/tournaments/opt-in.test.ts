@@ -10,9 +10,28 @@ test("tournament opt-in summary counts in, out, and pending players", () => {
       { id: "user-2", display_name: "TrePinne", email: "tre@example.com" },
       { id: "user-3", display_name: null, email: "nomiar@example.com" },
     ],
-    optIns: [
-      { user_id: "user-1", status: "in", updated_at: "2026-05-29T10:00:00.000Z" },
-      { user_id: "user-2", status: "out", updated_at: "2026-05-29T10:01:00.000Z" },
+    events: [
+      {
+        actor_id: "user-1",
+        verb: "tournament_opted_out",
+        object_id: "surf-n-bulls-active-tournament",
+        payload: { status: "out" },
+        created_at: "2026-05-29T09:55:00.000Z",
+      },
+      {
+        actor_id: "user-1",
+        verb: "tournament_opted_in",
+        object_id: "surf-n-bulls-active-tournament",
+        payload: { status: "in" },
+        created_at: "2026-05-29T10:00:00.000Z",
+      },
+      {
+        actor_id: "user-2",
+        verb: "tournament_opted_out",
+        object_id: "surf-n-bulls-active-tournament",
+        payload: { status: "out" },
+        created_at: "2026-05-29T10:01:00.000Z",
+      },
     ],
   });
 

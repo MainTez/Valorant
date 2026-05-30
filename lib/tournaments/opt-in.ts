@@ -1,8 +1,12 @@
-import type { TournamentOptInRow } from "@/types/domain";
-
 export const ACTIVE_TOURNAMENT_OPT_IN_KEY = "surf-n-bulls-active-tournament";
+export const TOURNAMENT_OPT_IN_OBJECT_TYPE = "tournament";
+export const TOURNAMENT_OPT_IN_VERBS = [
+  "tournament_opted_in",
+  "tournament_opted_out",
+] as const;
 
 export type TournamentOptInStatus = "in" | "out";
+export type TournamentOptInVerb = (typeof TOURNAMENT_OPT_IN_VERBS)[number];
 
 export interface TournamentOptInMemberInput {
   id: string;
@@ -30,18 +34,26 @@ export interface TournamentOptInSummary {
   members: TournamentOptInMember[];
 }
 
+export interface TournamentOptInEventInput {
+  actor_id: string | null;
+  verb: string;
+  object_id: string | null;
+  payload: Record<string, unknown> | null;
+  created_at: string;
+}
+
 export function buildTournamentOptInSummary({
   tournamentKey = ACTIVE_TOURNAMENT_OPT_IN_KEY,
   currentUserId,
+  events = [],
   members,
-  optIns,
 }: {
   tournamentKey?: string;
   currentUserId: string;
+  events?: TournamentOptInEventInput[];
   members: TournamentOptInMemberInput[];
-  optIns: Array<Pick<TournamentOptInRow, "user_id" | "status" | "updated_at">>;
 }): TournamentOptInSummary {
-  const optInsByUser = new Map(optIns.map((optIn) => [optIn.user_id, optIn]));
+  const optInsByUser = latestOptInsByUser(events, tournamentKey);
   const normalizedMembers = members
     .map((member) => {
       const optIn = optInsByUser.get(member.id) ?? null;
@@ -51,7 +63,7 @@ export function buildTournamentOptInSummary({
         email: member.email,
         avatarUrl: member.avatar_url ?? null,
         status: optIn?.status ?? null,
-        updatedAt: optIn?.updated_at ?? null,
+        updatedAt: optIn?.updatedAt ?? null,
       };
     })
     .sort(sortOptInMembers);
@@ -65,6 +77,36 @@ export function buildTournamentOptInSummary({
     totalCount: normalizedMembers.length,
     members: normalizedMembers,
   };
+}
+
+export function optInStatusToVerb(status: TournamentOptInStatus): TournamentOptInVerb {
+  return status === "in" ? "tournament_opted_in" : "tournament_opted_out";
+}
+
+function latestOptInsByUser(events: TournamentOptInEventInput[], tournamentKey: string) {
+  const out = new Map<string, { status: TournamentOptInStatus; updatedAt: string }>();
+
+  for (const event of events) {
+    if (!event.actor_id) continue;
+    if (event.object_id !== tournamentKey) continue;
+
+    const status = readStatus(event);
+    if (!status) continue;
+
+    const existing = out.get(event.actor_id);
+    if (existing && existing.updatedAt > event.created_at) continue;
+    out.set(event.actor_id, { status, updatedAt: event.created_at });
+  }
+
+  return out;
+}
+
+function readStatus(event: TournamentOptInEventInput): TournamentOptInStatus | null {
+  const payloadStatus = event.payload?.status;
+  if (payloadStatus === "in" || payloadStatus === "out") return payloadStatus;
+  if (event.verb === "tournament_opted_in") return "in";
+  if (event.verb === "tournament_opted_out") return "out";
+  return null;
 }
 
 function sortOptInMembers(a: TournamentOptInMember, b: TournamentOptInMember) {

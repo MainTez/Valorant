@@ -190,6 +190,19 @@ const IMAGE_KEYS = [
   "picture",
 ];
 
+const IMAGE_ID_KEYS = [
+  "logo_image_id",
+  "logoImageId",
+  "image_id",
+  "imageId",
+  "icon_image_id",
+  "iconImageId",
+  "avatar_image_id",
+  "avatarImageId",
+  "picture_image_id",
+  "pictureImageId",
+];
+
 export function isRecord(value: unknown): value is RawRecord {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
@@ -784,14 +797,23 @@ function readImageUrl(record: RawRecord): string | null {
   const direct = readString(record, IMAGE_KEYS);
   if (direct && isLikelyImageUrl(direct)) return direct;
 
+  const imageId = readNumber(record, IMAGE_ID_KEYS);
+  if (imageId !== null) return ggarenaImageUrl(imageId);
+
   for (const key of ["logo", "image", "icon", "avatar", "picture", "team", "club", "signup"]) {
     const value = record[key];
     if (!isRecord(value)) continue;
     const nested = readString(value, ["url", "src", "path", ...IMAGE_KEYS]);
     if (nested && isLikelyImageUrl(nested)) return nested;
+    const nestedImageId = readNumber(value, IMAGE_ID_KEYS);
+    if (nestedImageId !== null) return ggarenaImageUrl(nestedImageId);
   }
 
   return null;
+}
+
+function ggarenaImageUrl(id: number) {
+  return `https://i.bo3.no/image/${id}`;
 }
 
 function isLikelyImageUrl(value: string) {

@@ -49,7 +49,7 @@ test("normalizeMatchup identifies opponent and start time for Surf'n Bulls fixtu
       division: { id: 33, name: "Division 2" },
       teams: [
         { team: { id: 202, name: "Surf'n Bulls" }, score: null },
-        { team: { id: 303, name: "Oslo Aim", logo_url: "https://ggarena.example/oslo.png" }, score: null },
+        { team: { id: 303, name: "Oslo Aim", logo_image_id: 393369 }, score: null },
       ],
     },
     context,
@@ -58,7 +58,7 @@ test("normalizeMatchup identifies opponent and start time for Surf'n Bulls fixtu
   assert.ok(matchup);
   assert.equal(matchup.includesSurfBulls, true);
   assert.equal(matchup.opponentName, "Oslo Aim");
-  assert.equal(matchup.sides.find((side) => !side.isSurfBulls)?.logoUrl, "https://ggarena.example/oslo.png");
+  assert.equal(matchup.sides.find((side) => !side.isSurfBulls)?.logoUrl, "https://i.bo3.no/image/393369");
   assert.equal(matchup.roundName, "Round 3");
   assert.equal(matchup.divisionId, 33);
 });

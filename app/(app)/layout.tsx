@@ -9,8 +9,10 @@ import { ChatRail } from "@/components/layout/chat-rail";
 import {
   ACTIVE_TOURNAMENT_OPT_IN_KEY,
   buildTournamentOptInSummary,
+  TOURNAMENT_OPT_IN_OBJECT_TYPE,
+  TOURNAMENT_OPT_IN_VERBS,
 } from "@/lib/tournaments/opt-in";
-import type { TournamentOptInRow, UserRow } from "@/types/domain";
+import type { ActivityEventRow, UserRow } from "@/types/domain";
 
 export default async function AppLayout({
   children,
@@ -25,7 +27,7 @@ export default async function AppLayout({
     ? (session.team.slug as TeamSlug)
     : "surf-n-bulls";
 
-  const [{ data: channels }, { data: members }, { data: tournamentOptIns }] = await Promise.all([
+  const [{ data: channels }, { data: members }, { data: tournamentOptInEvents }] = await Promise.all([
     supabase
       .from("chat_channels")
       .select("id, slug, name")
@@ -38,10 +40,14 @@ export default async function AppLayout({
       .order("display_name", { ascending: true }),
     session.team.slug === "surf-n-bulls"
       ? supabase
-          .from("tournament_opt_ins")
-          .select("user_id, status, updated_at")
+          .from("activity_events")
+          .select("actor_id, verb, object_id, payload, created_at")
           .eq("team_id", session.team.id)
-          .eq("tournament_key", ACTIVE_TOURNAMENT_OPT_IN_KEY)
+          .eq("object_type", TOURNAMENT_OPT_IN_OBJECT_TYPE)
+          .eq("object_id", ACTIVE_TOURNAMENT_OPT_IN_KEY)
+          .in("verb", [...TOURNAMENT_OPT_IN_VERBS])
+          .order("created_at", { ascending: false })
+          .limit(250)
       : Promise.resolve({ data: [] }),
   ]);
 
@@ -73,7 +79,7 @@ export default async function AppLayout({
           tournamentKey: ACTIVE_TOURNAMENT_OPT_IN_KEY,
           currentUserId: session.user.id,
           members: (members ?? []) as Pick<UserRow, "id" | "display_name" | "email" | "avatar_url">[],
-          optIns: (tournamentOptIns ?? []) as Pick<TournamentOptInRow, "user_id" | "status" | "updated_at">[],
+          events: (tournamentOptInEvents ?? []) as Pick<ActivityEventRow, "actor_id" | "verb" | "object_id" | "payload" | "created_at">[],
         })
       : null;
   const messages = (recent ?? [])
