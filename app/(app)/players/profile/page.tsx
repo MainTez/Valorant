@@ -2,10 +2,12 @@ import Link from "next/link";
 import { ArrowLeft, LineChart, Sparkles } from "lucide-react";
 import { requireSession } from "@/lib/auth/get-session";
 import { RiotProfileForm } from "@/components/players/riot-profile-form";
+import { ValorantRoleForm } from "@/components/players/valorant-role-form";
 import { RankBadge } from "@/components/common/rank-badge";
 import { SpotifyProfilePanel } from "@/components/spotify/spotify-profile-panel";
 import { defaultRegion, normalizeRegion } from "@/lib/henrik/regions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { normalizeSecondaryValorantRoles } from "@/lib/valorant/roles";
 import type { PlayerProfileRow } from "@/types/domain";
 
 export const dynamic = "force-dynamic";
@@ -33,6 +35,7 @@ export default async function PlayerProfilePage({ searchParams }: Props) {
   const { data } = await profileQuery;
   const profile = data as PlayerProfileRow | null;
   const region = normalizeRegion(user.riot_region ?? profile?.region ?? defaultRegion());
+  const setupMode = sp.setup === "roles";
   const statsHref = user.riot_name && user.riot_tag
     ? `/stats/${encodeURIComponent(user.riot_name)}/${encodeURIComponent(user.riot_tag)}?region=${region}`
     : null;
@@ -54,8 +57,8 @@ export default async function PlayerProfilePage({ searchParams }: Props) {
           <div className="mt-4 eyebrow">Player Profile</div>
           <h1 className="mt-1 font-display text-3xl tracking-wide">Your Riot Link</h1>
           <p className="mt-1 max-w-[42rem] text-sm leading-6 text-[color:var(--color-muted)]">
-            This is the roster identity used by team stats, player cards, and
-            your personal tracker shortcuts.
+            This is the roster identity used by team stats, tournament opt-ins,
+            player cards, and your personal tracker shortcuts.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -76,6 +79,14 @@ export default async function PlayerProfilePage({ searchParams }: Props) {
 
       <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
         <div className="flex flex-col gap-4">
+          <ValorantRoleForm
+            initialPreferredRole={user.preferred_valorant_role}
+            initialSecondaryRoles={normalizeSecondaryValorantRoles(
+              user.preferred_valorant_role,
+              user.secondary_valorant_roles,
+            )}
+            setupMode={setupMode}
+          />
           <RiotProfileForm
             initialName={user.riot_name ?? ""}
             initialTag={user.riot_tag ?? ""}

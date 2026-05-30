@@ -63,7 +63,7 @@ export async function POST(request: Request) {
       (typeof metadata?.picture === "string" ? metadata.picture : null) ||
       null;
 
-    await upsertWhitelistedUser({
+    const appUser = await upsertWhitelistedUser({
       authUserId: user.id,
       email: user.email,
       displayName,
@@ -85,7 +85,11 @@ export async function POST(request: Request) {
       },
     });
 
-    return NextResponse.json({ ok: true, team: approvedTeam.slug });
+    return NextResponse.json({
+      ok: true,
+      team: approvedTeam.slug,
+      roleSetupRequired: !appUser.preferred_valorant_role,
+    });
   } catch (error) {
     console.error("[auth/bootstrap] failed:", error);
     return NextResponse.json({ error: "bootstrap_failed" }, { status: 500 });

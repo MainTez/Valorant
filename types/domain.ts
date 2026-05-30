@@ -1,6 +1,7 @@
 export type Role = "player" | "coach" | "admin";
 export type Result = "win" | "loss" | "draw";
 export type MatchType = "scrim" | "official" | "tournament";
+export type ValorantRole = "Duelist" | "Sentinel" | "Initiator" | "Controller";
 
 export interface UserRow {
   id: string;
@@ -12,6 +13,8 @@ export interface UserRow {
   riot_name: string | null;
   riot_tag: string | null;
   riot_region: string | null;
+  preferred_valorant_role: ValorantRole | null;
+  secondary_valorant_roles: ValorantRole[];
   status: "online" | "away" | "offline" | null;
   created_at: string;
   updated_at: string;

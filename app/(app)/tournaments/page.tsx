@@ -56,7 +56,7 @@ export default async function TournamentsPage({ searchParams }: TournamentsPageP
     getSurfBullsArenaSnapshot(),
     supabase
       .from("users")
-      .select("id, display_name, email, avatar_url")
+      .select("id, display_name, email, avatar_url, preferred_valorant_role, secondary_valorant_roles")
       .eq("team_id", team.id)
       .order("display_name", { ascending: true }),
     supabase
@@ -72,7 +72,15 @@ export default async function TournamentsPage({ searchParams }: TournamentsPageP
   const optInSummary = buildTournamentOptInSummary({
     tournamentKey: ACTIVE_TOURNAMENT_OPT_IN_KEY,
     currentUserId: user.id,
-    members: (members ?? []) as Pick<UserRow, "id" | "display_name" | "email" | "avatar_url">[],
+    members: (members ?? []) as Pick<
+      UserRow,
+      | "id"
+      | "display_name"
+      | "email"
+      | "avatar_url"
+      | "preferred_valorant_role"
+      | "secondary_valorant_roles"
+    >[],
     events: (optInEvents ?? []) as Pick<ActivityEventRow, "actor_id" | "verb" | "object_id" | "payload" | "created_at">[],
   });
 
@@ -104,6 +112,7 @@ export default async function TournamentsPage({ searchParams }: TournamentsPageP
           snapshot={snapshot}
           optInSummary={optInSummary}
           selectedMatchId={selectedMatchId}
+          canManageOptIn={user.role === "coach" || user.role === "admin"}
         />
       ) : (
         <UnavailableState snapshot={snapshot} />
@@ -114,10 +123,12 @@ export default async function TournamentsPage({ searchParams }: TournamentsPageP
 
 function TournamentDashboard({
   optInSummary,
+  canManageOptIn,
   selectedMatchId,
   snapshot,
 }: {
   optInSummary: TournamentOptInSummary;
+  canManageOptIn: boolean;
   selectedMatchId: string | null;
   snapshot: GGArenaSnapshot;
 }) {
@@ -142,7 +153,7 @@ function TournamentDashboard({
         />
       </section>
 
-      <TournamentOptInPanel initialSummary={optInSummary} />
+      <TournamentOptInPanel initialSummary={optInSummary} canManage={canManageOptIn} />
 
       <section className="grid grid-cols-1 gap-4 xl:grid-cols-[1.1fr_0.9fr]">
         <MatchupList

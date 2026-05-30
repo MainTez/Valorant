@@ -101,7 +101,7 @@ export async function GET(request: NextRequest) {
       (typeof meta?.picture === "string" ? meta.picture : null) ||
       null;
 
-    await upsertWhitelistedUser({
+    const appUser = await upsertWhitelistedUser({
       authUserId: authUser.id,
       email: authUser.email,
       displayName,
@@ -118,7 +118,11 @@ export async function GET(request: NextRequest) {
       metadata: { email: authUser.email, role: whitelist.role },
     });
 
-    return NextResponse.redirect(`${origin}/dashboard`);
+    return NextResponse.redirect(
+      appUser.preferred_valorant_role
+        ? `${origin}/dashboard`
+        : `${origin}/players/profile?setup=roles`,
+    );
   } catch (error) {
     console.error("[auth/callback] unexpected failure:", error);
     return redirectToLogin(origin, getCallbackErrorCode(error));

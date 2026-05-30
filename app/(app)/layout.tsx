@@ -35,7 +35,7 @@ export default async function AppLayout({
       .order("created_at", { ascending: true }),
     supabase
       .from("users")
-      .select("id, display_name, email, avatar_url, status")
+      .select("id, display_name, email, avatar_url, status, preferred_valorant_role, secondary_valorant_roles")
       .eq("team_id", session.team.id)
       .order("display_name", { ascending: true }),
     session.team.slug === "surf-n-bulls"
@@ -78,7 +78,15 @@ export default async function AppLayout({
       ? buildTournamentOptInSummary({
           tournamentKey: ACTIVE_TOURNAMENT_OPT_IN_KEY,
           currentUserId: session.user.id,
-          members: (members ?? []) as Pick<UserRow, "id" | "display_name" | "email" | "avatar_url">[],
+          members: (members ?? []) as Pick<
+            UserRow,
+            | "id"
+            | "display_name"
+            | "email"
+            | "avatar_url"
+            | "preferred_valorant_role"
+            | "secondary_valorant_roles"
+          >[],
           events: (tournamentOptInEvents ?? []) as Pick<ActivityEventRow, "actor_id" | "verb" | "object_id" | "payload" | "created_at">[],
         })
       : null;

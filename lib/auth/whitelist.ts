@@ -1,6 +1,6 @@
 import "server-only";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import type { WhitelistRow } from "@/types/domain";
+import type { UserRow, WhitelistRow } from "@/types/domain";
 
 export async function findWhitelistEntry(email: string): Promise<WhitelistRow | null> {
   const admin = createSupabaseAdminClient();
@@ -20,18 +20,23 @@ export async function upsertWhitelistedUser(params: {
   avatarUrl: string | null;
   teamId: string;
   role: "player" | "coach" | "admin";
-}) {
+}): Promise<UserRow> {
   const admin = createSupabaseAdminClient();
-  const { error } = await admin.from("users").upsert(
-    {
-      id: params.authUserId,
-      email: params.email,
-      display_name: params.displayName,
-      avatar_url: params.avatarUrl,
-      team_id: params.teamId,
-      role: params.role,
-    },
-    { onConflict: "id" },
-  );
+  const { data, error } = await admin
+    .from("users")
+    .upsert(
+      {
+        id: params.authUserId,
+        email: params.email,
+        display_name: params.displayName,
+        avatar_url: params.avatarUrl,
+        team_id: params.teamId,
+        role: params.role,
+      },
+      { onConflict: "id" },
+    )
+    .select("*")
+    .single();
   if (error) throw error;
+  return data as UserRow;
 }

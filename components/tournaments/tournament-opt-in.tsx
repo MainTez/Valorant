@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Bell, CheckCircle2, XCircle } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Bell, CheckCircle2, ShieldCheck, XCircle } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,8 +12,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { initials } from "@/lib/utils";
+import { roleLabel } from "@/lib/valorant/roles";
+import { cn, initials } from "@/lib/utils";
 import type {
+  TournamentOptInIntent,
   TournamentOptInStatus,
   TournamentOptInSummary,
 } from "@/lib/tournaments/opt-in";
@@ -26,14 +28,17 @@ export function TournamentOptInTopbar({
   initialSummary: TournamentOptInSummary;
 }) {
   const { busyStatus, error, summary, updateStatus } = useTournamentOptIn(initialSummary);
+  const currentIsIn =
+    summary.currentUserStatus === "active" || summary.currentUserStatus === "waitlist";
+
   return (
     <>
       <div className="hidden items-center gap-1 rounded-[1rem] border border-white/10 bg-white/[0.025] p-1 lg:flex">
         <OptInButton
-          active={summary.currentUserStatus === "in"}
+          active={currentIsIn}
           busy={busyStatus === "in"}
           disabled={busyStatus !== null}
-          label="OPT IN"
+          label={formatOptInActionLabel(summary)}
           status="in"
           onClick={updateStatus}
         />
@@ -57,7 +62,7 @@ export function TournamentOptInTopbar({
             <span className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-[color:var(--accent)] shadow-[0_0_10px_var(--accent)]" />
           ) : null}
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-80 p-0">
+        <DropdownMenuContent align="end" className="w-[21rem] p-0">
           <div className="p-3">
             <div className="flex items-center justify-between gap-3">
               <div>
@@ -70,10 +75,10 @@ export function TournamentOptInTopbar({
             </div>
             <div className="mt-3 grid grid-cols-2 gap-2 lg:hidden">
               <OptInButton
-                active={summary.currentUserStatus === "in"}
+                active={currentIsIn}
                 busy={busyStatus === "in"}
                 disabled={busyStatus !== null}
-                label="OPT IN"
+                label={formatOptInActionLabel(summary)}
                 status="in"
                 onClick={updateStatus}
               />
@@ -90,9 +95,14 @@ export function TournamentOptInTopbar({
           </div>
           <DropdownMenuSeparator className="m-0" />
           <div className="max-h-72 overflow-y-auto p-2">
-            {summary.members.map((member) => (
+            {[...summary.activeRoster, ...summary.waitlist].map((member) => (
               <RosterStatusRow key={member.userId} member={member} compact />
             ))}
+            {summary.optedInCount === 0 ? (
+              <div className="px-2 py-4 text-sm text-[color:var(--color-muted)]">
+                Nobody has opted in yet.
+              </div>
+            ) : null}
           </div>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -101,15 +111,18 @@ export function TournamentOptInTopbar({
 }
 
 export function TournamentOptInPanel({
+  canManage = false,
   initialSummary,
 }: {
+  canManage?: boolean;
   initialSummary: TournamentOptInSummary;
 }) {
-  const { busyStatus, error, summary, updateStatus } = useTournamentOptIn(initialSummary);
-  const optedInMembers = useMemo(
-    () => summary.members.filter((member) => member.status === "in"),
-    [summary.members],
-  );
+  const { busyAction, busyStatus, error, promoteWaitlistedPlayer, summary, updateStatus } =
+    useTournamentOptIn(initialSummary);
+  const currentIsIn =
+    summary.currentUserStatus === "active" || summary.currentUserStatus === "waitlist";
+  const outMembers = summary.members.filter((member) => member.status === "out");
+  const pendingMembers = summary.members.filter((member) => member.status === null);
 
   return (
     <section className="surface p-5">
@@ -125,10 +138,10 @@ export function TournamentOptInPanel({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <OptInButton
-            active={summary.currentUserStatus === "in"}
+            active={currentIsIn}
             busy={busyStatus === "in"}
             disabled={busyStatus !== null}
-            label="OPT IN"
+            label={formatOptInActionLabel(summary)}
             status="in"
             onClick={updateStatus}
           />
@@ -148,25 +161,72 @@ export function TournamentOptInPanel({
       <div className="mt-5 grid grid-cols-1 gap-4 xl:grid-cols-[0.8fr_1.2fr]">
         <div className="rounded-lg border border-white/7 bg-white/[0.02] p-4">
           <div className="flex items-center justify-between gap-3">
-            <div className="text-sm font-semibold">Ready roster</div>
-            <CurrentUserBadge status={summary.currentUserStatus} />
+            <div className="text-sm font-semibold">Roster lock</div>
+            <CurrentUserBadge
+              status={summary.currentUserStatus}
+              waitlistPosition={summary.currentUserWaitlistPosition}
+            />
           </div>
-          <div className="mt-4 grid grid-cols-3 gap-2">
-            <CountTile label="In" value={summary.optedInCount} variant="success" />
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <CountTile label="Locked" value={`${summary.activeCount}/${summary.rosterLimit}`} variant="success" />
+            <CountTile label="Waitlist" value={summary.waitlistCount} variant="pending" />
             <CountTile label="Pending" value={summary.pendingCount} variant="pending" />
             <CountTile label="Out" value={summary.optedOutCount} variant="danger" />
           </div>
-          <div className="mt-4 text-xs uppercase tracking-[0.12em] text-[color:var(--color-muted)]">
-            {optedInMembers.length > 0
-              ? `${optedInMembers.map((member) => member.displayName).join(", ")} ready`
-              : "Nobody has opted in yet"}
+          <div className="mt-4 space-y-2">
+            {summary.roleWarnings.length > 0 ? (
+              summary.roleWarnings.map((warning) => (
+                <Badge key={warning} variant="warning">
+                  {warning}
+                </Badge>
+              ))
+            ) : (
+              <Badge variant="success">Role balance looks playable</Badge>
+            )}
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {summary.members.map((member) => (
-            <RosterStatusRow key={member.userId} member={member} />
-          ))}
+        <div className="grid grid-cols-1 gap-3">
+          <RosterSection
+            title="Locked roster"
+            count={summary.activeRoster.length}
+            empty="No locked players yet."
+          >
+            {summary.activeRoster.map((member) => (
+              <RosterStatusRow key={member.userId} member={member} />
+            ))}
+          </RosterSection>
+
+          <RosterSection
+            title="Waitlist"
+            count={summary.waitlist.length}
+            empty="Waitlist is empty."
+          >
+            {summary.waitlist.map((member) => (
+              <WaitlistStatusRow
+                key={member.userId}
+                activeRoster={summary.activeRoster}
+                busy={busyAction === `promote:${member.userId}`}
+                canManage={canManage}
+                member={member}
+                rosterFull={summary.activeCount >= summary.rosterLimit}
+                onPromote={promoteWaitlistedPlayer}
+              />
+            ))}
+          </RosterSection>
+
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+            <RosterSection title="Pending" count={pendingMembers.length} empty="Nobody pending.">
+              {pendingMembers.map((member) => (
+                <RosterStatusRow key={member.userId} member={member} />
+              ))}
+            </RosterSection>
+            <RosterSection title="Out" count={outMembers.length} empty="Nobody opted out.">
+              {outMembers.map((member) => (
+                <RosterStatusRow key={member.userId} member={member} />
+              ))}
+            </RosterSection>
+          </div>
         </div>
       </div>
     </section>
@@ -175,7 +235,8 @@ export function TournamentOptInPanel({
 
 function useTournamentOptIn(initialSummary: TournamentOptInSummary) {
   const [summary, setSummary] = useState(initialSummary);
-  const [busyStatus, setBusyStatus] = useState<TournamentOptInStatus | null>(null);
+  const [busyStatus, setBusyStatus] = useState<TournamentOptInIntent | null>(null);
+  const [busyAction, setBusyAction] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -190,27 +251,24 @@ function useTournamentOptIn(initialSummary: TournamentOptInSummary) {
     return () => window.removeEventListener(SUMMARY_EVENT, sync);
   }, [summary.tournamentKey]);
 
-  async function updateStatus(status: TournamentOptInStatus) {
+  async function updateStatus(status: TournamentOptInIntent) {
+    if (
+      (status === "in" &&
+        (summary.currentUserStatus === "active" || summary.currentUserStatus === "waitlist")) ||
+      (status === "out" && summary.currentUserStatus === "out")
+    ) {
+      return;
+    }
+
     setBusyStatus(status);
     setError(null);
     try {
-      const response = await fetch("/api/tournaments/opt-in", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          tournament_key: summary.tournamentKey,
-          status,
-        }),
+      const next = await postTournamentOptIn({
+        tournament_key: summary.tournamentKey,
+        status,
       });
-      const payload = (await response.json()) as {
-        data?: TournamentOptInSummary;
-        error?: string;
-      };
-      if (!response.ok || !payload.data) {
-        throw new Error(payload.error ?? "Could not save opt-in status");
-      }
-      setSummary(payload.data);
-      window.dispatchEvent(new CustomEvent(SUMMARY_EVENT, { detail: payload.data }));
+      setSummary(next);
+      window.dispatchEvent(new CustomEvent(SUMMARY_EVENT, { detail: next }));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save opt-in status");
     } finally {
@@ -218,7 +276,42 @@ function useTournamentOptIn(initialSummary: TournamentOptInSummary) {
     }
   }
 
-  return { busyStatus, error, summary, updateStatus };
+  async function promoteWaitlistedPlayer(userId: string, replaceUserId: string | null) {
+    setBusyAction(`promote:${userId}`);
+    setError(null);
+    try {
+      const next = await postTournamentOptIn({
+        tournament_key: summary.tournamentKey,
+        action: "promote",
+        user_id: userId,
+        replace_user_id: replaceUserId ?? undefined,
+      });
+      setSummary(next);
+      window.dispatchEvent(new CustomEvent(SUMMARY_EVENT, { detail: next }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not promote waitlisted player");
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  return { busyAction, busyStatus, error, promoteWaitlistedPlayer, summary, updateStatus };
+}
+
+async function postTournamentOptIn(body: Record<string, unknown>) {
+  const response = await fetch("/api/tournaments/opt-in", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const payload = (await response.json()) as {
+    data?: TournamentOptInSummary;
+    error?: string;
+  };
+  if (!response.ok || !payload.data) {
+    throw new Error(payload.error ?? "Could not save tournament status");
+  }
+  return payload.data;
 }
 
 function OptInButton({
@@ -233,8 +326,8 @@ function OptInButton({
   busy: boolean;
   disabled: boolean;
   label: string;
-  status: TournamentOptInStatus;
-  onClick: (status: TournamentOptInStatus) => void;
+  status: TournamentOptInIntent;
+  onClick: (status: TournamentOptInIntent) => void;
 }) {
   const isIn = status === "in";
   return (
@@ -252,20 +345,103 @@ function OptInButton({
   );
 }
 
+function RosterSection({
+  children,
+  count,
+  empty,
+  title,
+}: {
+  children: React.ReactNode;
+  count: number;
+  empty: string;
+  title: string;
+}) {
+  return (
+    <div className="rounded-lg border border-white/7 bg-white/[0.02] p-3">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="text-sm font-semibold">{title}</div>
+        <Badge variant="outline">{count}</Badge>
+      </div>
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        {count > 0 ? children : (
+          <div className="col-span-full rounded-lg border border-dashed border-white/10 px-3 py-4 text-sm text-[color:var(--color-muted)]">
+            {empty}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function WaitlistStatusRow({
+  activeRoster,
+  busy,
+  canManage,
+  member,
+  onPromote,
+  rosterFull,
+}: {
+  activeRoster: TournamentOptInSummary["activeRoster"];
+  busy: boolean;
+  canManage: boolean;
+  member: TournamentOptInSummary["waitlist"][number];
+  onPromote: (userId: string, replaceUserId: string | null) => void;
+  rosterFull: boolean;
+}) {
+  const [replaceUserId, setReplaceUserId] = useState("");
+
+  return (
+    <div className="rounded-lg border border-white/7 bg-black/10 p-3">
+      <RosterStatusRow member={member} unframed />
+      {canManage ? (
+        <div className="mt-3 flex flex-col gap-2">
+          {rosterFull ? (
+            <select
+              aria-label={`Choose locked player to move before promoting ${member.displayName}`}
+              value={replaceUserId}
+              onChange={(event) => setReplaceUserId(event.target.value)}
+              className="h-9 rounded-lg border border-white/10 bg-white/[0.03] px-3 text-xs text-[color:var(--color-text)] outline-none focus:border-[color:var(--accent-soft)]"
+            >
+              <option value="">Move locked player to waitlist</option>
+              {activeRoster.map((active) => (
+                <option key={active.userId} value={active.userId}>
+                  {active.displayName}
+                </option>
+              ))}
+            </select>
+          ) : null}
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={busy || (rosterFull && !replaceUserId)}
+            onClick={() => onPromote(member.userId, replaceUserId || null)}
+          >
+            <ShieldCheck className="h-3.5 w-3.5" />
+            {busy ? "Moving" : "Move to locked"}
+          </Button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function RosterStatusRow({
   compact = false,
   member,
+  unframed = false,
 }: {
   compact?: boolean;
   member: TournamentOptInSummary["members"][number];
+  unframed?: boolean;
 }) {
   return (
     <div
-      className={
-        compact
-          ? "flex items-center justify-between gap-3 rounded-lg px-2 py-2"
-          : "flex items-center justify-between gap-3 rounded-lg border border-white/7 bg-white/[0.02] p-3"
-      }
+      className={cn(
+        "flex items-center justify-between gap-3",
+        compact ? "rounded-lg px-2 py-2" : "rounded-lg p-3",
+        !compact && !unframed ? "border border-white/7 bg-white/[0.02]" : null,
+      )}
     >
       <div className="flex min-w-0 items-center gap-3">
         <Avatar className="h-8 w-8">
@@ -274,24 +450,56 @@ function RosterStatusRow({
         </Avatar>
         <div className="min-w-0">
           <div className="truncate text-sm font-semibold">{member.displayName}</div>
-          <div className="text-[11px] uppercase tracking-[0.12em] text-[color:var(--color-muted)]">
-            {member.updatedAt ? "updated" : "not answered"}
+          <div className="mt-0.5 flex flex-wrap gap-1">
+            <RoleBadge role={member.preferredRole} primary />
+            {member.secondaryRoles.map((role) => (
+              <RoleBadge key={role} role={role} />
+            ))}
           </div>
         </div>
       </div>
-      <StatusBadge status={member.status} />
+      <StatusBadge status={member.status} waitlistPosition={member.waitlistPosition} />
     </div>
   );
 }
 
-function StatusBadge({ status }: { status: TournamentOptInStatus | null }) {
-  if (status === "in") return <Badge variant="success">In</Badge>;
+function RoleBadge({ primary = false, role }: { primary?: boolean; role: TournamentOptInSummary["members"][number]["preferredRole"] }) {
+  return (
+    <span
+      className={cn(
+        "rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-[0.12em]",
+        primary
+          ? "border-[color:var(--accent-soft)] bg-[color:var(--accent-dim)] text-[color:var(--accent)]"
+          : "border-white/10 bg-white/[0.03] text-[color:var(--color-muted)]",
+      )}
+    >
+      {primary ? roleLabel(role) : role}
+    </span>
+  );
+}
+
+function StatusBadge({
+  status,
+  waitlistPosition,
+}: {
+  status: TournamentOptInStatus | null;
+  waitlistPosition?: number | null;
+}) {
+  if (status === "active") return <Badge variant="success">Locked</Badge>;
+  if (status === "waitlist") return <Badge variant="warning">Waitlist #{waitlistPosition ?? "-"}</Badge>;
   if (status === "out") return <Badge variant="danger">Out</Badge>;
   return <Badge variant="outline">Pending</Badge>;
 }
 
-function CurrentUserBadge({ status }: { status: TournamentOptInStatus | null }) {
-  if (status === "in") return <Badge variant="success">You are in</Badge>;
+function CurrentUserBadge({
+  status,
+  waitlistPosition,
+}: {
+  status: TournamentOptInStatus | null;
+  waitlistPosition: number | null;
+}) {
+  if (status === "active") return <Badge variant="success">You are locked</Badge>;
+  if (status === "waitlist") return <Badge variant="warning">You are waitlist #{waitlistPosition ?? "-"}</Badge>;
   if (status === "out") return <Badge variant="danger">You are out</Badge>;
   return <Badge variant="outline">Your status pending</Badge>;
 }
@@ -302,7 +510,7 @@ function CountTile({
   variant,
 }: {
   label: string;
-  value: number;
+  value: number | string;
   variant: "success" | "pending" | "danger";
 }) {
   const color =
@@ -322,6 +530,14 @@ function CountTile({
   );
 }
 
+function formatOptInActionLabel(summary: TournamentOptInSummary) {
+  if (summary.currentUserStatus === "active") return "LOCKED";
+  if (summary.currentUserStatus === "waitlist") {
+    return `WAITLIST #${summary.currentUserWaitlistPosition ?? "-"}`;
+  }
+  return summary.activeCount >= summary.rosterLimit ? "JOIN WAITLIST" : "OPT IN";
+}
+
 function formatSummaryCounts(summary: TournamentOptInSummary) {
-  return `${summary.optedInCount} in · ${summary.pendingCount} pending · ${summary.optedOutCount} out`;
+  return `${summary.activeCount}/${summary.rosterLimit} locked · ${summary.waitlistCount} waitlist · ${summary.pendingCount} pending`;
 }
