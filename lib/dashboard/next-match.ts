@@ -1,5 +1,6 @@
 import type { GGArenaMatchup } from "@/lib/ggarena/normalize";
 import type { ScheduleEventRow } from "@/types/domain";
+import { tournamentMatchupHref } from "../ggarena/matchup-links.ts";
 
 export type DashboardNextMatchSource = "schedule" | "ggarena";
 
@@ -75,7 +76,7 @@ function tournamentMatchupToDashboardMatch(matchup: GGArenaMatchup): DashboardNe
       [matchup.divisionName, matchup.roundName].filter(Boolean).join(" · ") ||
       matchup.competitionName ||
       "GGarena",
-    detailsHref: "/tournaments",
+    detailsHref: tournamentMatchupHref(matchup),
     detailsLabel: "View tournament →",
     source: "ggarena",
   };

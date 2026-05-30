@@ -22,6 +22,10 @@ import {
   getSurfBullsArenaSnapshot,
 } from "@/lib/ggarena/client";
 import {
+  matchupDomId,
+  matchupMatchesKey,
+} from "@/lib/ggarena/matchup-links";
+import {
   ACTIVE_TOURNAMENT_OPT_IN_KEY,
   buildTournamentOptInSummary,
   TOURNAMENT_OPT_IN_OBJECT_TYPE,
@@ -37,7 +41,13 @@ import type { ActivityEventRow, UserRow } from "@/types/domain";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Tournaments" };
 
-export default async function TournamentsPage() {
+interface TournamentsPageProps {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
+
+export default async function TournamentsPage({ searchParams }: TournamentsPageProps) {
+  const sp = await searchParams;
+  const selectedMatchId = firstParam(sp.match);
   const { user, team } = await requireSession();
   if (team.slug !== "surf-n-bulls") notFound();
 
@@ -90,7 +100,11 @@ export default async function TournamentsPage() {
       </header>
 
       {snapshot.status === "ready" ? (
-        <TournamentDashboard snapshot={snapshot} optInSummary={optInSummary} />
+        <TournamentDashboard
+          snapshot={snapshot}
+          optInSummary={optInSummary}
+          selectedMatchId={selectedMatchId}
+        />
       ) : (
         <UnavailableState snapshot={snapshot} />
       )}
@@ -100,9 +114,11 @@ export default async function TournamentsPage() {
 
 function TournamentDashboard({
   optInSummary,
+  selectedMatchId,
   snapshot,
 }: {
   optInSummary: TournamentOptInSummary;
+  selectedMatchId: string | null;
   snapshot: GGArenaSnapshot;
 }) {
   const next = snapshot.nextMatchups[0] ?? null;
@@ -129,8 +145,18 @@ function TournamentDashboard({
       <TournamentOptInPanel initialSummary={optInSummary} />
 
       <section className="grid grid-cols-1 gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-        <MatchupList title="Next fixtures" matchups={snapshot.nextMatchups} empty="No upcoming fixtures returned." />
-        <MatchupList title="Recent officials" matchups={snapshot.recentMatchups} empty="No recent tournament results returned." />
+        <MatchupList
+          title="Next fixtures"
+          matchups={snapshot.nextMatchups}
+          empty="No upcoming fixtures returned."
+          selectedMatchId={selectedMatchId}
+        />
+        <MatchupList
+          title="Recent officials"
+          matchups={snapshot.recentMatchups}
+          empty="No recent tournament results returned."
+          selectedMatchId={selectedMatchId}
+        />
       </section>
 
       <TournamentTables standings={snapshot.standings} stats={snapshot.stats} />
@@ -290,10 +316,12 @@ function MatchupList({
   title,
   matchups,
   empty,
+  selectedMatchId,
 }: {
   title: string;
   matchups: GGArenaMatchup[];
   empty: string;
+  selectedMatchId: string | null;
 }) {
   return (
     <div className="surface p-5">
@@ -315,29 +343,87 @@ function MatchupList({
           {matchups.map((matchup) => {
             const opponentSide = matchup.sides.find((side) => !side.isSurfBulls) ?? null;
             const opponentName = opponentSide?.name ?? matchup.opponentName ?? matchup.name;
+            const isSelected = matchupMatchesKey(matchup, selectedMatchId);
             return (
-              <div
+              <details
                 key={matchup.uuid ?? matchup.id ?? `${matchup.name}-${matchup.startsAt}`}
-                className="grid grid-cols-[auto_1fr_auto] gap-3 rounded-lg border border-white/7 bg-white/[0.02] p-3"
+                id={matchupDomId(matchup)}
+                open={isSelected}
+                className="group rounded-lg border border-white/7 bg-white/[0.02] open:border-[color:var(--accent-soft)] open:bg-[color:var(--accent-dim)]"
               >
-                <TeamMark name={opponentName} logoUrl={opponentSide?.logoUrl} size="sm" />
-                <div className="min-w-0">
-                  <div className="truncate font-display text-lg tracking-wide">
-                    {opponentName}
+                <summary className="grid cursor-pointer list-none grid-cols-[auto_1fr_auto] gap-3 p-3 [&::-webkit-details-marker]:hidden">
+                  <TeamMark name={opponentName} logoUrl={opponentSide?.logoUrl} size="sm" />
+                  <div className="min-w-0">
+                    <div className="truncate font-display text-lg tracking-wide">
+                      {opponentName}
+                    </div>
+                    <div className="mt-1 truncate text-xs uppercase tracking-[0.12em] text-[color:var(--color-muted)]">
+                      {[matchup.competitionName, matchup.divisionName, matchup.roundName]
+                        .filter(Boolean)
+                        .join(" · ") || "Tournament"}
+                    </div>
                   </div>
-                  <div className="mt-1 truncate text-xs uppercase tracking-[0.12em] text-[color:var(--color-muted)]">
-                    {[matchup.competitionName, matchup.divisionName, matchup.roundName]
-                      .filter(Boolean)
-                      .join(" · ") || "Tournament"}
+                  <div className="flex flex-col items-end justify-between gap-2 text-right text-sm text-[color:var(--color-muted)]">
+                    <div>{matchup.startsAt ? formatNorwayDateTime(matchup.startsAt) : "TBD"}</div>
+                    <MatchupResult matchup={matchup} />
                   </div>
-                </div>
-                <div className="text-right text-sm text-[color:var(--color-muted)]">
-                  <div>{matchup.startsAt ? formatNorwayDateTime(matchup.startsAt) : "TBD"}</div>
-                  <MatchupResult matchup={matchup} />
-                </div>
-              </div>
+                </summary>
+                <MatchupKdaTable matchup={matchup} />
+              </details>
             );
           })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MatchupKdaTable({ matchup }: { matchup: GGArenaMatchup }) {
+  return (
+    <div className="border-t border-white/8 px-3 pb-3 pt-2">
+      {matchup.playerStats.length === 0 ? (
+        <div className="rounded-md border border-dashed border-white/10 px-3 py-4 text-sm text-[color:var(--color-muted)]">
+          No player KDA returned for this match yet.
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[560px] text-left text-sm">
+            <thead className="text-xs uppercase tracking-[0.12em] text-[color:var(--color-muted)]">
+              <tr className="border-b border-white/8">
+                <th className="py-2 pr-3 font-medium">Player</th>
+                <th className="px-3 py-2 font-medium">Team</th>
+                <th className="px-3 py-2 text-right font-medium">K</th>
+                <th className="px-3 py-2 text-right font-medium">D</th>
+                <th className="px-3 py-2 text-right font-medium">A</th>
+                <th className="px-3 py-2 text-right font-medium">K/D</th>
+                <th className="py-2 pl-3 text-right font-medium">Maps</th>
+              </tr>
+            </thead>
+            <tbody>
+              {matchup.playerStats.map((stat) => (
+                <tr
+                  key={`${stat.id ?? stat.userId ?? stat.playerName}-${stat.teamId ?? stat.teamName}`}
+                  className="border-b border-white/6 last:border-0"
+                >
+                  <td className="py-2 pr-3">
+                    <div className="font-display tracking-wide">{stat.playerName}</div>
+                  </td>
+                  <td className="px-3 py-2 text-[color:var(--color-muted)]">
+                    {stat.isSurfBulls ? (
+                      <span className="accent-text">{stat.teamName}</span>
+                    ) : (
+                      stat.teamName
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums">{stat.kills}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{stat.deaths}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{stat.assists}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{formatKillDeath(stat.kills, stat.deaths)}</td>
+                  <td className="py-2 pl-3 text-right tabular-nums">{stat.maps}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
@@ -381,4 +467,14 @@ function formatMatchupResult(result: NonNullable<GGArenaMatchup["surfResult"]>) 
   if (result === "win") return "W";
   if (result === "loss") return "L";
   return "D";
+}
+
+function formatKillDeath(kills: number, deaths: number) {
+  if (deaths === 0) return kills === 0 ? "0.00" : kills.toFixed(2);
+  return (kills / deaths).toFixed(2);
+}
+
+function firstParam(value: string | string[] | undefined) {
+  if (Array.isArray(value)) return value[0] ?? null;
+  return value ?? null;
 }

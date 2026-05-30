@@ -49,7 +49,15 @@ test("normalizeMatchup identifies opponent and start time for Surf'n Bulls fixtu
       division: { id: 33, name: "Division 2" },
       teams: [
         { team: { id: 202, name: "Surf'n Bulls" }, score: null },
-        { team: { id: 303, name: "Oslo Aim", logo_image_id: 393369 }, score: null },
+        {
+          team: {
+            id: 303,
+            name: "Oslo Aim",
+            url: "https://www.ggarena.no/teams/oslo-aim/303",
+            logo_image_id: 393369,
+          },
+          score: null,
+        },
       ],
     },
     context,
@@ -61,6 +69,64 @@ test("normalizeMatchup identifies opponent and start time for Surf'n Bulls fixtu
   assert.equal(matchup.sides.find((side) => !side.isSurfBulls)?.logoUrl, "https://i.bo3.no/image/393369");
   assert.equal(matchup.roundName, "Round 3");
   assert.equal(matchup.divisionId, 33);
+});
+
+test("normalizeMatchup totals player KDA from detailed GGarena matchup users", () => {
+  const matchup = normalizeMatchup(
+    {
+      id: 256648,
+      home_score: 2,
+      away_score: 1,
+      home_signup: {
+        id: 252490,
+        name: "Surf'n Bulls",
+        team: { id: 201287, name: "Surf'n Bulls" },
+      },
+      away_signup: {
+        id: 251818,
+        name: "Gitta NextGen",
+        team: { id: 209384, name: "Gitta NextGen" },
+      },
+      matchup_users: [
+        {
+          id: 1,
+          user_id: 129167,
+          team_id: 201287,
+          user: { id: 129167, user_name: "TrePinne" },
+          stats: [
+            { kills: 8, deaths: 11, assists: 7 },
+            { kills: 9, deaths: 10, assists: 8 },
+            { kills: 5, deaths: 12, assists: 10 },
+          ],
+        },
+        {
+          id: 2,
+          user_id: 999,
+          signup_id: 251818,
+          user: { id: 999, user_name: "Enemy" },
+          stats: [{ kills: 20, deaths: 18, assists: 4 }],
+        },
+      ],
+    },
+    { ...context, teamId: 201287 },
+  );
+
+  assert.ok(matchup);
+  assert.equal(matchup.playerStats.length, 2);
+  assert.deepEqual(matchup.playerStats[0], {
+    id: 1,
+    userId: 129167,
+    playerName: "TrePinne",
+    teamId: 201287,
+    teamName: "Surf'n Bulls",
+    side: "home",
+    isSurfBulls: true,
+    maps: 3,
+    kills: 22,
+    deaths: 33,
+    assists: 25,
+  });
+  assert.equal(matchup.playerStats[1]?.teamName, "Gitta NextGen");
 });
 
 test("normalizeMatchup handles live GGarena signup sides and start_time", () => {

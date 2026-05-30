@@ -48,6 +48,7 @@ function tournamentMatchup(overrides: Partial<GGArenaMatchup>): GGArenaMatchup {
     includesSurfBulls: true,
     surfResult: "loss",
     scoreline: "0-2",
+    playerStats: [],
     ...overrides,
   };
 }

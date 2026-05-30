@@ -44,6 +44,20 @@ export interface GGArenaMatchupSide {
 
 export type GGArenaMatchupResult = "win" | "loss" | "draw";
 
+export interface GGArenaMatchupPlayerStat {
+  id: number | null;
+  userId: number | null;
+  playerName: string;
+  teamId: number | null;
+  teamName: string;
+  side: string | null;
+  isSurfBulls: boolean;
+  maps: number;
+  kills: number;
+  deaths: number;
+  assists: number;
+}
+
 export interface GGArenaMatchup extends GGArenaEntity {
   competitionId: number | null;
   competitionName: string | null;
@@ -56,6 +70,7 @@ export interface GGArenaMatchup extends GGArenaEntity {
   includesSurfBulls: boolean;
   surfResult: GGArenaMatchupResult | null;
   scoreline: string | null;
+  playerStats: GGArenaMatchupPlayerStat[];
 }
 
 export interface GGArenaStandingRow {
@@ -363,6 +378,7 @@ export function normalizeMatchup(
     includesSurfBulls,
     surfResult,
     scoreline,
+    playerStats: normalizeMatchupPlayerStats(record, sides),
   };
 }
 
@@ -654,6 +670,68 @@ function formatSurfScoreline(sides: GGArenaMatchupSide[]) {
   return `${surfSide.score}-${opponentSide.score}`;
 }
 
+function normalizeMatchupPlayerStats(
+  record: RawRecord,
+  sides: GGArenaMatchupSide[],
+): GGArenaMatchupPlayerStat[] {
+  const matchupUsers = record.matchup_users ?? record.matchupUsers;
+  if (!Array.isArray(matchupUsers)) return [];
+
+  return matchupUsers
+    .map((value, index): GGArenaMatchupPlayerStat | null => {
+      if (!isRecord(value)) return null;
+      const stats = Array.isArray(value.stats)
+        ? value.stats.filter((item): item is RawRecord => isRecord(item))
+        : [];
+      if (stats.length === 0) return null;
+
+      const userRecord = findNestedRecord(value, ["user", "player"]);
+      const signupId =
+        readNumber(value, ["signup_id", "signupId"]) ??
+        readNestedId(value, ["signup"]);
+      const teamId =
+        readNumber(value, ["team_id", "teamId"]) ??
+        readNestedId(value, ["team", "signup", "club"]);
+      const team = sides.find((side) => {
+        return (
+          (teamId !== null && side.teamId === teamId) ||
+          (teamId !== null && side.id === teamId) ||
+          (signupId !== null && side.id === signupId)
+        );
+      });
+      const playerName =
+        (userRecord ? readString(userRecord, ["user_name", "userName", ...NAME_KEYS]) : null) ??
+        readString(value, ["user_name", "userName", "player_name", "playerName", ...NAME_KEYS]) ??
+        `Player ${index + 1}`;
+
+      return {
+        id: readNumber(value, ["id"]),
+        userId:
+          readNumber(value, ["user_id", "userId", "player_id", "playerId"]) ??
+          (userRecord ? readNumber(userRecord, ["id"]) : null),
+        playerName,
+        teamId: team?.teamId ?? teamId,
+        teamName: team?.name ?? readStringFromNested(value, ["team", "signup", "club"], NAME_KEYS) ?? "Unknown team",
+        side: team?.side ?? readString(value, ["side"]),
+        isSurfBulls: Boolean(team?.isSurfBulls),
+        maps: stats.length,
+        kills: sumStats(stats, ["kills", "kill", "k"]),
+        deaths: sumStats(stats, ["deaths", "death", "d"]),
+        assists: sumStats(stats, ["assists", "assist", "a"]),
+      };
+    })
+    .filter((row): row is GGArenaMatchupPlayerStat => Boolean(row))
+    .sort((a, b) => {
+      if (a.isSurfBulls !== b.isSurfBulls) return a.isSurfBulls ? -1 : 1;
+      if (a.teamName !== b.teamName) return a.teamName.localeCompare(b.teamName);
+      return b.kills - a.kills || a.deaths - b.deaths || a.playerName.localeCompare(b.playerName);
+    });
+}
+
+function sumStats(rows: RawRecord[], keys: string[]) {
+  return rows.reduce((total, row) => total + (readNumber(row, keys) ?? 0), 0);
+}
+
 function extractTabularRows(payload: unknown): RawRecord[] {
   const out: RawRecord[] = [];
   walk(payload, 0);
@@ -803,10 +881,10 @@ function readImageUrl(record: RawRecord): string | null {
   for (const key of ["logo", "image", "icon", "avatar", "picture", "team", "club", "signup"]) {
     const value = record[key];
     if (!isRecord(value)) continue;
-    const nested = readString(value, ["url", "src", "path", ...IMAGE_KEYS]);
-    if (nested && isLikelyImageUrl(nested)) return nested;
     const nestedImageId = readNumber(value, IMAGE_ID_KEYS);
     if (nestedImageId !== null) return ggarenaImageUrl(nestedImageId);
+    const nested = readString(value, ["url", "src", "path", ...IMAGE_KEYS]);
+    if (nested && isLikelyImageUrl(nested)) return nested;
   }
 
   return null;
@@ -817,7 +895,19 @@ function ggarenaImageUrl(id: number) {
 }
 
 function isLikelyImageUrl(value: string) {
-  return /^https?:\/\//i.test(value) || value.startsWith("/");
+  try {
+    const url = new URL(value, "https://www.ggarena.no");
+    if (url.hostname === "i.bo3.no") return true;
+    if (
+      /(?:^|\.)ggarena\.no$/i.test(url.hostname) &&
+      /^\/(?:teams|clubs|competitions|matchup|division)\//i.test(url.pathname)
+    ) {
+      return false;
+    }
+    return /\.(?:png|jpe?g|webp|gif|svg|avif)$/i.test(url.pathname) || /^\/image\/\d+$/i.test(url.pathname);
+  } catch {
+    return false;
+  }
 }
 
 function findNestedRecord(record: RawRecord, keys: string[]): RawRecord | null {

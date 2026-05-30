@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { tournamentMatchupHref } from "@/lib/ggarena/matchup-links";
 import { cn } from "@/lib/utils";
 import { formatNorwayDate } from "@/lib/timezone";
 import type { GGArenaMatchup } from "@/lib/ggarena/normalize";
@@ -77,8 +78,9 @@ function TournamentMatchCard({ matchup }: { matchup: GGArenaMatchup }) {
 
   return (
     <Link
-      href="/tournaments"
+      href={tournamentMatchupHref(matchup)}
       className="rounded-xl border border-white/5 bg-white/[0.02] p-3 hover:border-[color:var(--accent-soft)] transition flex flex-col gap-2"
+      title="Open match KDA"
     >
       <div
         className={cn(

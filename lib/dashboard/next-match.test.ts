@@ -42,6 +42,7 @@ function tournamentMatchup(overrides: Partial<GGArenaMatchup>): GGArenaMatchup {
     includesSurfBulls: true,
     surfResult: null,
     scoreline: null,
+    playerStats: [],
     ...overrides,
   };
 }
@@ -126,7 +127,7 @@ test("dashboard next match falls back to the upcoming GGarena tournament fixture
     kind: "tournament",
     startAt: "2026-05-29T18:00:00.000Z",
     location: "2. divisjon · Round 3",
-    detailsHref: "/tournaments",
+    detailsHref: "/tournaments?match=77#match-77",
     detailsLabel: "View tournament →",
     source: "ggarena",
   });
