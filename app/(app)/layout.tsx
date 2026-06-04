@@ -6,6 +6,7 @@ import { TEAMS, type TeamSlug, DEFAULT_CHANNELS } from "@/lib/constants";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
 import { ChatRail } from "@/components/layout/chat-rail";
+import { MatchMomentNotifier } from "@/components/layout/match-moment-notifier";
 import {
   ACTIVE_TOURNAMENT_OPT_IN_KEY,
   buildTournamentOptInSummary,
@@ -152,6 +153,7 @@ export default async function AppLayout({
           teamId={session.team.id}
         />
       </div>
+      <MatchMomentNotifier teamId={session.team.id} />
     </div>
   );
 }

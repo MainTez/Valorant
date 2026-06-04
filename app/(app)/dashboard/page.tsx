@@ -9,7 +9,12 @@ import { UpcomingMatchCard } from "@/components/dashboard/upcoming-match-card";
 import { ScheduleTimeline } from "@/components/dashboard/schedule-timeline";
 import { ImportantNote } from "@/components/dashboard/important-note";
 import { QuickActions } from "@/components/dashboard/quick-actions";
+import { DashboardMatchSync } from "@/components/dashboard/dashboard-match-sync";
 import { RecentMatches } from "@/components/dashboard/recent-matches";
+import {
+  RecentPlayerGames,
+  type RecentPlayerGameMoment,
+} from "@/components/dashboard/recent-player-games";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
 import {
   buildDashboardLastMatchResult,
@@ -25,6 +30,7 @@ import { personalizeRoutineForUser } from "@/lib/routines/player-routines";
 import type {
   ActivityEventRow,
   MatchRow,
+  MatchMomentRow,
   PlayerProfileRow,
   RoutineProgressRow,
   RoutineRow,
@@ -58,6 +64,7 @@ export default async function DashboardPage() {
     { data: focusNotes },
     { data: importantNotes },
     { data: activityRows },
+    { data: recentGameMoments },
     { data: membersRaw },
     tournamentSnapshot,
   ] = await Promise.all([
@@ -122,6 +129,12 @@ export default async function DashboardPage() {
       .order("created_at", { ascending: false })
       .limit(10),
     supabase
+      .from("match_moments")
+      .select("*")
+      .eq("team_id", team.id)
+      .order("created_at", { ascending: false })
+      .limit(8),
+    supabase
       .from("users")
       .select("id, display_name, avatar_url, email")
       .eq("team_id", team.id),
@@ -173,6 +186,27 @@ export default async function DashboardPage() {
     Pick<UserRow, "id" | "display_name" | "avatar_url" | "email">
   >;
   const membersById = Object.fromEntries(members.map((member) => [member.id, member]));
+  const recentGameRows = (recentGameMoments ?? []) as MatchMomentRow[];
+  const recentGameProfileIds = [
+    ...new Set(recentGameRows.map((moment) => moment.player_profile_id)),
+  ];
+  const { data: recentGameProfilesRaw } =
+    recentGameProfileIds.length > 0
+      ? await supabase
+          .from("player_profiles")
+          .select("id, riot_name, riot_tag, region")
+          .in("id", recentGameProfileIds)
+      : { data: [] };
+  const recentGameProfilesById = Object.fromEntries(
+    ((recentGameProfilesRaw ?? []) as Array<
+      Pick<PlayerProfileRow, "id" | "riot_name" | "riot_tag" | "region">
+    >).map((profile) => [profile.id, profile]),
+  );
+  const recentGames = recentGameRows.map((moment) => ({
+    ...moment,
+    actor: moment.user_id ? membersById[moment.user_id] ?? null : null,
+    profile: recentGameProfilesById[moment.player_profile_id] ?? null,
+  })) as RecentPlayerGameMoment[];
 
   const activity = ((activityRows ?? []) as ActivityEventRow[]).map((event) => ({
     ...event,
@@ -181,6 +215,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="flex max-w-[1400px] flex-col gap-5">
+      <DashboardMatchSync />
       <header>
         <div className="font-display text-4xl tracking-wide">
           Welcome back,{" "}
@@ -220,13 +255,14 @@ export default async function DashboardPage() {
         </div>
       </section>
 
-      <section className="grid grid-cols-1 gap-4 xl:grid-cols-[1.4fr_1fr]">
+      <section className="grid grid-cols-1 gap-4 xl:grid-cols-[1.25fr_0.95fr_0.9fr]">
         <RecentMatches
           matches={(recentMatches ?? []) as MatchRow[]}
           tournamentMatches={
             tournamentSnapshot?.status === "ready" ? tournamentSnapshot.recentMatchups : []
           }
         />
+        <RecentPlayerGames moments={recentGames} />
         <RecentActivity events={activity} />
       </section>
     </div>
