@@ -15,6 +15,7 @@ import {
 } from "@/lib/stats/team";
 import { syncPlayerProfileFromHenrik } from "@/lib/stats/player-profile-sync";
 import { buildTrackerScore } from "@/lib/stats/tracker-score";
+import { roleLabel } from "@/lib/valorant/roles";
 import { initials } from "@/lib/utils";
 import type { PlayerProfileRow, TrackedStatRow, UserRow } from "@/types/domain";
 
@@ -143,6 +144,7 @@ export default async function PlayersPage() {
                 u.display_name ??
                 (canSeeEmails ? u.email.split("@")[0] : u.riot_name ?? "Team Member");
               const trackerScore = profile ? trackerScoreByProfileId.get(profile.id) : null;
+              const visibleRosterTitle = u.role === "coach" ? "Coach" : "Player";
               return (
                 <div key={u.id} className="surface p-5 hover-lift flex flex-col gap-4">
                   <div className="flex items-center gap-3">
@@ -162,8 +164,11 @@ export default async function PlayersPage() {
                         </div>
                       ) : null}
                     </div>
-                    <Badge variant="outline">{u.role}</Badge>
+                    <Badge variant={u.role === "coach" ? "default" : "outline"}>
+                      {visibleRosterTitle}
+                    </Badge>
                   </div>
+                  <PlayerRoleChips user={u} />
                   {u.riot_name && u.riot_tag ? (
                     <div className="flex items-center justify-between">
                       <div>
@@ -227,4 +232,26 @@ function buildProfilesByRiot(profiles: PlayerProfileRow[]): Map<string, PlayerPr
 
 function riotKey(name: string, tag: string): string {
   return `${name.toLowerCase()}#${tag.toLowerCase().replace(/^#/, "")}`;
+}
+
+function PlayerRoleChips({ user }: { user: UserRow }) {
+  const secondaryRoles = Array.isArray(user.secondary_valorant_roles)
+    ? user.secondary_valorant_roles
+    : [];
+
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      <span className="rounded-full border border-[color:var(--accent-soft)] bg-[color:var(--accent-dim)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[color:var(--accent)]">
+        {roleLabel(user.preferred_valorant_role)}
+      </span>
+      {secondaryRoles.map((role) => (
+        <span
+          key={role}
+          className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[color:var(--color-muted)]"
+        >
+          {role}
+        </span>
+      ))}
+    </div>
+  );
 }

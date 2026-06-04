@@ -216,12 +216,12 @@ export function TournamentOptInPanel({
           </RosterSection>
 
           <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-            <RosterSection title="Pending" count={pendingMembers.length} empty="Nobody pending.">
+            <RosterSection title="Pending" count={pendingMembers.length} empty="Nobody pending." layout="single">
               {pendingMembers.map((member) => (
                 <RosterStatusRow key={member.userId} member={member} />
               ))}
             </RosterSection>
-            <RosterSection title="Out" count={outMembers.length} empty="Nobody opted out.">
+            <RosterSection title="Out" count={outMembers.length} empty="Nobody opted out." layout="single">
               {outMembers.map((member) => (
                 <RosterStatusRow key={member.userId} member={member} />
               ))}
@@ -349,11 +349,13 @@ function RosterSection({
   children,
   count,
   empty,
+  layout = "auto",
   title,
 }: {
   children: React.ReactNode;
   count: number;
   empty: string;
+  layout?: "auto" | "single";
   title: string;
 }) {
   return (
@@ -362,7 +364,12 @@ function RosterSection({
         <div className="text-sm font-semibold">{title}</div>
         <Badge variant="outline">{count}</Badge>
       </div>
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+      <div
+        className={cn(
+          "grid grid-cols-1 gap-2",
+          layout === "auto" ? "sm:grid-cols-2" : null,
+        )}
+      >
         {count > 0 ? children : (
           <div className="col-span-full rounded-lg border border-dashed border-white/10 px-3 py-4 text-sm text-[color:var(--color-muted)]">
             {empty}
@@ -438,12 +445,12 @@ function RosterStatusRow({
   return (
     <div
       className={cn(
-        "flex items-center justify-between gap-3",
+        "flex min-w-0 flex-wrap items-start justify-between gap-3",
         compact ? "rounded-lg px-2 py-2" : "rounded-lg p-3",
         !compact && !unframed ? "border border-white/7 bg-white/[0.02]" : null,
       )}
     >
-      <div className="flex min-w-0 items-center gap-3">
+      <div className="flex min-w-[12rem] flex-1 items-center gap-3">
         <Avatar className="h-8 w-8">
           {member.avatarUrl ? <AvatarImage src={member.avatarUrl} alt={member.displayName} /> : null}
           <AvatarFallback>{initials(member.displayName)}</AvatarFallback>
