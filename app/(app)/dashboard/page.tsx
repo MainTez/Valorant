@@ -19,7 +19,7 @@ import {
   buildDashboardNextMatches,
   pickDashboardNextMatch,
 } from "@/lib/dashboard/next-match";
-import { getSurfBullsArenaSnapshot } from "@/lib/ggarena/client";
+import { getCachedSurfBullsArenaSnapshot } from "@/lib/ggarena/client";
 import { norwayDayBoundsUtc } from "@/lib/timezone";
 import { personalizeRoutineForUser } from "@/lib/routines/player-routines";
 import type {
@@ -45,7 +45,7 @@ export default async function DashboardPage() {
   const today = todayBounds.date;
   const tournamentSnapshotPromise =
     team.slug === "surf-n-bulls"
-      ? getSurfBullsArenaSnapshot()
+      ? getCachedSurfBullsArenaSnapshot()
       : Promise.resolve(null);
 
   const [

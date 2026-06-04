@@ -13,7 +13,6 @@ import {
   trackedStatToMatchSample,
   type MatchStatSample,
 } from "@/lib/stats/team";
-import { syncPlayerProfileFromHenrik } from "@/lib/stats/player-profile-sync";
 import { buildTrackerScore } from "@/lib/stats/tracker-score";
 import { roleLabel } from "@/lib/valorant/roles";
 import { initials } from "@/lib/utils";
@@ -40,37 +39,7 @@ export default async function PlayersPage() {
   ]);
 
   const list = (users ?? []) as UserRow[];
-  let profileRows = (profiles ?? []) as PlayerProfileRow[];
-  const initialProfilesByRiot = buildProfilesByRiot(profileRows);
-  const syncResults = await Promise.all(
-    list
-      .filter((rosterUser) => rosterUser.riot_name && rosterUser.riot_tag)
-      .map(async (rosterUser) => {
-        const riotName = rosterUser.riot_name as string;
-        const riotTag = rosterUser.riot_tag as string;
-        const profile = initialProfilesByRiot.get(riotKey(riotName, riotTag));
-        try {
-          return await syncPlayerProfileFromHenrik({
-            profile,
-            userId: rosterUser.id,
-            teamId: team.id,
-            riotName,
-            riotTag,
-            region: rosterUser.riot_region ?? profile?.region ?? "eu",
-          });
-        } catch {
-          return null;
-        }
-      }),
-  );
-
-  const profilesById = new Map(profileRows.map((profile) => [profile.id, profile]));
-  for (const result of syncResults) {
-    if (result?.profile) {
-      profilesById.set(result.profile.id, result.profile);
-    }
-  }
-  profileRows = [...profilesById.values()].filter((profile) => profile.team_id === team.id);
+  const profileRows = (profiles ?? []) as PlayerProfileRow[];
   const profileIds = profileRows.map((profile) => profile.id);
   const { data: trackedStats } = profileIds.length
     ? await supabase

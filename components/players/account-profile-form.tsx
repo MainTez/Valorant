@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, Image as ImageIcon, UserRound } from "lucide-react";
+import { CheckCircle2, Image as ImageIcon, Upload, UserRound, X } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,17 +20,45 @@ export function AccountProfileForm({
   initialDisplayName,
 }: Props) {
   const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [displayName, setDisplayName] = useState(initialDisplayName);
   const [avatarUrl, setAvatarUrl] = useState(initialAvatarUrl ?? "");
+  const [selectedAvatarFile, setSelectedAvatarFile] = useState<File | null>(null);
+  const [selectedAvatarPreview, setSelectedAvatarPreview] = useState<string | null>(null);
+  const [removeAvatar, setRemoveAvatar] = useState(false);
   const [loading, setLoading] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const previewName = displayName.trim() || email.split("@")[0];
+  const avatarPreviewUrl = selectedAvatarPreview ?? (removeAvatar ? "" : avatarUrl.trim());
+
+  useEffect(() => {
+    setDisplayName(initialDisplayName);
+    setAvatarUrl(initialAvatarUrl ?? "");
+    setSelectedAvatarFile(null);
+    setRemoveAvatar(false);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  }, [initialAvatarUrl, initialDisplayName]);
+
+  useEffect(() => {
+    if (!selectedAvatarFile) {
+      setSelectedAvatarPreview(null);
+      return;
+    }
+
+    const url = URL.createObjectURL(selectedAvatarFile);
+    setSelectedAvatarPreview(url);
+
+    return () => {
+      URL.revokeObjectURL(url);
+    };
+  }, [selectedAvatarFile]);
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const nextDisplayName = displayName.trim();
-    const nextAvatarUrl = avatarUrl.trim();
     if (!nextDisplayName) return;
 
     setLoading(true);
@@ -38,13 +66,18 @@ export function AccountProfileForm({
     setError(null);
 
     try {
+      const form = new FormData();
+      form.set("display_name", nextDisplayName);
+      if (selectedAvatarFile) {
+        form.set("avatar_file", selectedAvatarFile);
+      }
+      if (removeAvatar) {
+        form.set("remove_avatar", "1");
+      }
+
       const response = await fetch("/api/profile/account", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          display_name: nextDisplayName,
-          avatar_url: nextAvatarUrl || null,
-        }),
+        body: form,
       });
       const payload = (await response.json().catch(() => ({}))) as {
         error?: string;
@@ -57,12 +90,38 @@ export function AccountProfileForm({
 
       setDisplayName(payload.data.display_name ?? nextDisplayName);
       setAvatarUrl(payload.data.avatar_url ?? "");
+      setSelectedAvatarFile(null);
+      setRemoveAvatar(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
       setSaved(true);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save profile");
     } finally {
       setLoading(false);
+    }
+  }
+
+  function onAvatarSelected(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0] ?? null;
+    if (!file) return;
+
+    setSelectedAvatarFile(file);
+    setRemoveAvatar(false);
+    setSaved(false);
+    setError(null);
+  }
+
+  function clearAvatar() {
+    const hadSelectedFile = Boolean(selectedAvatarFile);
+    setSelectedAvatarFile(null);
+    setRemoveAvatar(hadSelectedFile ? false : Boolean(avatarUrl.trim()));
+    setSaved(false);
+    setError(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
     }
   }
 
@@ -85,7 +144,7 @@ export function AccountProfileForm({
             </div>
           </div>
           <Avatar className="h-16 w-16">
-            {avatarUrl.trim() ? <AvatarImage src={avatarUrl.trim()} alt={previewName} /> : null}
+            {avatarPreviewUrl ? <AvatarImage src={avatarPreviewUrl} alt={previewName} /> : null}
             <AvatarFallback>{initials(previewName)}</AvatarFallback>
           </Avatar>
         </div>
@@ -111,19 +170,48 @@ export function AccountProfileForm({
 
           <div>
             <label className="mb-2 block text-[0.68rem] uppercase tracking-[0.22em] text-white/40">
-              Profile picture URL
+              Profile picture
             </label>
-            <div className="metal-input flex h-14 items-center gap-3 rounded-[1rem] px-4">
+            <div className="metal-input flex min-h-14 flex-wrap items-center gap-3 rounded-[1rem] px-4 py-3">
               <ImageIcon className="h-4 w-4 text-white/34" />
-              <Input
-                value={avatarUrl}
-                onChange={(event) => {
-                  setAvatarUrl(event.target.value);
-                  setSaved(false);
-                }}
-                placeholder="https://..."
-                className="h-auto min-w-0 border-0 bg-transparent px-0 text-base shadow-none placeholder:text-white/26 focus-visible:ring-0"
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                onChange={onAvatarSelected}
+                className="hidden"
               />
+              <div className="min-w-[10rem] flex-1">
+                <div className="truncate text-sm text-white/76">
+                  {selectedAvatarFile?.name ??
+                    (avatarPreviewUrl ? "Profile picture selected" : "No picture selected")}
+                </div>
+                <div className="mt-0.5 text-xs text-white/34">
+                  PNG, JPG, WebP, or GIF up to 3 MB.
+                </div>
+              </div>
+              <Button
+                type="button"
+                variant="subtle"
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+                className="rounded-[0.75rem]"
+              >
+                <Upload className="h-3.5 w-3.5" />
+                Choose
+              </Button>
+              {selectedAvatarFile || avatarPreviewUrl ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearAvatar}
+                  className="rounded-[0.75rem] text-white/62 hover:text-white"
+                >
+                  <X className="h-3.5 w-3.5" />
+                  Remove
+                </Button>
+              ) : null}
             </div>
           </div>
         </div>
@@ -143,7 +231,7 @@ export function AccountProfileForm({
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-xs leading-5 text-white/36">
-            Leave the picture empty to use initials instead.
+            Leaving it empty uses initials instead.
           </p>
           <Button
             type="submit"

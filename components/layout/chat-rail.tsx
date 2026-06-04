@@ -280,6 +280,7 @@ export function ChatRail({
     requestAnimationFrame(() => {
       const viewport = messageViewportRef.current;
       if (!viewport) return;
+      if (viewport.scrollHeight <= viewport.clientHeight + 1) return;
       viewport.scrollTo({ top: viewport.scrollHeight, behavior });
     });
   }, [messages.length, railHidden, activeChannel]);
@@ -607,7 +608,7 @@ export function ChatRail({
                       ref={messageViewportRef}
                       className="relative flex-1 min-h-0 overflow-y-auto px-4 py-3 scrollbar-slim"
                     >
-                      <div className="flex min-h-full flex-col gap-3">
+                      <div className="flex min-h-0 flex-col gap-3">
                         {loadingChannel ? (
                           <div className="mt-6 flex flex-col gap-2.5">
                             <div className="h-11 animate-pulse rounded-2xl border border-white/5 bg-white/[0.03]" />

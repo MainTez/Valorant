@@ -1,4 +1,5 @@
 import "server-only";
+import { unstable_cache } from "next/cache";
 import {
   type GGArenaCompetition,
   type GGArenaDivision,
@@ -200,6 +201,12 @@ export async function getSurfBullsArenaSnapshot(): Promise<GGArenaSnapshot> {
     };
   }
 }
+
+export const getCachedSurfBullsArenaSnapshot = unstable_cache(
+  getSurfBullsArenaSnapshot,
+  ["surf-bulls-ggarena-snapshot-v1"],
+  { revalidate: 60 },
+);
 
 async function hydrateStatsWithTeamRosters(
   stats: GGArenaStatRow[],

@@ -19,7 +19,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { formatNorwayDateTime } from "@/lib/timezone";
 import {
   type GGArenaSnapshot,
-  getSurfBullsArenaSnapshot,
+  getCachedSurfBullsArenaSnapshot,
 } from "@/lib/ggarena/client";
 import {
   matchupDomId,
@@ -53,7 +53,7 @@ export default async function TournamentsPage({ searchParams }: TournamentsPageP
 
   const supabase = await createSupabaseServerClient();
   const [snapshot, { data: members }, { data: optInEvents }] = await Promise.all([
-    getSurfBullsArenaSnapshot(),
+    getCachedSurfBullsArenaSnapshot(),
     supabase
       .from("users")
       .select("id, display_name, email, avatar_url, preferred_valorant_role, secondary_valorant_roles")
