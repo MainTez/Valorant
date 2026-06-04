@@ -193,7 +193,9 @@ export function LoginCard({
         typeof window !== "undefined"
           ? window.location.origin
           : process.env.NEXT_PUBLIC_APP_URL;
-      const redirectTo = new URL("/auth/callback", origin).toString();
+      const redirectUrl = new URL("/auth/callback", origin);
+      redirectUrl.searchParams.set("team", team);
+      const redirectTo = redirectUrl.toString();
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {

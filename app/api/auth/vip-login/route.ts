@@ -28,7 +28,7 @@ export async function POST(request: Request) {
         team_id: selectedTeam.id,
         role: "admin",
       },
-      { onConflict: "email" },
+      { onConflict: "email,team_id" },
     );
     if (whitelistError) throw whitelistError;
 

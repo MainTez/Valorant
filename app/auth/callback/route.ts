@@ -70,8 +70,18 @@ export async function GET(request: NextRequest) {
       return redirectToLogin(origin, "missing_email");
     }
 
-    const whitelist = await findWhitelistEntry(authUser.email);
+    const whitelist = await findWhitelistEntry(authUser.email, selectedTeam?.id);
     if (!whitelist) {
+      if (selectedTeam) {
+        const anyWhitelist = await findWhitelistEntry(authUser.email);
+        if (anyWhitelist) {
+          await supabase.auth.signOut();
+          return NextResponse.redirect(
+            `${origin}/login?error=team_mismatch&team=${selectedTeam.slug}`,
+          );
+        }
+      }
+
       // Not on the whitelist — revoke session
       await supabase.auth.signOut();
       try {
@@ -84,7 +94,7 @@ export async function GET(request: NextRequest) {
     }
 
     const approvedTeam = teamById(whitelist.team_id);
-    if (selectedTeam && approvedTeam && selectedTeam.id !== approvedTeam.id) {
+    if (selectedTeam && (!approvedTeam || selectedTeam.id !== approvedTeam.id)) {
       await supabase.auth.signOut();
       return NextResponse.redirect(
         `${origin}/login?error=team_mismatch&team=${selectedTeam.slug}`,

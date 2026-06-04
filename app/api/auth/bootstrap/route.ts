@@ -40,9 +40,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "unauthorized" }, { status: 401 });
     }
 
-    const whitelist = await findWhitelistEntry(user.email);
+    const whitelist = await findWhitelistEntry(user.email, selectedTeam.id);
     if (!whitelist) {
-      return NextResponse.json({ error: "not_whitelisted" }, { status: 403 });
+      const anyWhitelist = await findWhitelistEntry(user.email);
+      return NextResponse.json(
+        anyWhitelist
+          ? { error: "team_mismatch", team: teamById(anyWhitelist.team_id)?.slug ?? null }
+          : { error: "not_whitelisted" },
+        { status: 403 },
+      );
     }
 
     const approvedTeam = teamById(whitelist.team_id);

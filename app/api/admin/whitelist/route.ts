@@ -20,12 +20,12 @@ export async function POST(request: NextRequest) {
     const admin = createSupabaseAdminClient();
     const { data, error } = await admin
       .from("whitelist")
-      .insert({
+      .upsert({
         email: body.email.toLowerCase(),
         team_id: body.team_id,
         role: body.role,
         added_by: user.id,
-      })
+      }, { onConflict: "email,team_id" })
       .select("*")
       .maybeSingle();
 
