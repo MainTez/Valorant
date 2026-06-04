@@ -2,13 +2,19 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   MATCH_VOD_MAX_FILE_BYTES,
+  VOD_CLIP_MAX_FILE_BYTES,
   assertValidMatchVodUpload,
+  assertValidVodClipUpload,
   buildMatchVodObjectPath,
+  buildVodClipObjectPath,
   canDeleteMatch,
   isMatchVodPathForMatch,
   isMatchVodPathForTeam,
+  isVodClipPathForTeam,
   resolveMatchVodSource,
+  resolveVodClipSource,
   sanitizeMatchVodFileName,
+  sanitizeVodClipFileName,
 } from "./vods.ts";
 
 test("sanitizeMatchVodFileName normalizes spacing and dangerous characters", () => {
@@ -134,4 +140,70 @@ test("canDeleteMatch allows admins, coaches, and the match creator", () => {
   assert.equal(canDeleteMatch({ createdBy: "user-1", role: "coach", userId: "user-2" }), true);
   assert.equal(canDeleteMatch({ createdBy: "user-1", role: "player", userId: "user-1" }), true);
   assert.equal(canDeleteMatch({ createdBy: "user-1", role: "player", userId: "user-2" }), false);
+});
+
+test("sanitizeVodClipFileName preserves supported clip extensions", () => {
+  assert.equal(sanitizeVodClipFileName(" Round 18 Retake!!.webm"), "round-18-retake.webm");
+  assert.equal(sanitizeVodClipFileName("  .mp4"), "clip.mp4");
+});
+
+test("buildVodClipObjectPath nests clips under the team clip folder", () => {
+  assert.equal(
+    buildVodClipObjectPath({
+      fileName: "Round 18 Retake!!.MP4",
+      teamId: "team-456",
+      uploadId: "clip-123",
+    }),
+    "team-456/clips/clip-123-round-18-retake.mp4",
+  );
+});
+
+test("assertValidVodClipUpload accepts webm clips and rejects oversized clips", () => {
+  assert.doesNotThrow(() =>
+    assertValidVodClipUpload({
+      contentType: "video/webm",
+      fileName: "retake.webm",
+      fileSize: 1024,
+    }),
+  );
+
+  assert.throws(
+    () =>
+      assertValidVodClipUpload({
+        contentType: "video/mp4",
+        fileName: "too-big.mp4",
+        fileSize: VOD_CLIP_MAX_FILE_BYTES + 1,
+      }),
+    /too large/i,
+  );
+});
+
+test("isVodClipPathForTeam only accepts team scoped clip paths", () => {
+  assert.equal(isVodClipPathForTeam("team-456/clips/clip-123-retake.mp4", "team-456"), true);
+  assert.equal(isVodClipPathForTeam("team-789/clips/clip-123-retake.mp4", "team-456"), false);
+  assert.equal(isVodClipPathForTeam("team-456/matches/clip-123-retake.mp4", "team-456"), false);
+});
+
+test("resolveVodClipSource handles uploaded and external clips", () => {
+  assert.deepEqual(
+    resolveVodClipSource({
+      storage_path: "team-456/clips/clip-123-retake.mp4",
+      external_url: null,
+    }),
+    {
+      kind: "uploaded",
+      path: "team-456/clips/clip-123-retake.mp4",
+    },
+  );
+  assert.deepEqual(
+    resolveVodClipSource({
+      storage_path: null,
+      external_url: "https://cdn.example.com/clip.webm",
+    }),
+    {
+      isDirectVideo: true,
+      kind: "external",
+      url: "https://cdn.example.com/clip.webm",
+    },
+  );
 });

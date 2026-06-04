@@ -117,6 +117,30 @@ export interface MatchRow {
   created_at: string;
 }
 
+export type VodClipSourceType = "upload" | "external";
+
+export interface VodClipRow {
+  id: string;
+  team_id: string;
+  match_id: string | null;
+  title: string;
+  description: string | null;
+  source_type: VodClipSourceType;
+  storage_path: string | null;
+  external_url: string | null;
+  original_name: string | null;
+  content_type: string | null;
+  size_bytes: number | null;
+  start_seconds: number | null;
+  end_seconds: number | null;
+  map: string | null;
+  opponent: string | null;
+  tags: string[];
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface CoachNoteRow {
   id: string;
   match_id: string | null;
@@ -195,6 +219,7 @@ export interface ChatMessageRow {
   author_id: string;
   body: string;
   created_at: string;
+  updated_at: string | null;
 }
 
 export interface ScheduleEventRow {

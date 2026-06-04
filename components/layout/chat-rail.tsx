@@ -4,11 +4,22 @@ import { useEffect, useRef, useState } from "react";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { ChevronRight, Hash, PanelRightClose, PanelRightOpen, Send } from "lucide-react";
+import {
+  Check,
+  ChevronRight,
+  Hash,
+  PanelRightClose,
+  PanelRightOpen,
+  Pencil,
+  Send,
+  Trash2,
+  X,
+} from "lucide-react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn, initials, relativeTime } from "@/lib/utils";
+import type { Role } from "@/types/domain";
 
 gsap.registerPlugin(useGSAP, ScrollTrigger);
 
@@ -31,6 +42,7 @@ interface RailMessage {
   author_id: string;
   body: string;
   created_at: string;
+  updated_at: string | null;
   author: MemberSummary | null;
 }
 
@@ -40,6 +52,7 @@ interface Props {
   activeChannelSlug: string;
   initialMessages: RailMessage[];
   currentUserId: string;
+  currentUserRole: Role;
   teamId: string;
 }
 
@@ -57,6 +70,7 @@ export function ChatRail({
   activeChannelSlug,
   initialMessages,
   currentUserId,
+  currentUserRole,
   teamId,
 }: Props) {
   const supabaseRef = useRef(createSupabaseBrowserClient());
@@ -71,6 +85,8 @@ export function ChatRail({
   const [messages, setMessages] = useState<RailMessage[]>(initialMessages);
   const [pending, setPending] = useState(false);
   const [draft, setDraft] = useState("");
+  const [editDraft, setEditDraft] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [railHidden, setRailHidden] = useState(false);
   const [storageReady, setStorageReady] = useState(false);
   const [loadingChannel, setLoadingChannel] = useState(false);
@@ -133,7 +149,7 @@ export function ChatRail({
       try {
         const { data } = await supabaseRef.current
           .from("chat_messages")
-          .select("id, author_id, body, created_at")
+          .select("id, author_id, body, created_at, updated_at")
           .eq("channel_id", activeChannel.id)
           .order("created_at", { ascending: false })
           .limit(50);
@@ -148,6 +164,7 @@ export function ChatRail({
             author_id: message.author_id,
             body: message.body,
             created_at: message.created_at,
+            updated_at: message.updated_at,
             author: authorForMessage(membersRef.current, message.author_id),
           }));
 
@@ -213,6 +230,7 @@ export function ChatRail({
           author_id: string;
           body: string;
           created_at: string;
+          updated_at: string | null;
         };
 
         setMessages((previous) => {
@@ -225,10 +243,39 @@ export function ChatRail({
               author_id: row.author_id,
               body: row.body,
               created_at: row.created_at,
+              updated_at: row.updated_at,
               author: authorForMessage(membersRef.current, row.author_id),
             },
           ].slice(-50);
         });
+      })
+      .on("broadcast", { event: "message:update" }, ({ payload }) => {
+        const row = payload as {
+          id: string;
+          author_id: string;
+          body: string;
+          created_at: string;
+          updated_at: string | null;
+        };
+
+        setMessages((previous) =>
+          previous.map((message) =>
+            message.id === row.id
+              ? {
+                  id: row.id,
+                  author_id: row.author_id,
+                  body: row.body,
+                  created_at: row.created_at,
+                  updated_at: row.updated_at,
+                  author: authorForMessage(membersRef.current, row.author_id),
+                }
+              : message,
+          ),
+        );
+      })
+      .on("broadcast", { event: "message:delete" }, ({ payload }) => {
+        const row = payload as { id: string };
+        setMessages((previous) => previous.filter((message) => message.id !== row.id));
       })
       .on(
         "postgres_changes",
@@ -244,6 +291,7 @@ export function ChatRail({
             author_id: string;
             body: string;
             created_at: string;
+            updated_at: string | null;
           };
 
           setMessages((previous) => {
@@ -256,10 +304,44 @@ export function ChatRail({
                 author_id: row.author_id,
                 body: row.body,
                 created_at: row.created_at,
+                updated_at: row.updated_at,
                 author: authorForMessage(membersRef.current, row.author_id),
               },
             ].slice(-50);
           });
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "chat_messages",
+          filter: `channel_id=eq.${activeChannel.id}`,
+        },
+        (payload) => {
+          const row = payload.new as {
+            id: string;
+            author_id: string;
+            body: string;
+            created_at: string;
+            updated_at: string | null;
+          };
+
+          setMessages((previous) =>
+            previous.map((message) =>
+              message.id === row.id
+                ? {
+                    id: row.id,
+                    author_id: row.author_id,
+                    body: row.body,
+                    created_at: row.created_at,
+                    updated_at: row.updated_at,
+                    author: authorForMessage(membersRef.current, row.author_id),
+                  }
+                : message,
+            ),
+          );
         },
       )
       .subscribe();
@@ -379,6 +461,7 @@ export function ChatRail({
       author_id: currentUserId,
       body: trimmed,
       created_at: new Date().toISOString(),
+      updated_at: null,
       author: authorForMessage(members, currentUserId),
     };
 
@@ -399,6 +482,7 @@ export function ChatRail({
           author_id: string;
           body: string;
           created_at: string;
+          updated_at: string | null;
         };
       } | null;
       const confirmedMessage = payload?.data;
@@ -433,6 +517,7 @@ export function ChatRail({
               author_id: confirmedMessage.author_id,
               body: confirmedMessage.body,
               created_at: confirmedMessage.created_at,
+              updated_at: confirmedMessage.updated_at,
               author: authorForMessage(members, confirmedMessage.author_id),
             },
           ].slice(-50);
@@ -443,6 +528,85 @@ export function ChatRail({
         previous.filter((message) => message.id !== optimisticId),
       );
       setDraft(trimmed);
+    } finally {
+      setPending(false);
+    }
+  }
+
+  function startEditing(message: RailMessage) {
+    setEditingId(message.id);
+    setEditDraft(message.body);
+  }
+
+  function stopEditing() {
+    setEditingId(null);
+    setEditDraft("");
+  }
+
+  async function saveEdit(message: RailMessage) {
+    const body = editDraft.trim();
+    if (!body || body === message.body) {
+      stopEditing();
+      return;
+    }
+
+    setPending(true);
+    try {
+      const response = await fetch(`/api/chat/messages/${message.id}`, {
+        body: JSON.stringify({ body }),
+        headers: { "Content-Type": "application/json" },
+        method: "PATCH",
+      });
+      const payload = (await response.json().catch(() => ({}))) as {
+        data?: {
+          id: string;
+          author_id: string;
+          body: string;
+          created_at: string;
+          updated_at: string | null;
+        };
+        error?: string;
+      };
+      if (!response.ok || !payload.data) {
+        throw new Error(payload.error ?? "Failed to edit message.");
+      }
+      const row = payload.data;
+      const nextMessage: RailMessage = {
+        id: row.id,
+        author_id: row.author_id,
+        body: row.body,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+        author: authorForMessage(membersRef.current, row.author_id),
+      };
+      setMessages((previous) =>
+        previous.map((current) => (current.id === row.id ? nextMessage : current)),
+      );
+      void messageChannelRef.current?.send({
+        type: "broadcast",
+        event: "message:update",
+        payload: row,
+      });
+      stopEditing();
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function deleteMessage(message: RailMessage) {
+    setPending(true);
+    try {
+      const response = await fetch(`/api/chat/messages/${message.id}`, { method: "DELETE" });
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => ({}))) as { error?: string };
+        throw new Error(payload.error ?? "Failed to delete message.");
+      }
+      setMessages((previous) => previous.filter((current) => current.id !== message.id));
+      void messageChannelRef.current?.send({
+        type: "broadcast",
+        event: "message:delete",
+        payload: { id: message.id },
+      });
     } finally {
       setPending(false);
     }
@@ -627,6 +791,11 @@ export function ChatRail({
                           ? messages.map((message) => {
                               const author = message.author;
                               const isMine = message.author_id === currentUserId;
+                              const canEdit = isMine && !message.id.startsWith("optimistic-");
+                              const canDelete =
+                                !message.id.startsWith("optimistic-") &&
+                                (isMine || currentUserRole === "admin");
+                              const isEditing = editingId === message.id;
 
                               return (
                                 <div
@@ -662,18 +831,74 @@ export function ChatRail({
                                           "—"}
                                       </span>
                                       <span>{relativeTime(message.created_at)}</span>
+                                      {message.updated_at ? <span>edited</span> : null}
                                     </div>
 
-                                    <p
-                                      className={cn(
-                                        "inline-flex whitespace-pre-wrap break-words rounded-2xl border px-3 py-2 text-sm leading-snug shadow-[0_20px_40px_-32px_rgba(0,0,0,0.95)]",
-                                        isMine
-                                          ? "border-[color:var(--accent-soft)] bg-[linear-gradient(180deg,var(--accent-dim),rgba(255,255,255,0.02))] text-[color:var(--color-text)]"
-                                          : "border-white/8 bg-white/[0.03] text-[color:var(--color-text)]/92",
-                                      )}
-                                    >
-                                      {message.body}
-                                    </p>
+                                    {isEditing ? (
+                                      <div className="flex items-center gap-1">
+                                        <input
+                                          value={editDraft}
+                                          onChange={(event) => setEditDraft(event.target.value)}
+                                          className="min-w-0 flex-1 rounded-xl border border-[color:var(--accent-soft)] bg-black/30 px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--accent-dim)]"
+                                          autoFocus
+                                        />
+                                        <button
+                                          type="button"
+                                          aria-label="Save edit"
+                                          onClick={() => void saveEdit(message)}
+                                          disabled={pending || !editDraft.trim()}
+                                          className="grid h-8 w-8 place-items-center rounded-lg bg-[color:var(--accent)] text-black disabled:opacity-40"
+                                        >
+                                          <Check className="h-4 w-4" />
+                                        </button>
+                                        <button
+                                          type="button"
+                                          aria-label="Cancel edit"
+                                          onClick={stopEditing}
+                                          className="grid h-8 w-8 place-items-center rounded-lg border border-white/10 text-[color:var(--color-muted)] hover:text-[color:var(--color-text)]"
+                                        >
+                                          <X className="h-4 w-4" />
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <div className={cn("group flex items-center gap-1.5", isMine && "justify-end")}>
+                                        <p
+                                          className={cn(
+                                            "inline-flex whitespace-pre-wrap break-words rounded-2xl border px-3 py-2 text-sm leading-snug shadow-[0_20px_40px_-32px_rgba(0,0,0,0.95)]",
+                                            isMine
+                                              ? "border-[color:var(--accent-soft)] bg-[linear-gradient(180deg,var(--accent-dim),rgba(255,255,255,0.02))] text-[color:var(--color-text)]"
+                                              : "border-white/8 bg-white/[0.03] text-[color:var(--color-text)]/92",
+                                          )}
+                                        >
+                                          {message.body}
+                                        </p>
+                                        {canEdit || canDelete ? (
+                                          <div className="flex items-center gap-0.5 opacity-100 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100">
+                                            {canEdit ? (
+                                              <button
+                                                type="button"
+                                                aria-label="Edit message"
+                                                onClick={() => startEditing(message)}
+                                                className="grid h-7 w-7 place-items-center rounded-md text-[color:var(--color-muted)] hover:bg-white/[0.05] hover:text-[color:var(--color-text)]"
+                                              >
+                                                <Pencil className="h-3.5 w-3.5" />
+                                              </button>
+                                            ) : null}
+                                            {canDelete ? (
+                                              <button
+                                                type="button"
+                                                aria-label="Delete message"
+                                                onClick={() => void deleteMessage(message)}
+                                                disabled={pending}
+                                                className="grid h-7 w-7 place-items-center rounded-md text-red-300 hover:bg-red-400/10 hover:text-red-100 disabled:opacity-40"
+                                              >
+                                                <Trash2 className="h-3.5 w-3.5" />
+                                              </button>
+                                            ) : null}
+                                          </div>
+                                        ) : null}
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
                               );

@@ -33,7 +33,7 @@ export default async function ChatChannelPage({ params }: Props) {
   const [{ data: recent }, { data: members }] = await Promise.all([
     supabase
       .from("chat_messages")
-      .select("id, channel_id, author_id, body, created_at")
+      .select("id, channel_id, author_id, body, created_at, updated_at")
       .eq("channel_id", active.id)
       .order("created_at", { ascending: false })
       .limit(100),
@@ -63,6 +63,7 @@ export default async function ChatChannelPage({ params }: Props) {
         }
         initialMessages={messages}
         currentUserId={user.id}
+        currentUserRole={user.role}
       />
     </div>
   );

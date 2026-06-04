@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { Hash, Send } from "lucide-react";
+import { Check, Hash, Pencil, Send, Trash2, X } from "lucide-react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cn, initials, relativeTime } from "@/lib/utils";
-import type { UserRow } from "@/types/domain";
+import type { Role, UserRow } from "@/types/domain";
 
 interface Channel {
   id: string;
@@ -22,6 +22,7 @@ interface Message {
   author_id: string;
   body: string;
   created_at: string;
+  updated_at: string | null;
 }
 
 interface Props {
@@ -30,6 +31,7 @@ interface Props {
   members: Array<Pick<UserRow, "id" | "display_name" | "email" | "avatar_url" | "status">>;
   initialMessages: Message[];
   currentUserId: string;
+  currentUserRole: Role;
 }
 
 export function FullChat({
@@ -38,12 +40,15 @@ export function FullChat({
   members,
   initialMessages,
   currentUserId,
+  currentUserRole,
 }: Props) {
   const supabaseRef = useRef(createSupabaseBrowserClient());
   const messageChannelRef = useRef<RealtimeChannel | null>(null);
   const active = channels.find((c) => c.slug === activeSlug) ?? channels[0];
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [draft, setDraft] = useState("");
+  const [editDraft, setEditDraft] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const viewportRef = useRef<HTMLDivElement>(null);
   const membersById = Object.fromEntries(members.map((m) => [m.id, m]));
@@ -69,6 +74,14 @@ export function FullChat({
         const row = payload as Message;
         setMessages((prev) => (prev.some((m) => m.id === row.id) ? prev : [...prev, row]));
       })
+      .on("broadcast", { event: "message:update" }, ({ payload }) => {
+        const row = payload as Message;
+        setMessages((prev) => prev.map((message) => (message.id === row.id ? row : message)));
+      })
+      .on("broadcast", { event: "message:delete" }, ({ payload }) => {
+        const row = payload as { id: string };
+        setMessages((prev) => prev.filter((message) => message.id !== row.id));
+      })
       .on(
         "postgres_changes",
         {
@@ -80,6 +93,19 @@ export function FullChat({
         (payload) => {
           const row = payload.new as Message;
           setMessages((prev) => (prev.some((m) => m.id === row.id) ? prev : [...prev, row]));
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "chat_messages",
+          filter: `channel_id=eq.${active.id}`,
+        },
+        (payload) => {
+          const row = payload.new as Message;
+          setMessages((prev) => prev.map((message) => (message.id === row.id ? row : message)));
         },
       )
       .subscribe();
@@ -112,6 +138,7 @@ export function FullChat({
       author_id: currentUserId,
       body,
       created_at: new Date().toISOString(),
+      updated_at: null,
     };
     setPending(true);
     setDraft("");
@@ -149,6 +176,67 @@ export function FullChat({
     } catch {
       setMessages((prev) => prev.filter((message) => message.id !== optimisticId));
       setDraft(body);
+    } finally {
+      setPending(false);
+    }
+  }
+
+  function startEditing(message: Message) {
+    setEditingId(message.id);
+    setEditDraft(message.body);
+  }
+
+  function stopEditing() {
+    setEditingId(null);
+    setEditDraft("");
+  }
+
+  async function saveEdit(message: Message) {
+    const body = editDraft.trim();
+    if (!body || body === message.body) {
+      stopEditing();
+      return;
+    }
+
+    setPending(true);
+    try {
+      const response = await fetch(`/api/chat/messages/${message.id}`, {
+        body: JSON.stringify({ body }),
+        headers: { "Content-Type": "application/json" },
+        method: "PATCH",
+      });
+      const payload = (await response.json().catch(() => ({}))) as { data?: Message; error?: string };
+      if (!response.ok || !payload.data) {
+        throw new Error(payload.error ?? "Failed to edit message.");
+      }
+      setMessages((prev) =>
+        prev.map((current) => (current.id === payload.data?.id ? payload.data : current)),
+      );
+      void messageChannelRef.current?.send({
+        type: "broadcast",
+        event: "message:update",
+        payload: payload.data,
+      });
+      stopEditing();
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function deleteMessage(message: Message) {
+    setPending(true);
+    try {
+      const response = await fetch(`/api/chat/messages/${message.id}`, { method: "DELETE" });
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => ({}))) as { error?: string };
+        throw new Error(payload.error ?? "Failed to delete message.");
+      }
+      setMessages((prev) => prev.filter((current) => current.id !== message.id));
+      void messageChannelRef.current?.send({
+        type: "broadcast",
+        event: "message:delete",
+        payload: { id: message.id },
+      });
     } finally {
       setPending(false);
     }
@@ -204,6 +292,11 @@ export function FullChat({
             messages.map((m) => {
               const author = membersById[m.author_id];
               const isMine = m.author_id === currentUserId;
+              const canEdit = isMine && !m.id.startsWith("optimistic-");
+              const canDelete =
+                !m.id.startsWith("optimistic-") &&
+                (isMine || currentUserRole === "admin");
+              const isEditing = editingId === m.id;
               return (
                 <div
                   key={m.id}
@@ -231,15 +324,71 @@ export function FullChat({
                         {author?.display_name ?? author?.email?.split("@")[0] ?? "—"}
                       </span>
                       <span>{relativeTime(m.created_at)}</span>
+                      {m.updated_at ? <span>edited</span> : null}
                     </div>
-                    <p
-                      className={cn(
-                        "mt-1 rounded-xl border border-white/5 bg-white/[0.03] px-3 py-2 text-sm inline-block whitespace-pre-wrap break-words",
-                        isMine && "bg-[color:var(--accent-dim)] border-[color:var(--accent-soft)]",
-                      )}
-                    >
-                      {m.body}
-                    </p>
+                    {isEditing ? (
+                      <div className="mt-1 flex max-w-[32rem] items-center gap-2">
+                        <input
+                          value={editDraft}
+                          onChange={(event) => setEditDraft(event.target.value)}
+                          className="min-w-0 flex-1 rounded-xl border border-[color:var(--accent-soft)] bg-black/30 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--accent-dim)]"
+                          autoFocus
+                        />
+                        <button
+                          type="button"
+                          aria-label="Save edit"
+                          onClick={() => void saveEdit(m)}
+                          disabled={pending || !editDraft.trim()}
+                          className="grid h-8 w-8 place-items-center rounded-lg bg-[color:var(--accent)] text-black disabled:opacity-40"
+                        >
+                          <Check className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          aria-label="Cancel edit"
+                          onClick={stopEditing}
+                          className="grid h-8 w-8 place-items-center rounded-lg border border-white/10 text-[color:var(--color-muted)] hover:text-[color:var(--color-text)]"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className={cn("group mt-1 flex items-center gap-2", isMine && "justify-end")}>
+                        <p
+                          className={cn(
+                            "rounded-xl border border-white/5 bg-white/[0.03] px-3 py-2 text-sm inline-block whitespace-pre-wrap break-words",
+                            isMine && "bg-[color:var(--accent-dim)] border-[color:var(--accent-soft)]",
+                          )}
+                        >
+                          {m.body}
+                        </p>
+                        {canEdit || canDelete ? (
+                          <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100">
+                            {canEdit ? (
+                              <button
+                                type="button"
+                                aria-label="Edit message"
+                                onClick={() => startEditing(m)}
+                                className="grid h-7 w-7 place-items-center rounded-md text-[color:var(--color-muted)] hover:bg-white/[0.05] hover:text-[color:var(--color-text)]"
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </button>
+                            ) : null}
+                            {canDelete ? (
+                              <button
+                                type="button"
+                                aria-label="Delete message"
+                                onClick={() => void deleteMessage(m)}
+                                disabled={pending}
+                                className="grid h-7 w-7 place-items-center rounded-md text-red-300 hover:bg-red-400/10 hover:text-red-100 disabled:opacity-40"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            ) : null}
+                          </div>
+                        ) : null}
+                      </div>
+                    )}
                   </div>
                 </div>
               );

@@ -64,11 +64,11 @@ export default async function AppLayout({
   const { data: recent } = activeChannel
     ? await supabase
         .from("chat_messages")
-        .select("id, body, author_id, created_at")
+        .select("id, body, author_id, created_at, updated_at")
         .eq("channel_id", activeChannel.id)
         .order("created_at", { ascending: false })
         .limit(20)
-    : { data: [] as Array<{ id: string; body: string; author_id: string; created_at: string }> };
+    : { data: [] as Array<{ id: string; body: string; author_id: string; created_at: string; updated_at: string | null }> };
 
   const membersById = Object.fromEntries(
     (members ?? []).map((m) => [m.id, m]),
@@ -98,6 +98,7 @@ export default async function AppLayout({
       author_id: m.author_id,
       body: m.body,
       created_at: m.created_at,
+      updated_at: m.updated_at,
       author:
         membersById[m.author_id] ?? {
           id: m.author_id,
@@ -147,6 +148,7 @@ export default async function AppLayout({
           activeChannelSlug={activeChannelSlug}
           initialMessages={messages}
           currentUserId={session.user.id}
+          currentUserRole={session.user.role}
           teamId={session.team.id}
         />
       </div>
