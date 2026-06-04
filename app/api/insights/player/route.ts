@@ -10,7 +10,7 @@ import {
   normalizeMmrHistory,
 } from "@/lib/henrik/normalize";
 import { defaultRegion, normalizeRegion } from "@/lib/henrik/regions";
-import { runEngine } from "@/lib/insights/engine";
+import { runCurrentActEngine } from "@/lib/insights/current-act";
 import { enhanceWithLLM } from "@/lib/insights/llm";
 import { AI_PREDICTION_TTL_MS } from "@/lib/constants";
 
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
   const matches = normalizeStoredMatches(matchesRes);
   const history = normalizeMmrHistory(historyRes);
 
-  const engine = runEngine({
+  const engine = runCurrentActEngine({
     matches,
     mmrHistory: history,
     currentRank: mmr?.currentTier ?? null,

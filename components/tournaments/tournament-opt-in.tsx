@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Bell, CheckCircle2, ShieldCheck, XCircle } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Bell, CheckCircle2, RotateCcw, ShieldCheck, XCircle } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,25 +15,45 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { roleLabel } from "@/lib/valorant/roles";
 import { cn, initials } from "@/lib/utils";
+import {
+  TOURNAMENT_OPT_IN_OBJECT_TYPE,
+  TOURNAMENT_OPT_IN_VERBS,
+} from "@/lib/tournaments/opt-in";
 import type {
   TournamentOptInIntent,
   TournamentOptInStatus,
   TournamentOptInSummary,
 } from "@/lib/tournaments/opt-in";
+import type { ActivityEventRow } from "@/types/domain";
 
 const SUMMARY_EVENT = "nexus:tournament-opt-in-summary";
 
+interface OptInNotice {
+  id: string;
+  title: string;
+  body: string;
+  tone: "success" | "danger" | "warning";
+}
+
 export function TournamentOptInTopbar({
+  currentUserId,
   initialSummary,
+  teamId,
 }: {
+  currentUserId: string;
   initialSummary: TournamentOptInSummary;
+  teamId: string;
 }) {
-  const { busyStatus, error, summary, updateStatus } = useTournamentOptIn(initialSummary);
+  const { busyStatus, error, notice, setNotice, summary, updateStatus } = useTournamentOptIn(
+    initialSummary,
+    { currentUserId, realtime: true, teamId },
+  );
   const currentIsIn =
     summary.currentUserStatus === "active" || summary.currentUserStatus === "waitlist";
 
   return (
     <>
+      {notice ? <OptInNoticeToast notice={notice} onDismiss={() => setNotice(null)} /> : null}
       <div className="hidden items-center gap-1 rounded-[1rem] border border-white/10 bg-white/[0.025] p-1 lg:flex">
         <OptInButton
           active={currentIsIn}
@@ -117,8 +138,15 @@ export function TournamentOptInPanel({
   canManage?: boolean;
   initialSummary: TournamentOptInSummary;
 }) {
-  const { busyAction, busyStatus, error, promoteWaitlistedPlayer, summary, updateStatus } =
-    useTournamentOptIn(initialSummary);
+  const {
+    busyAction,
+    busyStatus,
+    completeTournament,
+    error,
+    promoteWaitlistedPlayer,
+    summary,
+    updateStatus,
+  } = useTournamentOptIn(initialSummary);
   const currentIsIn =
     summary.currentUserStatus === "active" || summary.currentUserStatus === "waitlist";
   const outMembers = summary.members.filter((member) => member.status === "out");
@@ -184,6 +212,24 @@ export function TournamentOptInPanel({
               <Badge variant="success">Role balance looks playable</Badge>
             )}
           </div>
+          {canManage ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="mt-4 w-full justify-center"
+              disabled={
+                busyAction === "complete" ||
+                (summary.activeCount === 0 &&
+                  summary.waitlistCount === 0 &&
+                  summary.optedOutCount === 0)
+              }
+              onClick={completeTournament}
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              {busyAction === "complete" ? "Resetting" : "Mark tournament done"}
+            </Button>
+          ) : null}
         </div>
 
         <div className="grid grid-cols-1 gap-3">
@@ -233,11 +279,25 @@ export function TournamentOptInPanel({
   );
 }
 
-function useTournamentOptIn(initialSummary: TournamentOptInSummary) {
+function useTournamentOptIn(
+  initialSummary: TournamentOptInSummary,
+  options: {
+    currentUserId?: string;
+    realtime?: boolean;
+    teamId?: string;
+  } = {},
+) {
   const [summary, setSummary] = useState(initialSummary);
   const [busyStatus, setBusyStatus] = useState<TournamentOptInIntent | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<OptInNotice | null>(null);
+  const summaryRef = useRef(summary);
+  const seenEventsRef = useRef(new Set<string>());
+
+  useEffect(() => {
+    summaryRef.current = summary;
+  }, [summary]);
 
   useEffect(() => {
     function sync(event: Event) {
@@ -250,6 +310,54 @@ function useTournamentOptIn(initialSummary: TournamentOptInSummary) {
     window.addEventListener(SUMMARY_EVENT, sync);
     return () => window.removeEventListener(SUMMARY_EVENT, sync);
   }, [summary.tournamentKey]);
+
+  useEffect(() => {
+    if (!options.realtime || !options.teamId) return;
+
+    const supabase = createSupabaseBrowserClient();
+    const channel = supabase
+      .channel(`tournament-opt-in:${options.teamId}:${initialSummary.tournamentKey}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "activity_events",
+          filter: `team_id=eq.${options.teamId}`,
+        },
+        async (payload) => {
+          const row = payload.new as ActivityEventRow;
+          const currentSummary = summaryRef.current;
+          if (!isTournamentOptInActivity(row, currentSummary.tournamentKey)) return;
+
+          const eventKey = row.id || `${row.actor_id}:${row.verb}:${row.created_at}`;
+          if (seenEventsRef.current.has(eventKey)) return;
+          seenEventsRef.current.add(eventKey);
+
+          try {
+            const next = await fetchTournamentOptInSummary(currentSummary.tournamentKey);
+            setSummary(next);
+            window.dispatchEvent(new CustomEvent(SUMMARY_EVENT, { detail: next }));
+
+            const nextNotice = buildOptInNotice(row, next, options.currentUserId);
+            if (nextNotice) setNotice(nextNotice);
+          } catch (err) {
+            setError(err instanceof Error ? err.message : "Could not refresh opt-in status");
+          }
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [initialSummary.tournamentKey, options.currentUserId, options.realtime, options.teamId]);
+
+  useEffect(() => {
+    if (!notice) return;
+    const timer = window.setTimeout(() => setNotice(null), 5_000);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
 
   async function updateStatus(status: TournamentOptInIntent) {
     if (
@@ -295,7 +403,48 @@ function useTournamentOptIn(initialSummary: TournamentOptInSummary) {
     }
   }
 
-  return { busyAction, busyStatus, error, promoteWaitlistedPlayer, summary, updateStatus };
+  async function completeTournament() {
+    setBusyAction("complete");
+    setError(null);
+    try {
+      const next = await postTournamentOptIn({
+        tournament_key: summary.tournamentKey,
+        action: "complete",
+      });
+      setSummary(next);
+      window.dispatchEvent(new CustomEvent(SUMMARY_EVENT, { detail: next }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not reset tournament roster");
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  return {
+    busyAction,
+    busyStatus,
+    completeTournament,
+    error,
+    notice,
+    promoteWaitlistedPlayer,
+    setNotice,
+    summary,
+    updateStatus,
+  };
+}
+
+async function fetchTournamentOptInSummary(tournamentKey: string) {
+  const url = new URL("/api/tournaments/opt-in", window.location.origin);
+  url.searchParams.set("tournament_key", tournamentKey);
+  const response = await fetch(url.toString(), { method: "GET" });
+  const payload = (await response.json()) as {
+    data?: TournamentOptInSummary;
+    error?: string;
+  };
+  if (!response.ok || !payload.data) {
+    throw new Error(payload.error ?? "Could not refresh tournament status");
+  }
+  return payload.data;
 }
 
 async function postTournamentOptIn(body: Record<string, unknown>) {
@@ -312,6 +461,99 @@ async function postTournamentOptIn(body: Record<string, unknown>) {
     throw new Error(payload.error ?? "Could not save tournament status");
   }
   return payload.data;
+}
+
+function isTournamentOptInActivity(row: ActivityEventRow, tournamentKey: string) {
+  return (
+    row.object_type === TOURNAMENT_OPT_IN_OBJECT_TYPE &&
+    row.object_id === tournamentKey &&
+    TOURNAMENT_OPT_IN_VERBS.includes(row.verb as (typeof TOURNAMENT_OPT_IN_VERBS)[number])
+  );
+}
+
+function buildOptInNotice(
+  row: ActivityEventRow,
+  summary: TournamentOptInSummary,
+  currentUserId?: string,
+): OptInNotice | null {
+  if (row.actor_id && row.actor_id === currentUserId) return null;
+  if (row.verb === "tournament_completed") {
+    return {
+      id: row.id,
+      title: "Tournament completed",
+      body: "Roster opt-ins were reset to pending.",
+      tone: "warning",
+    };
+  }
+  if (row.verb !== "tournament_opted_in" && row.verb !== "tournament_opted_out") return null;
+
+  const member = row.actor_id
+    ? summary.members.find((item) => item.userId === row.actor_id)
+    : null;
+  const name = member?.displayName ?? "A player";
+
+  if (row.verb === "tournament_opted_out") {
+    return {
+      id: row.id,
+      title: "Tournament opt-out",
+      body: `${name} opted out.`,
+      tone: "danger",
+    };
+  }
+
+  const statusCopy =
+    member?.status === "active"
+      ? "and locked a roster spot"
+      : member?.status === "waitlist"
+        ? `and joined waitlist #${member.waitlistPosition ?? "-"}`
+        : "for the tournament";
+
+  return {
+    id: row.id,
+    title: "Tournament opt-in",
+    body: `${name} opted in ${statusCopy}.`,
+    tone: member?.status === "waitlist" ? "warning" : "success",
+  };
+}
+
+function OptInNoticeToast({
+  notice,
+  onDismiss,
+}: {
+  notice: OptInNotice;
+  onDismiss: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className={cn(
+        "fixed right-5 top-[5.25rem] z-50 w-[min(22rem,calc(100vw-2rem))] rounded-xl border bg-[#0b0f16]/95 p-4 text-left shadow-[0_18px_50px_rgba(0,0,0,0.38)] backdrop-blur-xl transition hover:border-white/18",
+        notice.tone === "success" && "border-green-500/30",
+        notice.tone === "danger" && "border-red-500/30",
+        notice.tone === "warning" && "border-amber-500/30",
+      )}
+      onClick={onDismiss}
+    >
+      <div className="flex items-start gap-3">
+        <span
+          className={cn(
+            "mt-1 h-2.5 w-2.5 rounded-full",
+            notice.tone === "success" && "bg-green-400",
+            notice.tone === "danger" && "bg-red-400",
+            notice.tone === "warning" && "bg-amber-400",
+          )}
+        />
+        <span className="min-w-0">
+          <span className="block text-sm font-semibold text-[color:var(--color-text)]">
+            {notice.title}
+          </span>
+          <span className="mt-1 block text-sm text-[color:var(--color-muted)]">
+            {notice.body}
+          </span>
+        </span>
+      </div>
+    </button>
+  );
 }
 
 function OptInButton({

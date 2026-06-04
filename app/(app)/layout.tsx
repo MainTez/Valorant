@@ -126,11 +126,13 @@ export default async function AppLayout({
         <main className="flex min-w-0 flex-1 flex-col overflow-x-hidden">
           <Topbar
             user={{
+              id: session.user.id,
               display_name: session.user.display_name,
               avatar_url: session.user.avatar_url,
               email: session.user.email,
               role: session.user.role,
             }}
+            teamId={session.team.id}
             teamName={session.team.name}
             tournamentOptIn={tournamentOptIn}
           />

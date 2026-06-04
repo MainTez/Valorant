@@ -75,10 +75,9 @@ export function RiotProfileForm({ initialName, initialTag, initialRegion }: Prop
   return (
     <form
       onSubmit={onSubmit}
-      className="relative overflow-hidden rounded-[1.35rem] border border-white/7 bg-[linear-gradient(180deg,rgba(19,22,29,0.96)_0%,rgba(10,12,17,0.99)_100%)] p-5 shadow-[0_24px_60px_-42px_rgba(0,0,0,0.95)]"
+      className="rounded-[1.1rem] border border-white/8 bg-white/[0.025] p-5 shadow-[0_18px_48px_-42px_rgba(0,0,0,0.85)]"
     >
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.035),transparent_42%,rgba(246,196,83,0.05)_100%)]" />
-      <div className="relative flex flex-col gap-5">
+      <div className="flex flex-col gap-5">
         <div className="flex items-start gap-3">
           <div className="grid h-11 w-11 shrink-0 place-items-center rounded-[1rem] border border-white/10 bg-white/[0.035]">
             <UserRound className="h-5 w-5 text-[color:var(--accent)]" />

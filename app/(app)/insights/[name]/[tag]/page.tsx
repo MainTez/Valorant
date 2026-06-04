@@ -79,7 +79,7 @@ export default async function InsightsPage({ params, searchParams }: Props) {
         <EmptyState
           icon={Sparkles}
           title="No insights yet"
-          description={`Generate grounded predictions for ${decodedName}#${decodedTag} using last 20 matches.`}
+          description={`Generate grounded predictions for ${decodedName}#${decodedTag} using this Act's matches.`}
           action={
             <GenerateButton
               name={decodedName}

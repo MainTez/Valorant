@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft, LineChart, Sparkles } from "lucide-react";
 import { requireSession } from "@/lib/auth/get-session";
+import { AccountProfileForm } from "@/components/players/account-profile-form";
 import { RiotProfileForm } from "@/components/players/riot-profile-form";
 import { ValorantRoleForm } from "@/components/players/valorant-role-form";
 import { RankBadge } from "@/components/common/rank-badge";
@@ -87,6 +88,11 @@ export default async function PlayerProfilePage({ searchParams }: Props) {
             )}
             setupMode={setupMode}
           />
+          <AccountProfileForm
+            email={user.email}
+            initialAvatarUrl={user.avatar_url}
+            initialDisplayName={user.display_name ?? user.email.split("@")[0]}
+          />
           <RiotProfileForm
             initialName={user.riot_name ?? ""}
             initialTag={user.riot_tag ?? ""}
@@ -95,9 +101,8 @@ export default async function PlayerProfilePage({ searchParams }: Props) {
           <SpotifyProfilePanel status={typeof sp.spotify === "string" ? sp.spotify : null} />
         </div>
 
-        <aside className="relative overflow-hidden rounded-[1.35rem] border border-white/7 bg-white/[0.025] p-5">
-          <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.035),transparent_44%,rgba(255,255,255,0.01)_100%)]" />
-          <div className="relative">
+        <aside className="rounded-[1.1rem] border border-white/8 bg-white/[0.025] p-5">
+          <div>
             <div className="eyebrow">Current Link</div>
             {user.riot_name && user.riot_tag ? (
               <div className="mt-4 flex flex-col gap-4">

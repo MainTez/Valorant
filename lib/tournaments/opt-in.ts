@@ -14,6 +14,7 @@ export const TOURNAMENT_OPT_IN_VERBS = [
   "tournament_promoted",
   "tournament_demoted",
   "tournament_override",
+  "tournament_completed",
 ] as const;
 
 export type TournamentOptInIntent = "in" | "out";
@@ -116,6 +117,17 @@ export function buildTournamentOptInSummary({
   for (const event of [...events].sort((a, b) => a.created_at.localeCompare(b.created_at))) {
     if (event.object_id !== tournamentKey) continue;
 
+    if (event.verb === "tournament_completed") {
+      resetTournamentState({
+        activeIds,
+        createdAt: event.created_at,
+        memberIds: [...membersById.keys()],
+        states,
+        waitlistIds,
+      });
+      continue;
+    }
+
     const override = readOverride(event);
     if (override) {
       applyOverride({
@@ -200,6 +212,26 @@ export function buildTournamentOptInSummary({
 
 export function optInStatusToVerb(status: TournamentOptInIntent): TournamentOptInVerb {
   return status === "in" ? "tournament_opted_in" : "tournament_opted_out";
+}
+
+function resetTournamentState({
+  activeIds,
+  createdAt,
+  memberIds,
+  states,
+  waitlistIds,
+}: {
+  activeIds: string[];
+  createdAt: string;
+  memberIds: string[];
+  states: Map<string, MemberState>;
+  waitlistIds: string[];
+}) {
+  activeIds.splice(0, activeIds.length);
+  waitlistIds.splice(0, waitlistIds.length);
+  for (const memberId of memberIds) {
+    states.set(memberId, { status: null, updatedAt: createdAt });
+  }
 }
 
 function applyOverride({

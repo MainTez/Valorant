@@ -34,6 +34,16 @@ function optedOut(actorId: string, minute: number) {
   };
 }
 
+function completed(actorId: string, minute: number) {
+  return {
+    actor_id: actorId,
+    verb: "tournament_completed",
+    object_id: tournamentKey,
+    payload: { action: "complete" },
+    created_at: `2026-05-29T10:${String(minute).padStart(2, "0")}:00.000Z`,
+  };
+}
+
 test("tournament opt-in summary locks the first five and waitlists later opt-ins", () => {
   const summary = buildTournamentOptInSummary({
     currentUserId: "user-6",
@@ -133,4 +143,31 @@ test("tournament opt-in summary counts out and pending players", () => {
   assert.equal(summary.optedOutCount, 1);
   assert.equal(summary.pendingCount, 1);
   assert.equal(summary.currentUserStatus, "out");
+});
+
+test("completed tournament resets every player back to pending", () => {
+  const summary = buildTournamentOptInSummary({
+    currentUserId: "user-1",
+    members: baseMembers.slice(0, 6),
+    events: [
+      optedIn("user-1", 1),
+      optedIn("user-2", 2),
+      optedIn("user-3", 3),
+      optedIn("user-4", 4),
+      optedIn("user-5", 5),
+      optedIn("user-6", 6),
+      optedOut("user-3", 7),
+      completed("coach-1", 8),
+    ],
+  });
+
+  assert.equal(summary.activeCount, 0);
+  assert.equal(summary.waitlistCount, 0);
+  assert.equal(summary.optedOutCount, 0);
+  assert.equal(summary.pendingCount, 6);
+  assert.equal(summary.currentUserStatus, null);
+  assert.deepEqual(
+    summary.members.map((member) => member.status),
+    [null, null, null, null, null, null],
+  );
 });

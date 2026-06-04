@@ -25,7 +25,34 @@ const OptInPayload = z.union([
     user_id: z.string().min(1),
     replace_user_id: z.string().min(1).optional(),
   }),
+  z.object({
+    tournament_key: z.string().min(1).max(160).optional(),
+    action: z.literal("complete"),
+  }),
 ]);
+
+export async function GET(request: NextRequest) {
+  try {
+    const { user, team } = await requireSession();
+    const url = new URL(request.url);
+    const tournamentKey =
+      url.searchParams.get("tournament_key") ?? ACTIVE_TOURNAMENT_OPT_IN_KEY;
+    const supabase = await createSupabaseServerClient();
+
+    return NextResponse.json({
+      data: await loadTournamentOptInSummary({
+        currentUserId: user.id,
+        supabase,
+        teamId: team.id,
+        tournamentKey,
+      }),
+    });
+  } catch (err) {
+    const status = (err as { status?: number }).status ?? 400;
+    const message = err instanceof Error ? err.message : "Bad request";
+    return NextResponse.json({ error: message }, { status });
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -63,6 +90,30 @@ export async function POST(request: NextRequest) {
 
     if (user.role !== "coach" && user.role !== "admin") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    if (body.action === "complete") {
+      const { error } = await supabase.from("activity_events").insert({
+        team_id: team.id,
+        actor_id: user.id,
+        verb: "tournament_completed",
+        object_type: TOURNAMENT_OPT_IN_OBJECT_TYPE,
+        object_id: tournamentKey,
+        payload: { action: "complete" },
+      });
+
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 400 });
+      }
+
+      return NextResponse.json({
+        data: await loadTournamentOptInSummary({
+          currentUserId: user.id,
+          supabase,
+          teamId: team.id,
+          tournamentKey,
+        }),
+      });
     }
 
     const summary = await loadTournamentOptInSummary({

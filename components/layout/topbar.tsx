@@ -19,16 +19,18 @@ import type { TournamentOptInSummary } from "@/lib/tournaments/opt-in";
 
 interface Props {
   user: {
+    id: string;
     display_name: string | null;
     avatar_url: string | null;
     email: string;
     role: "player" | "coach" | "admin";
   };
+  teamId: string;
   teamName: string;
   tournamentOptIn: TournamentOptInSummary | null;
 }
 
-export function Topbar({ user, teamName, tournamentOptIn }: Props) {
+export function Topbar({ teamId, user, teamName, tournamentOptIn }: Props) {
   const router = useRouter();
 
   async function signOut() {
@@ -54,7 +56,11 @@ export function Topbar({ user, teamName, tournamentOptIn }: Props) {
       </div>
 
       {tournamentOptIn ? (
-        <TournamentOptInTopbar initialSummary={tournamentOptIn} />
+        <TournamentOptInTopbar
+          currentUserId={user.id}
+          initialSummary={tournamentOptIn}
+          teamId={teamId}
+        />
       ) : (
         <button
           aria-label="Notifications"

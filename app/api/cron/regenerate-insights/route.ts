@@ -7,7 +7,7 @@ import {
   normalizeMmrHistory,
 } from "@/lib/henrik/normalize";
 import { normalizeRegion } from "@/lib/henrik/regions";
-import { runEngine } from "@/lib/insights/engine";
+import { runCurrentActEngine } from "@/lib/insights/current-act";
 import { enhanceWithLLM } from "@/lib/insights/llm";
 import type { PlayerProfileRow } from "@/types/domain";
 
@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
       const matchesN = normalizeStoredMatches(matches);
       const historyN = normalizeMmrHistory(history);
 
-      const engine = runEngine({
+      const engine = runCurrentActEngine({
         matches: matchesN,
         mmrHistory: historyN,
         currentRank: mmrN?.currentTier ?? null,
