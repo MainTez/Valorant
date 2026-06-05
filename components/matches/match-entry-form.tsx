@@ -14,12 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { MAPS } from "@/lib/constants";
-import { uploadMatchVod } from "@/lib/vods.client";
-import {
-  MATCH_VOD_MAX_FILE_BYTES,
-  REVIEW_LINK_PROVIDERS,
-  assertValidMatchVodUpload,
-} from "@/lib/vods";
+import { REVIEW_LINK_PROVIDERS } from "@/lib/vods";
 
 interface CreateMatchResponse {
   data?: {
@@ -31,10 +26,6 @@ interface CreateMatchResponse {
 export function MatchEntryForm() {
   const router = useRouter();
   const [pending, setPending] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState<{
-    uploadedBytes: number;
-    totalBytes: number;
-  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [matchType, setMatchType] = useState<"scrim" | "official" | "tournament">("scrim");
   const [selectedMap, setSelectedMap] = useState("Ascent");
@@ -42,27 +33,12 @@ export function MatchEntryForm() {
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setPending(true);
-    setUploadProgress(null);
     setError(null);
 
     const form = new FormData(e.currentTarget);
-    const vodFileValue = form.get("vod_file");
-    const vodFile = vodFileValue instanceof File && vodFileValue.size > 0 ? vodFileValue : null;
     const vodUrl = String(form.get("vod_url") ?? "").trim() || null;
 
     try {
-      if (vodFile && vodUrl) {
-        throw new Error("Use either a review link or an MP4 upload, not both.");
-      }
-
-      if (vodFile) {
-        assertValidMatchVodUpload({
-          contentType: vodFile.type,
-          fileName: vodFile.name,
-          fileSize: vodFile.size,
-        });
-      }
-
       const payload = {
         date: String(form.get("date") ?? ""),
         map: selectedMap,
@@ -85,28 +61,12 @@ export function MatchEntryForm() {
         throw new Error(body.error ?? "Save failed");
       }
 
-      if (vodFile) {
-        try {
-          await uploadMatchVod({
-            file: vodFile,
-            matchId: body.data.id,
-            onProgress: setUploadProgress,
-          });
-        } catch (uploadError) {
-          const message = uploadError instanceof Error ? uploadError.message : "VOD upload failed.";
-          router.push(`/matches/${body.data.id}?vodUploadError=${encodeURIComponent(message)}`);
-          router.refresh();
-          return;
-        }
-      }
-
       router.push(`/matches/${body.data.id}`);
       router.refresh();
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Save failed");
     } finally {
       setPending(false);
-      setUploadProgress(null);
     }
   }
 
@@ -165,23 +125,11 @@ export function MatchEntryForm() {
       <p className="-mt-2 text-xs text-[color:var(--color-muted)]">
         Best for full VODs: {REVIEW_LINK_PROVIDERS.join(", ")}. Leave empty if you do not have a review link yet.
       </p>
-      <Field label="MP4 fallback (optional)">
-        <Input name="vod_file" type="file" accept=".mp4,video/mp4" />
-      </Field>
-      <p className="-mt-2 text-xs text-[color:var(--color-muted)]">
-        Local MP4 fallback only. Max {formatBytes(MATCH_VOD_MAX_FILE_BYTES)} when storage is configured.
-      </p>
       <Field label="Notes">
         <Textarea name="notes" placeholder="Macro, errors, key rounds…" />
       </Field>
       {error ? (
         <p className="text-sm text-red-400">{error}</p>
-      ) : null}
-      {uploadProgress ? (
-        <p className="text-sm text-[color:var(--color-muted)]">
-          Uploading {formatBytes(uploadProgress.uploadedBytes)} /{" "}
-          {formatBytes(uploadProgress.totalBytes)}
-        </p>
       ) : null}
       <div className="flex items-center justify-end gap-2">
         <Button type="submit" disabled={pending}>
@@ -199,14 +147,4 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       {children}
     </div>
   );
-}
-
-function formatBytes(bytes: number): string {
-  if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
-  const units = ["B", "KB", "MB", "GB", "TB"];
-  const exponent = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
-  const value = bytes / 1024 ** exponent;
-  return `${new Intl.NumberFormat(undefined, {
-    maximumFractionDigits: value >= 10 ? 0 : 1,
-  }).format(value)} ${units[exponent]}`;
 }

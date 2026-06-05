@@ -25,6 +25,10 @@ const AttachUploadPayload = z.object({
   vod_storage_path: z.string().min(1).max(700),
 });
 
+const AttachReviewLinkPayload = z.object({
+  vod_url: z.string().trim().url().max(2048),
+});
+
 interface RouteContext {
   params: Promise<{ id: string }>;
 }
@@ -94,7 +98,51 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
       return NextResponse.json({ error: "Match not found" }, { status: 404 });
     }
 
-    const body = AttachUploadPayload.parse(await request.json());
+    const rawBody = await request.json();
+    const reviewLinkBody = AttachReviewLinkPayload.safeParse(rawBody);
+    if (reviewLinkBody.success) {
+      const supabase = await createSupabaseServerClient();
+      const { data, error } = await supabase
+        .from("matches")
+        .update({
+          vod_content_type: null,
+          vod_original_name: null,
+          vod_size_bytes: null,
+          vod_storage_path: null,
+          vod_url: reviewLinkBody.data.vod_url,
+        })
+        .eq("id", id)
+        .eq("team_id", team.id)
+        .select("id, vod_url")
+        .maybeSingle();
+
+      if (error || !data) {
+        return NextResponse.json({ error: error?.message ?? "Update failed" }, { status: 400 });
+      }
+
+      if (match.vod_storage_path) {
+        try {
+          await deleteMatchVodObject(match.vod_storage_path);
+        } catch (deleteError) {
+          console.error("[vod] old object cleanup failed:", deleteError);
+        }
+      }
+
+      await logActivity({
+        teamId: team.id,
+        actorId: user.id,
+        verb: "linked_match_vod",
+        objectId: id,
+        objectType: "match",
+        payload: {
+          url: reviewLinkBody.data.vod_url,
+        },
+      });
+
+      return NextResponse.json({ data });
+    }
+
+    const body = AttachUploadPayload.parse(rawBody);
     if (!isMatchVodPathForMatch(body.vod_storage_path, team.id, id)) {
       return NextResponse.json({ error: "Invalid VOD path" }, { status: 400 });
     }
@@ -163,6 +211,7 @@ export async function DELETE(_request: NextRequest, { params }: RouteContext) {
         vod_original_name: null,
         vod_size_bytes: null,
         vod_storage_path: null,
+        vod_url: null,
       })
       .eq("id", id)
       .eq("team_id", team.id)

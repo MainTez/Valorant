@@ -1,16 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { uploadMatchVod } from "@/lib/vods.client";
-import {
-  MATCH_VOD_MAX_FILE_BYTES,
-  getReviewLinkProvider,
-} from "@/lib/vods";
+import { getReviewLinkProvider } from "@/lib/vods";
 
 interface Props {
   externalVodUrl: string | null;
@@ -32,44 +28,46 @@ export function MatchVodManager({
   vodSizeBytes,
 }: Props) {
   const router = useRouter();
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [pending, setPending] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState<{
-    uploadedBytes: number;
-    totalBytes: number;
-  } | null>(null);
   const [error, setError] = useState<string | null>(initialError ?? null);
   const [message, setMessage] = useState<string | null>(null);
+  const [reviewUrl, setReviewUrl] = useState(externalVodUrl ?? "");
 
   const hasUploadedVod = Boolean(uploadedVodHref);
   const hasAnyVod = hasUploadedVod || Boolean(externalVodUrl);
   const reviewLinkProvider = getReviewLinkProvider(externalVodUrl);
 
-  async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function onSaveLink(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const file = fileInputRef.current?.files?.[0];
-    if (!file) {
-      setError("Choose an MP4 file before uploading.");
+    const nextUrl = reviewUrl.trim();
+    if (!nextUrl) {
+      setError("Paste an Outplayed, Ascent, or Medal link before saving.");
       return;
     }
 
     setPending(true);
-    setUploadProgress(null);
     setError(null);
     setMessage(null);
 
     try {
-      await uploadMatchVod({ file, matchId, onProgress: setUploadProgress });
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
+      const response = await fetch(`/api/matches/${matchId}/vod`, {
+        body: JSON.stringify({ vod_url: nextUrl }),
+        headers: { "Content-Type": "application/json" },
+        method: "PATCH",
+      });
+
+      if (!response.ok) {
+        const body = (await response.json().catch(() => ({}))) as { error?: string };
+        throw new Error(body.error ?? "Failed to save review link.");
       }
-      setMessage(hasUploadedVod ? "VOD replaced." : "VOD uploaded.");
+
+      setReviewUrl(nextUrl);
+      setMessage(hasAnyVod ? "Review link updated." : "Review link saved.");
       router.refresh();
-    } catch (uploadError) {
-      setError(uploadError instanceof Error ? uploadError.message : "Upload failed.");
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Failed to save review link.");
     } finally {
       setPending(false);
-      setUploadProgress(null);
     }
   }
 
@@ -84,6 +82,7 @@ export function MatchVodManager({
         const body = (await response.json().catch(() => ({}))) as { error?: string };
         throw new Error(body.error ?? "Failed to remove VOD.");
       }
+      setReviewUrl("");
       setMessage("VOD removed.");
       router.refresh();
     } catch (deleteError) {
@@ -98,8 +97,7 @@ export function MatchVodManager({
       <div>
         <div className="eyebrow">VOD manager</div>
         <p className="mt-2 text-sm text-[color:var(--color-muted)] max-w-2xl">
-          Use Outplayed, Ascent, or Medal links for full reviews. MP4 upload is only a fallback
-          when storage is configured.
+          Use Outplayed, Ascent, or Medal links for full reviews. Full VOD file uploads are disabled.
         </p>
       </div>
 
@@ -154,44 +152,37 @@ export function MatchVodManager({
 
       {externalVodUrl ? (
         <p className="text-sm text-[color:var(--color-muted)]">
-          This match already has a review link. Uploading an MP4 will replace that link.
+          This match already has a review link. Saving a new link will replace it.
         </p>
       ) : null}
 
-      <form className="grid gap-3 max-w-xl" onSubmit={onSubmit}>
+      <form className="grid gap-3 max-w-xl" onSubmit={onSaveLink}>
         <div className="grid gap-1.5">
-          <Label htmlFor={`vod-file-${matchId}`}>
-            {hasUploadedVod ? "Replace MP4 fallback" : "MP4 fallback"}
-          </Label>
+          <Label htmlFor={`vod-link-${matchId}`}>Review link</Label>
           <Input
-            ref={fileInputRef}
-            accept=".mp4,video/mp4"
             disabled={pending}
-            id={`vod-file-${matchId}`}
-            name="vod_file"
-            type="file"
+            id={`vod-link-${matchId}`}
+            name="vod_url"
+            onChange={(event) => setReviewUrl(event.target.value)}
+            placeholder="Paste Outplayed, Ascent, or Medal link"
+            type="url"
+            value={reviewUrl}
           />
           <p className="text-xs text-[color:var(--color-muted)]">
-            MP4 fallback only. Max {formatBytes(MATCH_VOD_MAX_FILE_BYTES)} when storage is configured.
+            File upload is only available for clips. Full VODs should use source links.
           </p>
         </div>
 
         {error ? <p className="text-sm text-red-400">{error}</p> : null}
         {message ? <p className="text-sm text-green-400">{message}</p> : null}
-        {uploadProgress ? (
-          <p className="text-sm text-[color:var(--color-muted)]">
-            Uploading {formatBytes(uploadProgress.uploadedBytes)} /{" "}
-            {formatBytes(uploadProgress.totalBytes)}
-          </p>
-        ) : null}
 
         <div className="flex flex-wrap items-center gap-2">
           <Button disabled={pending} type="submit">
-            {pending ? (hasUploadedVod ? "Replacing…" : "Uploading…") : hasUploadedVod ? "Replace VOD" : "Upload VOD"}
+            {pending ? "Saving..." : hasAnyVod ? "Update review link" : "Save review link"}
           </Button>
-          {hasUploadedVod ? (
+          {hasAnyVod ? (
             <Button disabled={pending} onClick={onDelete} type="button" variant="ghost">
-              Remove upload
+              Remove VOD
             </Button>
           ) : null}
         </div>
