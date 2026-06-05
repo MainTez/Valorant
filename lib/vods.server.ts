@@ -271,7 +271,19 @@ async function ensureVodClipBucketInner(): Promise<void> {
     (bucket) => bucket.id === VOD_CLIP_BUCKET || bucket.name === VOD_CLIP_BUCKET,
   );
 
-  if (bucketExists) return;
+  if (bucketExists) {
+    const { error: updateError } = await admin.storage.updateBucket(VOD_CLIP_BUCKET, {
+      allowedMimeTypes: VOD_CLIP_ALLOWED_MIME_TYPES,
+      fileSizeLimit: VOD_CLIP_MAX_FILE_BYTES,
+      public: false,
+    });
+
+    if (updateError) {
+      throw new Error(updateError.message);
+    }
+
+    return;
+  }
 
   const { error: createError } = await admin.storage.createBucket(VOD_CLIP_BUCKET, {
     allowedMimeTypes: VOD_CLIP_ALLOWED_MIME_TYPES,
