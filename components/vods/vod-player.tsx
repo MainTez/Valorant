@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ExternalLink, RefreshCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { fetchMatchVodPlayback } from "@/lib/vods.client";
-import type { MatchVodPlaybackData } from "@/lib/vods";
+import { getReviewLinkProvider, type MatchVodPlaybackData } from "@/lib/vods";
 
 interface Props {
   matchId: string;
@@ -14,6 +14,8 @@ export function VodPlayer({ matchId }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(true);
   const [playback, setPlayback] = useState<MatchVodPlaybackData | null>(null);
+  const reviewLinkProvider =
+    playback?.kind === "external" ? getReviewLinkProvider(playback.url) : null;
 
   const loadPlayback = useCallback(async () => {
     setPending(true);
@@ -40,8 +42,8 @@ export function VodPlayer({ matchId }: Props) {
         <div>
           <div className="eyebrow">VOD Player</div>
           <p className="mt-2 text-sm text-[color:var(--color-muted)] max-w-2xl">
-            Watch the uploaded match VOD inline. Signed playback URLs are short-lived, so refresh the
-            source if playback expires.
+            Open the saved review source. Direct video files can play inline; Outplayed,
+            Ascent, and Medal links open in their own player.
           </p>
         </div>
         <Button disabled={pending} onClick={() => void loadPlayback()} size="sm" type="button" variant="outline">
@@ -101,7 +103,7 @@ export function VodPlayer({ matchId }: Props) {
       ) : playback?.kind === "external" ? (
         <div className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm flex items-center justify-between gap-3 flex-wrap">
           <p className="text-[color:var(--color-muted)]">
-            This VOD is an external link and cannot be embedded inline here.
+            This review is saved as a source link and opens outside the app.
           </p>
           <a
             className="inline-flex items-center gap-1 text-[color:var(--accent)] hover:underline"
@@ -109,7 +111,8 @@ export function VodPlayer({ matchId }: Props) {
             rel="noreferrer"
             target="_blank"
           >
-            Open external VOD <ExternalLink className="h-3.5 w-3.5" />
+            Open {reviewLinkProvider === "External" ? "review link" : reviewLinkProvider}{" "}
+            <ExternalLink className="h-3.5 w-3.5" />
           </a>
         </div>
       ) : (

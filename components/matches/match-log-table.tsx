@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { DeleteMatchButton } from "@/components/matches/delete-match-button";
 import { formatNorwayDate } from "@/lib/timezone";
-import { canDeleteMatch, resolveMatchVodSource } from "@/lib/vods";
+import { canDeleteMatch, getReviewLinkProvider, resolveMatchVodSource } from "@/lib/vods";
 import { cn } from "@/lib/utils";
 import type { MatchRow, Role } from "@/types/domain";
 
@@ -43,6 +43,8 @@ export function MatchLogTable({
                   vod_storage_path: m.vod_storage_path,
                   vod_url: m.vod_url,
                 });
+                const reviewLinkProvider =
+                  vodSource.kind === "external" ? getReviewLinkProvider(vodSource.url) : null;
                 const canDelete = canDeleteMatch({
                   createdBy: m.created_by,
                   role: currentUserRole,
@@ -82,7 +84,11 @@ export function MatchLogTable({
                           href={`/vods/${m.id}`}
                           className="text-[color:var(--accent)] hover:underline text-xs"
                         >
-                          View VOD
+                          {vodSource.kind === "uploaded"
+                            ? "MP4"
+                            : reviewLinkProvider === "External"
+                              ? "Review link"
+                              : reviewLinkProvider}
                         </Link>
                       ) : (
                         <span className="text-[color:var(--color-muted)] text-xs">—</span>

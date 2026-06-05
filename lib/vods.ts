@@ -12,6 +12,9 @@ const MP4_MIME_TYPES = new Set(["video/mp4", "application/mp4"]);
 export const VOD_CLIP_ALLOWED_MIME_TYPES = ["video/mp4", "video/webm"];
 const VOD_CLIP_MIME_TYPES = new Set(VOD_CLIP_ALLOWED_MIME_TYPES);
 const DIRECT_VIDEO_EXTENSIONS = /\.(mp4|webm|ogg|ogv|m4v)(?:$|[?#])/i;
+export const REVIEW_LINK_PROVIDERS = ["Outplayed", "Ascent", "Medal"] as const;
+
+export type ReviewLinkProvider = (typeof REVIEW_LINK_PROVIDERS)[number] | "External";
 
 export interface MatchVodUploadInput {
   fileName: string;
@@ -244,6 +247,36 @@ export function canDeleteMatch(input: {
 
 export function isDirectVideoUrl(url: string): boolean {
   return DIRECT_VIDEO_EXTENSIONS.test(url);
+}
+
+export function getReviewLinkProvider(url: string | null | undefined): ReviewLinkProvider {
+  if (!url) return "External";
+
+  let hostname = "";
+  try {
+    hostname = new URL(url).hostname.toLowerCase().replace(/^www\./, "");
+  } catch {
+    return "External";
+  }
+
+  if (hostname === "medal.tv" || hostname.endsWith(".medal.tv")) return "Medal";
+  if (
+    hostname === "outplayed.tv" ||
+    hostname.endsWith(".outplayed.tv") ||
+    hostname === "outplayed.gg" ||
+    hostname.endsWith(".outplayed.gg")
+  ) {
+    return "Outplayed";
+  }
+  if (
+    hostname === "ascent.gg" ||
+    hostname.endsWith(".ascent.gg") ||
+    hostname.includes("ascent")
+  ) {
+    return "Ascent";
+  }
+
+  return "External";
 }
 
 export function formatVideoBytes(bytes: number | null | undefined): string {

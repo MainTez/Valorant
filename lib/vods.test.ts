@@ -8,6 +8,7 @@ import {
   buildMatchVodObjectPath,
   buildVodClipObjectPath,
   canDeleteMatch,
+  getReviewLinkProvider,
   isMatchVodPathForMatch,
   isMatchVodPathForTeam,
   isVodClipPathForTeam,
@@ -155,6 +156,14 @@ test("resolveMatchVodSource returns external direct video metadata for mp4 URLs"
       url: "https://cdn.example.com/review.mp4?download=1",
     },
   );
+});
+
+test("getReviewLinkProvider identifies the preferred review platforms", () => {
+  assert.equal(getReviewLinkProvider("https://medal.tv/games/valorant/clips/abc"), "Medal");
+  assert.equal(getReviewLinkProvider("https://outplayed.tv/media/example"), "Outplayed");
+  assert.equal(getReviewLinkProvider("https://app.ascent.gg/reviews/example"), "Ascent");
+  assert.equal(getReviewLinkProvider("https://example.com/review"), "External");
+  assert.equal(getReviewLinkProvider("not a url"), "External");
 });
 
 test("resolveMatchVodSource returns missing when no source exists", () => {

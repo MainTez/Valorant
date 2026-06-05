@@ -27,8 +27,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { uploadMatchVod, createVodClip, uploadVodClip } from "@/lib/vods.client";
 import {
   MATCH_VOD_MAX_FILE_BYTES,
+  REVIEW_LINK_PROVIDERS,
   VOD_CLIP_MAX_FILE_BYTES,
   formatVideoBytes,
+  getReviewLinkProvider,
   isDirectVideoUrl,
   resolveMatchVodSource,
 } from "@/lib/vods";
@@ -88,8 +90,8 @@ export function VodLibrary({
           </TabsTrigger>
         </TabsList>
         <p className="max-w-[32rem] text-sm leading-6 text-[color:var(--color-muted)]">
-          Full VODs stay attached to match records. Clips are smaller review moments
-          your team can play back without digging through the whole file.
+          Save Outplayed, Ascent, and Medal review links on the match record. Clips
+          stay for smaller review moments.
         </p>
       </div>
 
@@ -106,8 +108,8 @@ export function VodLibrary({
             {vodMatches.length === 0 ? (
               <EmptyPanel
                 icon={Film}
-                title="No VODs uploaded yet"
-                description="Upload a match file or attach an external review link from this page."
+                title="No review links yet"
+                description="Attach an Outplayed, Ascent, or Medal review link from this page."
               />
             ) : (
               <div className="grid grid-cols-1 gap-4 2xl:grid-cols-2">
@@ -178,11 +180,11 @@ function FullVodForm() {
     const externalUrl = String(form.get("vod_url") ?? "").trim();
 
     if (!file && !externalUrl) {
-      setError("Upload an MP4 or paste an external VOD URL.");
+      setError("Paste an Outplayed, Ascent, or Medal link, or choose an MP4 file.");
       return;
     }
     if (file && externalUrl) {
-      setError("Choose either an uploaded VOD or an external URL.");
+      setError("Use either an external link or an MP4 file, not both.");
       return;
     }
 
@@ -226,7 +228,7 @@ function FullVodForm() {
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
-      setMessage(file ? "Full VOD uploaded." : "External VOD saved.");
+      setMessage(file ? "MP4 VOD uploaded." : "Review link saved.");
       router.refresh();
     } catch (submitError) {
       if (createdMatchId && file) {
@@ -245,8 +247,19 @@ function FullVodForm() {
         <div className="eyebrow">Add VOD</div>
         <h2 className="mt-1 font-display text-2xl tracking-wide">Log full review</h2>
         <p className="mt-2 text-sm leading-6 text-[color:var(--color-muted)]">
-          Upload full MP4 files to Cloudflare R2 or save an external VOD link.
+          Paste an Outplayed, Ascent, or Medal link. MP4 upload stays optional.
         </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {REVIEW_LINK_PROVIDERS.map((provider) => (
+            <span
+              key={provider}
+              className="inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/[0.025] px-2.5 py-1 text-xs text-[color:var(--color-muted)]"
+            >
+              <Link2 className="h-3.5 w-3.5 text-[color:var(--accent)]" />
+              {provider}
+            </span>
+          ))}
+        </div>
       </div>
 
       <div className="grid gap-3">
@@ -276,7 +289,17 @@ function FullVodForm() {
             <Input name="score_them" type="number" min={0} max={30} defaultValue={0} required />
           </Field>
         </div>
-        <Field label="MP4 file">
+        <Field label="Review link">
+          <Input
+            name="vod_url"
+            type="url"
+            placeholder="Paste Outplayed, Ascent, or Medal link"
+          />
+          <p className="mt-1 text-xs text-[color:var(--color-muted)]">
+            Recommended for full reviews. The app will open the source link instead of storing the video file.
+          </p>
+        </Field>
+        <Field label="MP4 file (optional)">
           <Input
             ref={fileInputRef}
             accept=".mp4,video/mp4"
@@ -285,11 +308,8 @@ function FullVodForm() {
             type="file"
           />
           <p className="mt-1 text-xs text-[color:var(--color-muted)]">
-            Max {formatVideoBytes(MATCH_VOD_MAX_FILE_BYTES)}.
+            Use only for local files. Max {formatVideoBytes(MATCH_VOD_MAX_FILE_BYTES)} when storage is configured.
           </p>
-        </Field>
-        <Field label="External URL">
-          <Input name="vod_url" type="url" placeholder="https://..." />
         </Field>
         <Field label="Notes">
           <Textarea name="notes" placeholder="Review focus, comp, or context" />
@@ -520,12 +540,20 @@ function ClipForm({ matches }: { matches: MatchRow[] }) {
 
 function VodLibraryCard({ match }: { match: MatchRow }) {
   const source = resolveMatchVodSource(match);
+  const linkProvider =
+    source.kind === "external" ? getReviewLinkProvider(source.url) : null;
 
   return (
     <article className="surface grid gap-4 p-5">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <Badge>{source.kind === "uploaded" ? "Uploaded" : "External"}</Badge>
+          <Badge>
+            {source.kind === "uploaded"
+              ? "MP4 file"
+              : linkProvider === "External"
+                ? "Review link"
+                : `${linkProvider} link`}
+          </Badge>
           <h3 className="mt-3 truncate font-display text-2xl tracking-wide">
             vs {match.opponent}
           </h3>
@@ -545,7 +573,11 @@ function VodLibraryCard({ match }: { match: MatchRow }) {
         <Meta icon={Calendar}>{formatNorwayDateTime(match.date)}</Meta>
         <Meta icon={Swords}>{match.type}</Meta>
         <Meta icon={Film}>
-          {match.vod_size_bytes ? formatVideoBytes(match.vod_size_bytes) : "External"}
+          {match.vod_size_bytes
+            ? formatVideoBytes(match.vod_size_bytes)
+            : linkProvider === "External"
+              ? "Review link"
+              : linkProvider}
         </Meta>
       </div>
 

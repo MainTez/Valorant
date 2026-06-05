@@ -7,7 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { uploadMatchVod } from "@/lib/vods.client";
-import { MATCH_VOD_MAX_FILE_BYTES } from "@/lib/vods";
+import {
+  MATCH_VOD_MAX_FILE_BYTES,
+  getReviewLinkProvider,
+} from "@/lib/vods";
 
 interface Props {
   externalVodUrl: string | null;
@@ -40,6 +43,7 @@ export function MatchVodManager({
 
   const hasUploadedVod = Boolean(uploadedVodHref);
   const hasAnyVod = hasUploadedVod || Boolean(externalVodUrl);
+  const reviewLinkProvider = getReviewLinkProvider(externalVodUrl);
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -94,17 +98,28 @@ export function MatchVodManager({
       <div>
         <div className="eyebrow">VOD manager</div>
         <p className="mt-2 text-sm text-[color:var(--color-muted)] max-w-2xl">
-          Upload one MP4 per match to private Supabase Storage. Playback now happens inside the app,
-          while the raw file still uses a short-lived signed URL.
+          Use Outplayed, Ascent, or Medal links for full reviews. MP4 upload is only a fallback
+          when storage is configured.
         </p>
       </div>
 
       {hasAnyVod ? (
         <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm flex flex-wrap items-center justify-between gap-3">
           <div>
-            <div className="font-medium">{vodOriginalName ?? (hasUploadedVod ? "Uploaded VOD" : "External VOD")}</div>
+            <div className="font-medium">
+              {vodOriginalName ??
+                (hasUploadedVod
+                  ? "Uploaded VOD"
+                  : reviewLinkProvider === "External"
+                    ? "Review link"
+                    : `${reviewLinkProvider} link`)}
+            </div>
             <div className="text-[color:var(--color-muted)]">
-              {vodSizeBytes ? formatBytes(vodSizeBytes) : hasUploadedVod ? "Uploaded file" : "External link"}
+              {vodSizeBytes
+                ? formatBytes(vodSizeBytes)
+                : hasUploadedVod
+                  ? "Uploaded file"
+                  : "Source opens outside the app"}
             </div>
           </div>
           <div className="flex items-center gap-3 flex-wrap">
@@ -130,7 +145,7 @@ export function MatchVodManager({
                 rel="noreferrer"
                 target="_blank"
               >
-                Open external link
+                Open source link
               </a>
             ) : null}
           </div>
@@ -139,13 +154,15 @@ export function MatchVodManager({
 
       {externalVodUrl ? (
         <p className="text-sm text-[color:var(--color-muted)]">
-          This match already has an external VOD link. Uploading an MP4 will replace that link.
+          This match already has a review link. Uploading an MP4 will replace that link.
         </p>
       ) : null}
 
       <form className="grid gap-3 max-w-xl" onSubmit={onSubmit}>
         <div className="grid gap-1.5">
-          <Label htmlFor={`vod-file-${matchId}`}>{hasUploadedVod ? "Replace MP4" : "Upload MP4"}</Label>
+          <Label htmlFor={`vod-file-${matchId}`}>
+            {hasUploadedVod ? "Replace MP4 fallback" : "MP4 fallback"}
+          </Label>
           <Input
             ref={fileInputRef}
             accept=".mp4,video/mp4"
@@ -155,7 +172,7 @@ export function MatchVodManager({
             type="file"
           />
           <p className="text-xs text-[color:var(--color-muted)]">
-            MP4 only. Max {formatBytes(MATCH_VOD_MAX_FILE_BYTES)}.
+            MP4 fallback only. Max {formatBytes(MATCH_VOD_MAX_FILE_BYTES)} when storage is configured.
           </p>
         </div>
 

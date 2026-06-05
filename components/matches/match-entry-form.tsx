@@ -15,7 +15,11 @@ import {
 } from "@/components/ui/select";
 import { MAPS } from "@/lib/constants";
 import { uploadMatchVod } from "@/lib/vods.client";
-import { MATCH_VOD_MAX_FILE_BYTES, assertValidMatchVodUpload } from "@/lib/vods";
+import {
+  MATCH_VOD_MAX_FILE_BYTES,
+  REVIEW_LINK_PROVIDERS,
+  assertValidMatchVodUpload,
+} from "@/lib/vods";
 
 interface CreateMatchResponse {
   data?: {
@@ -48,7 +52,7 @@ export function MatchEntryForm() {
 
     try {
       if (vodFile && vodUrl) {
-        throw new Error("Choose either an MP4 upload or an external VOD URL.");
+        throw new Error("Use either a review link or an MP4 upload, not both.");
       }
 
       if (vodFile) {
@@ -151,15 +155,22 @@ export function MatchEntryForm() {
           </div>
         </Field>
       </div>
-      <Field label="Upload MP4 (optional)">
+      <Field label="Review link (optional)">
+        <Input
+          name="vod_url"
+          type="url"
+          placeholder="Paste Outplayed, Ascent, or Medal link"
+        />
+      </Field>
+      <p className="-mt-2 text-xs text-[color:var(--color-muted)]">
+        Best for full VODs: {REVIEW_LINK_PROVIDERS.join(", ")}. Leave empty if you do not have a review link yet.
+      </p>
+      <Field label="MP4 fallback (optional)">
         <Input name="vod_file" type="file" accept=".mp4,video/mp4" />
       </Field>
       <p className="-mt-2 text-xs text-[color:var(--color-muted)]">
-        MP4 only. Max {formatBytes(MATCH_VOD_MAX_FILE_BYTES)}. Leave empty if you want to paste an external link instead.
+        Local MP4 fallback only. Max {formatBytes(MATCH_VOD_MAX_FILE_BYTES)} when storage is configured.
       </p>
-      <Field label="External VOD URL (optional)">
-        <Input name="vod_url" type="url" placeholder="https://…" />
-      </Field>
       <Field label="Notes">
         <Textarea name="notes" placeholder="Macro, errors, key rounds…" />
       </Field>

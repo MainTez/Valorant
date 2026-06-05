@@ -32,8 +32,8 @@ export default async function VodsPage() {
           {team.name} VOD library
         </h1>
         <p className="max-w-2xl text-sm leading-6 text-[color:var(--color-muted)]">
-          Upload full match VODs, save external review links, and keep short clips
-          in one workspace.
+          Save Outplayed, Ascent, and Medal review links on each match, then keep
+          short clips in the same workspace.
         </p>
       </header>
       <VodLibrary
