@@ -31,6 +31,10 @@ export function MatchVodManager({
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [pending, setPending] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{
+    uploadedBytes: number;
+    totalBytes: number;
+  } | null>(null);
   const [error, setError] = useState<string | null>(initialError ?? null);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -46,11 +50,12 @@ export function MatchVodManager({
     }
 
     setPending(true);
+    setUploadProgress(null);
     setError(null);
     setMessage(null);
 
     try {
-      await uploadMatchVod({ file, matchId });
+      await uploadMatchVod({ file, matchId, onProgress: setUploadProgress });
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
@@ -60,6 +65,7 @@ export function MatchVodManager({
       setError(uploadError instanceof Error ? uploadError.message : "Upload failed.");
     } finally {
       setPending(false);
+      setUploadProgress(null);
     }
   }
 
@@ -155,6 +161,12 @@ export function MatchVodManager({
 
         {error ? <p className="text-sm text-red-400">{error}</p> : null}
         {message ? <p className="text-sm text-green-400">{message}</p> : null}
+        {uploadProgress ? (
+          <p className="text-sm text-[color:var(--color-muted)]">
+            Uploading {formatBytes(uploadProgress.uploadedBytes)} /{" "}
+            {formatBytes(uploadProgress.totalBytes)}
+          </p>
+        ) : null}
 
         <div className="flex flex-wrap items-center gap-2">
           <Button disabled={pending} type="submit">

@@ -53,6 +53,14 @@ test("assertValidMatchVodUpload rejects non-mp4 uploads", () => {
 });
 
 test("assertValidMatchVodUpload rejects oversized uploads", () => {
+  assert.doesNotThrow(() =>
+    assertValidMatchVodUpload({
+      contentType: "video/mp4",
+      fileName: "large-review.mp4",
+      fileSize: 6 * 1024 * 1024 * 1024,
+    }),
+  );
+
   assert.throws(
     () =>
       assertValidMatchVodUpload({

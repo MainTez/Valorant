@@ -4,6 +4,7 @@ import type { MatchVodPlaybackData } from "@/lib/vods";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
   MATCH_VOD_BUCKET,
+  MATCH_VOD_RESUMABLE_CHUNK_BYTES,
   VOD_CLIP_BUCKET,
   assertValidMatchVodUpload,
   assertValidVodClipUpload,
@@ -13,6 +14,7 @@ import type { VodClipRow } from "@/types/domain";
 interface UploadMatchVodParams {
   file: File;
   matchId: string;
+  onProgress?: (progress: { uploadedBytes: number; totalBytes: number }) => void;
 }
 
 interface SignedUploadResponse {
@@ -37,7 +39,11 @@ interface PlaybackResponse {
   error?: string;
 }
 
-export async function uploadMatchVod({ file, matchId }: UploadMatchVodParams): Promise<void> {
+export async function uploadMatchVod({
+  file,
+  matchId,
+  onProgress,
+}: UploadMatchVodParams): Promise<void> {
   assertValidMatchVodUpload({
     contentType: file.type,
     fileName: file.name,
@@ -60,15 +66,14 @@ export async function uploadMatchVod({ file, matchId }: UploadMatchVodParams): P
   }
 
   const supabase = createSupabaseBrowserClient();
-  const { error: uploadError } = await supabase.storage
-    .from(MATCH_VOD_BUCKET)
-    .uploadToSignedUrl(signedUploadBody.data.path, signedUploadBody.data.token, file, {
-      contentType: file.type,
-    });
-
-  if (uploadError) {
-    throw new Error(uploadError.message);
-  }
+  await uploadMatchVodResumable({
+    contentType: file.type,
+    file,
+    onProgress,
+    path: signedUploadBody.data.path,
+    supabase,
+    token: signedUploadBody.data.token,
+  });
 
   const attachResponse = await fetch(`/api/matches/${matchId}/vod`, {
     body: JSON.stringify({
@@ -85,6 +90,137 @@ export async function uploadMatchVod({ file, matchId }: UploadMatchVodParams): P
     const attachBody = (await attachResponse.json().catch(() => ({}))) as ApiResponse;
     throw new Error(attachBody.error ?? "Failed to attach uploaded VOD to the match.");
   }
+}
+
+async function uploadMatchVodResumable({
+  contentType,
+  file,
+  onProgress,
+  path,
+  supabase,
+  token,
+}: {
+  contentType: string;
+  file: File;
+  onProgress?: (progress: { uploadedBytes: number; totalBytes: number }) => void;
+  path: string;
+  supabase: ReturnType<typeof createSupabaseBrowserClient>;
+  token: string;
+}): Promise<void> {
+  const endpoint = buildSupabaseStorageEndpoint();
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!anonKey) {
+    throw new Error("Supabase anon key is missing.");
+  }
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  const authToken = session?.access_token ?? anonKey;
+  const authHeaders = {
+    apikey: anonKey,
+    authorization: `Bearer ${authToken}`,
+    "x-signature": token,
+  };
+
+  const createResponse = await fetch(endpoint, {
+    headers: {
+      ...authHeaders,
+      "tus-resumable": "1.0.0",
+      "upload-length": String(file.size),
+      "upload-metadata": buildTusMetadata({
+        bucketName: MATCH_VOD_BUCKET,
+        cacheControl: "3600",
+        contentType,
+        objectName: path,
+      }),
+      "x-upsert": "false",
+    },
+    method: "POST",
+  });
+
+  if (!createResponse.ok) {
+    throw new Error(await readUploadError(createResponse, "Failed to start resumable VOD upload."));
+  }
+
+  const location = createResponse.headers.get("location");
+  if (!location) {
+    throw new Error("Supabase did not return a resumable upload location.");
+  }
+
+  const uploadUrl = new URL(location, endpoint).toString();
+  let offset = parseUploadOffset(createResponse.headers.get("upload-offset")) ?? 0;
+  onProgress?.({ uploadedBytes: offset, totalBytes: file.size });
+
+  while (offset < file.size) {
+    const nextOffset = Math.min(offset + MATCH_VOD_RESUMABLE_CHUNK_BYTES, file.size);
+    const chunk = file.slice(offset, nextOffset, contentType);
+    const patchResponse = await fetch(uploadUrl, {
+      body: chunk,
+      headers: {
+        ...authHeaders,
+        "content-type": "application/offset+octet-stream",
+        "tus-resumable": "1.0.0",
+        "upload-offset": String(offset),
+      },
+      method: "PATCH",
+    });
+
+    if (!patchResponse.ok) {
+      throw new Error(await readUploadError(patchResponse, "VOD upload failed."));
+    }
+
+    offset = parseUploadOffset(patchResponse.headers.get("upload-offset")) ?? nextOffset;
+    onProgress?.({ uploadedBytes: offset, totalBytes: file.size });
+  }
+}
+
+function buildSupabaseStorageEndpoint(): string {
+  const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!rawUrl) {
+    throw new Error("Supabase URL is missing.");
+  }
+
+  const url = new URL(rawUrl);
+  if (url.hostname.endsWith(".supabase.co")) {
+    url.hostname = url.hostname.replace(".supabase.co", ".storage.supabase.co");
+  }
+
+  url.pathname = "/storage/v1/upload/resumable";
+  url.search = "";
+  return url.toString();
+}
+
+function buildTusMetadata(metadata: Record<string, string>): string {
+  return Object.entries(metadata)
+    .map(([key, value]) => `${key} ${base64Encode(value)}`)
+    .join(",");
+}
+
+function base64Encode(value: string): string {
+  const bytes = new TextEncoder().encode(value);
+  let binary = "";
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
+  }
+  return window.btoa(binary);
+}
+
+function parseUploadOffset(value: string | null): number | null {
+  if (!value) return null;
+  const offset = Number(value);
+  return Number.isFinite(offset) && offset >= 0 ? offset : null;
+}
+
+async function readUploadError(response: Response, fallback: string): Promise<string> {
+  const body = (await response.clone().json().catch(() => null)) as
+    | { error?: string; message?: string }
+    | null;
+  if (body?.error) return body.error;
+  if (body?.message) return body.message;
+
+  const text = await response.text().catch(() => "");
+  return text.trim() || fallback;
 }
 
 export async function fetchMatchVodPlayback(matchId: string): Promise<MatchVodPlaybackData> {

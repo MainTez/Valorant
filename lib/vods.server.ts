@@ -234,7 +234,19 @@ async function ensureMatchVodBucketInner(): Promise<void> {
     (bucket) => bucket.id === MATCH_VOD_BUCKET || bucket.name === MATCH_VOD_BUCKET,
   );
 
-  if (bucketExists) return;
+  if (bucketExists) {
+    const { error: updateError } = await admin.storage.updateBucket(MATCH_VOD_BUCKET, {
+      allowedMimeTypes: MATCH_VOD_ALLOWED_MIME_TYPES,
+      fileSizeLimit: MATCH_VOD_MAX_FILE_BYTES,
+      public: false,
+    });
+
+    if (updateError) {
+      throw new Error(updateError.message);
+    }
+
+    return;
+  }
 
   const { error: createError } = await admin.storage.createBucket(MATCH_VOD_BUCKET, {
     allowedMimeTypes: MATCH_VOD_ALLOWED_MIME_TYPES,

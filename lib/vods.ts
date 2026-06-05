@@ -1,5 +1,6 @@
 export const MATCH_VOD_BUCKET = "match-vods";
-export const MATCH_VOD_MAX_FILE_BYTES = 5 * 1024 * 1024 * 1024;
+export const MATCH_VOD_MAX_FILE_BYTES = 50 * 1024 * 1024 * 1024;
+export const MATCH_VOD_RESUMABLE_CHUNK_BYTES = 6 * 1024 * 1024;
 export const MATCH_VOD_SIGNED_URL_TTL_SECONDS = 60 * 60;
 export const VOD_CLIP_BUCKET = "vod-clips";
 export const VOD_CLIP_MAX_FILE_BYTES = 1024 * 1024 * 1024;

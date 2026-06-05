@@ -163,6 +163,10 @@ function FullVodForm() {
   const formRef = useRef<HTMLFormElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [pending, setPending] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{
+    uploadedBytes: number;
+    totalBytes: number;
+  } | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -183,6 +187,7 @@ function FullVodForm() {
     }
 
     setPending(true);
+    setUploadProgress(null);
     setMessage(null);
     setError(null);
 
@@ -210,7 +215,11 @@ function FullVodForm() {
       createdMatchId = body.data.id;
 
       if (file) {
-        await uploadMatchVod({ file, matchId: body.data.id });
+        await uploadMatchVod({
+          file,
+          matchId: body.data.id,
+          onProgress: setUploadProgress,
+        });
       }
 
       formRef.current?.reset();
@@ -226,6 +235,7 @@ function FullVodForm() {
       setError(submitError instanceof Error ? submitError.message : "Could not save VOD.");
     } finally {
       setPending(false);
+      setUploadProgress(null);
     }
   }
 
@@ -235,7 +245,7 @@ function FullVodForm() {
         <div className="eyebrow">Add VOD</div>
         <h2 className="mt-1 font-display text-2xl tracking-wide">Log full review</h2>
         <p className="mt-2 text-sm leading-6 text-[color:var(--color-muted)]">
-          Upload full MP4 files through signed Storage or save an external VOD link.
+          Upload full MP4 files through resumable Storage or save an external VOD link.
         </p>
       </div>
 
@@ -288,12 +298,42 @@ function FullVodForm() {
 
       {error ? <InlineMessage tone="error">{error}</InlineMessage> : null}
       {message ? <InlineMessage tone="success">{message}</InlineMessage> : null}
+      {uploadProgress ? <UploadProgress progress={uploadProgress} /> : null}
 
       <Button disabled={pending} type="submit" className="w-full">
         <Upload className="h-4 w-4" />
         {pending ? "Saving VOD..." : "Save full VOD"}
       </Button>
     </form>
+  );
+}
+
+function UploadProgress({
+  progress,
+}: {
+  progress: { uploadedBytes: number; totalBytes: number };
+}) {
+  const pct =
+    progress.totalBytes > 0
+      ? Math.min(100, Math.round((progress.uploadedBytes / progress.totalBytes) * 100))
+      : 0;
+
+  return (
+    <div className="rounded-xl border border-white/10 bg-white/[0.025] p-3">
+      <div className="flex items-center justify-between gap-3 text-xs text-[color:var(--color-muted)]">
+        <span>Uploading VOD</span>
+        <span>{pct}%</span>
+      </div>
+      <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/[0.06]">
+        <div
+          className="h-full rounded-full bg-[color:var(--accent)] transition-[width]"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <div className="mt-2 text-xs text-[color:var(--color-muted)]">
+        {formatVideoBytes(progress.uploadedBytes)} / {formatVideoBytes(progress.totalBytes)}
+      </div>
+    </div>
   );
 }
 

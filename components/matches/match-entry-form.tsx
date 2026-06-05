@@ -27,6 +27,10 @@ interface CreateMatchResponse {
 export function MatchEntryForm() {
   const router = useRouter();
   const [pending, setPending] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{
+    uploadedBytes: number;
+    totalBytes: number;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [matchType, setMatchType] = useState<"scrim" | "official" | "tournament">("scrim");
   const [selectedMap, setSelectedMap] = useState("Ascent");
@@ -34,6 +38,7 @@ export function MatchEntryForm() {
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setPending(true);
+    setUploadProgress(null);
     setError(null);
 
     const form = new FormData(e.currentTarget);
@@ -78,7 +83,11 @@ export function MatchEntryForm() {
 
       if (vodFile) {
         try {
-          await uploadMatchVod({ file: vodFile, matchId: body.data.id });
+          await uploadMatchVod({
+            file: vodFile,
+            matchId: body.data.id,
+            onProgress: setUploadProgress,
+          });
         } catch (uploadError) {
           const message = uploadError instanceof Error ? uploadError.message : "VOD upload failed.";
           router.push(`/matches/${body.data.id}?vodUploadError=${encodeURIComponent(message)}`);
@@ -93,6 +102,7 @@ export function MatchEntryForm() {
       setError(submitError instanceof Error ? submitError.message : "Save failed");
     } finally {
       setPending(false);
+      setUploadProgress(null);
     }
   }
 
@@ -155,6 +165,12 @@ export function MatchEntryForm() {
       </Field>
       {error ? (
         <p className="text-sm text-red-400">{error}</p>
+      ) : null}
+      {uploadProgress ? (
+        <p className="text-sm text-[color:var(--color-muted)]">
+          Uploading {formatBytes(uploadProgress.uploadedBytes)} /{" "}
+          {formatBytes(uploadProgress.totalBytes)}
+        </p>
       ) : null}
       <div className="flex items-center justify-end gap-2">
         <Button type="submit" disabled={pending}>
