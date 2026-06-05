@@ -245,7 +245,7 @@ function FullVodForm() {
         <div className="eyebrow">Add VOD</div>
         <h2 className="mt-1 font-display text-2xl tracking-wide">Log full review</h2>
         <p className="mt-2 text-sm leading-6 text-[color:var(--color-muted)]">
-          Upload full MP4 files through resumable Storage or save an external VOD link.
+          Upload full MP4 files to Cloudflare R2 or save an external VOD link.
         </p>
       </div>
 

@@ -4,6 +4,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
   MATCH_VOD_BUCKET,
   MATCH_VOD_MAX_FILE_BYTES,
+  MATCH_VOD_SUPABASE_FALLBACK_MAX_FILE_BYTES,
   MATCH_VOD_SIGNED_URL_TTL_SECONDS,
   VOD_CLIP_ALLOWED_MIME_TYPES,
   VOD_CLIP_BUCKET,
@@ -17,7 +18,15 @@ import {
   buildVodClipObjectPath,
   resolveMatchVodSource,
   resolveVodClipSource,
+  stripVodStorageProviderPrefix,
 } from "@/lib/vods";
+import {
+  createR2VodSignedUpload,
+  createR2VodSignedUrl,
+  deleteR2VodObject,
+  isR2Configured,
+  parseR2VodStoragePath,
+} from "@/lib/r2";
 
 const MATCH_VOD_ALLOWED_MIME_TYPES = ["video/mp4", "application/mp4"];
 
@@ -37,14 +46,27 @@ export async function createMatchVodSignedUpload(params: {
     fileSize: params.fileSize,
   });
 
-  await ensureMatchVodBucket();
-
   const path = buildMatchVodObjectPath({
     fileName: params.fileName,
     matchId: params.matchId,
     teamId: params.teamId,
     uploadId: crypto.randomUUID(),
   });
+
+  if (isR2Configured()) {
+    return createR2VodSignedUpload({
+      contentType: params.contentType,
+      key: path,
+    });
+  }
+
+  if (params.fileSize > MATCH_VOD_SUPABASE_FALLBACK_MAX_FILE_BYTES) {
+    throw new Error(
+      "Cloudflare R2 is required for VOD uploads over 50 MB. Set R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, and R2_BUCKET.",
+    );
+  }
+
+  await ensureMatchVodBucket();
 
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin.storage.from(MATCH_VOD_BUCKET).createSignedUploadUrl(path);
@@ -53,7 +75,7 @@ export async function createMatchVodSignedUpload(params: {
     throw new Error(error?.message ?? "Failed to create VOD upload URL.");
   }
 
-  return { path, token: data.token };
+  return { path, provider: "supabase" as const, token: data.token };
 }
 
 export async function createMatchVodSignedUrl(path: string): Promise<string> {
@@ -127,7 +149,10 @@ export async function getMatchVodPlaybackData(input: {
   });
 
   if (source.kind === "uploaded") {
-    const signedUrl = await createMatchVodSignedUrl(source.path);
+    const signedUrl =
+      source.provider === "r2"
+        ? await createR2VodSignedUrl(stripVodStorageProviderPrefix(source.path).path)
+        : await createMatchVodSignedUrl(source.path);
     return {
       kind: "uploaded",
       signedUrl,
@@ -183,6 +208,12 @@ export async function getVodClipPlaybackData(input: {
 }
 
 export async function deleteMatchVodObject(path: string): Promise<void> {
+  const r2Key = parseR2VodStoragePath(path);
+  if (r2Key) {
+    await deleteR2VodObject(r2Key);
+    return;
+  }
+
   const admin = createSupabaseAdminClient();
   const { error } = await admin.storage.from(MATCH_VOD_BUCKET).remove([path]);
 

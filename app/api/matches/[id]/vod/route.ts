@@ -22,7 +22,7 @@ const AttachUploadPayload = z.object({
   vod_content_type: z.string().min(1).max(120),
   vod_original_name: z.string().min(1).max(255),
   vod_size_bytes: z.number().int().positive().max(MATCH_VOD_MAX_FILE_BYTES),
-  vod_storage_path: z.string().min(1).max(500),
+  vod_storage_path: z.string().min(1).max(700),
 });
 
 interface RouteContext {

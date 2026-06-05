@@ -19,8 +19,11 @@ interface UploadMatchVodParams {
 
 interface SignedUploadResponse {
   data?: {
+    headers?: Record<string, string>;
     path: string;
-    token: string;
+    provider?: "r2" | "supabase";
+    token?: string;
+    uploadUrl?: string;
   };
   error?: string;
 }
@@ -65,15 +68,33 @@ export async function uploadMatchVod({
     throw new Error(signedUploadBody.error ?? "Failed to start VOD upload.");
   }
 
-  const supabase = createSupabaseBrowserClient();
-  await uploadMatchVodResumable({
-    contentType: file.type,
-    file,
-    onProgress,
-    path: signedUploadBody.data.path,
-    supabase,
-    token: signedUploadBody.data.token,
-  });
+  if (signedUploadBody.data.provider === "r2") {
+    if (!signedUploadBody.data.uploadUrl) {
+      throw new Error("R2 upload URL is missing.");
+    }
+
+    await uploadToR2SignedUrl({
+      contentType: file.type,
+      file,
+      headers: signedUploadBody.data.headers ?? {},
+      onProgress,
+      uploadUrl: signedUploadBody.data.uploadUrl,
+    });
+  } else {
+    if (!signedUploadBody.data.token) {
+      throw new Error("Supabase upload token is missing.");
+    }
+
+    const supabase = createSupabaseBrowserClient();
+    await uploadMatchVodResumable({
+      contentType: file.type,
+      file,
+      onProgress,
+      path: signedUploadBody.data.path,
+      supabase,
+      token: signedUploadBody.data.token,
+    });
+  }
 
   const attachResponse = await fetch(`/api/matches/${matchId}/vod`, {
     body: JSON.stringify({
@@ -90,6 +111,58 @@ export async function uploadMatchVod({
     const attachBody = (await attachResponse.json().catch(() => ({}))) as ApiResponse;
     throw new Error(attachBody.error ?? "Failed to attach uploaded VOD to the match.");
   }
+}
+
+function uploadToR2SignedUrl({
+  contentType,
+  file,
+  headers,
+  onProgress,
+  uploadUrl,
+}: {
+  contentType: string;
+  file: File;
+  headers: Record<string, string>;
+  onProgress?: (progress: { uploadedBytes: number; totalBytes: number }) => void;
+  uploadUrl: string;
+}): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        onProgress?.({
+          totalBytes: event.total,
+          uploadedBytes: event.loaded,
+        });
+      }
+    };
+
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        onProgress?.({ totalBytes: file.size, uploadedBytes: file.size });
+        resolve();
+        return;
+      }
+
+      reject(new Error(xhr.responseText || `R2 upload failed with HTTP ${xhr.status}.`));
+    };
+
+    xhr.onerror = () => {
+      reject(
+        new Error(
+          "R2 upload failed. Check that the Cloudflare R2 bucket CORS policy allows PUT from this app.",
+        ),
+      );
+    };
+
+    xhr.open("PUT", uploadUrl);
+    const nextHeaders = { "Content-Type": contentType, ...headers };
+    for (const [key, value] of Object.entries(nextHeaders)) {
+      xhr.setRequestHeader(key, value);
+    }
+    xhr.send(file);
+  });
 }
 
 async function uploadMatchVodResumable({
@@ -276,6 +349,9 @@ export async function uploadVodClip({
   const signedUploadBody = (await signedUploadResponse.json().catch(() => ({}))) as SignedUploadResponse;
   if (!signedUploadResponse.ok || !signedUploadBody.data) {
     throw new Error(signedUploadBody.error ?? "Failed to start clip upload.");
+  }
+  if (!signedUploadBody.data.token) {
+    throw new Error("Clip upload token is missing.");
   }
 
   const supabase = createSupabaseBrowserClient();

@@ -2,6 +2,8 @@ export const MATCH_VOD_BUCKET = "match-vods";
 export const MATCH_VOD_MAX_FILE_BYTES = 50 * 1024 * 1024 * 1024;
 export const MATCH_VOD_RESUMABLE_CHUNK_BYTES = 6 * 1024 * 1024;
 export const MATCH_VOD_SIGNED_URL_TTL_SECONDS = 60 * 60;
+export const MATCH_VOD_SUPABASE_FALLBACK_MAX_FILE_BYTES = 50 * 1024 * 1024;
+export const R2_VOD_STORAGE_PREFIX = "r2:";
 export const VOD_CLIP_BUCKET = "vod-clips";
 export const VOD_CLIP_MAX_FILE_BYTES = 1024 * 1024 * 1024;
 export const VOD_CLIP_SIGNED_URL_TTL_SECONDS = 60 * 60;
@@ -24,7 +26,7 @@ export interface VodClipUploadInput {
 }
 
 export type MatchVodSource =
-  | { kind: "uploaded"; path: string }
+  | { kind: "uploaded"; path: string; provider: "r2" | "supabase" }
   | { kind: "external"; url: string; isDirectVideo: boolean }
   | { kind: "missing" };
 
@@ -153,12 +155,12 @@ export function buildVodClipObjectPath({
 }
 
 export function isMatchVodPathForTeam(path: string, teamId: string): boolean {
-  const segments = path.split("/");
+  const segments = stripVodStorageProviderPrefix(path).path.split("/");
   return segments.length >= 4 && segments[0] === teamId && segments[1] === "matches";
 }
 
 export function isMatchVodPathForMatch(path: string, teamId: string, matchId: string): boolean {
-  const segments = path.split("/");
+  const segments = stripVodStorageProviderPrefix(path).path.split("/");
   return (
     segments.length >= 4 &&
     segments[0] === teamId &&
@@ -177,9 +179,11 @@ export function resolveMatchVodSource(input: {
   vod_url: string | null;
 }): MatchVodSource {
   if (input.vod_storage_path) {
+    const storage = stripVodStorageProviderPrefix(input.vod_storage_path);
     return {
       kind: "uploaded",
       path: input.vod_storage_path,
+      provider: storage.provider,
     };
   }
 
@@ -192,6 +196,20 @@ export function resolveMatchVodSource(input: {
   }
 
   return { kind: "missing" };
+}
+
+export function stripVodStorageProviderPrefix(path: string): {
+  path: string;
+  provider: "r2" | "supabase";
+} {
+  if (path.startsWith(R2_VOD_STORAGE_PREFIX)) {
+    return {
+      path: path.slice(R2_VOD_STORAGE_PREFIX.length),
+      provider: "r2",
+    };
+  }
+
+  return { path, provider: "supabase" };
 }
 
 export function resolveVodClipSource(input: {

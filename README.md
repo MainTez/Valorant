@@ -73,6 +73,12 @@ NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 SUPABASE_SERVICE_ROLE_KEY=...
 
+# Cloudflare R2 for full match VOD uploads
+R2_ACCOUNT_ID=...
+R2_ACCESS_KEY_ID=...
+R2_SECRET_ACCESS_KEY=...
+R2_BUCKET=nexus-vods
+
 # HenrikDev (get a key at https://docs.henrikdev.xyz)
 HENRIK_API_KEY=...
 HENRIK_REGION_DEFAULT=eu
@@ -85,6 +91,24 @@ OPENROUTER_MODEL=meta-llama/llama-3.1-8b-instruct:free
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 NEXT_PUBLIC_DESKTOP_DOWNLOAD_URL=https://github.com/MainTez/Valorant/releases/latest/download/Nexus-Team-Hub-Setup.exe
 CRON_SECRET=long-random-string
+```
+
+Full match VOD uploads use Cloudflare R2 when the `R2_*` variables are set.
+Configure the R2 bucket CORS policy so the browser can upload directly:
+
+```json
+[
+  {
+    "AllowedOrigins": [
+      "http://localhost:3000",
+      "https://molgarians-premier-hub.vercel.app"
+    ],
+    "AllowedMethods": ["GET", "HEAD", "PUT"],
+    "AllowedHeaders": ["*"],
+    "ExposeHeaders": ["ETag"],
+    "MaxAgeSeconds": 3600
+  }
+]
 ```
 
 ### 3. Supabase project

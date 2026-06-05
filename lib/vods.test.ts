@@ -15,6 +15,7 @@ import {
   resolveVodClipSource,
   sanitizeMatchVodFileName,
   sanitizeVodClipFileName,
+  stripVodStorageProviderPrefix,
 } from "./vods.ts";
 
 test("sanitizeMatchVodFileName normalizes spacing and dangerous characters", () => {
@@ -115,6 +116,29 @@ test("resolveMatchVodSource prefers uploaded VODs when both sources exist", () =
     {
       kind: "uploaded",
       path: "team-456/matches/match-123/upload.mp4",
+      provider: "supabase",
+    },
+  );
+});
+
+test("match VOD helpers accept R2-prefixed paths", () => {
+  const path = "r2:team-456/matches/match-123/upload.mp4";
+
+  assert.deepEqual(stripVodStorageProviderPrefix(path), {
+    path: "team-456/matches/match-123/upload.mp4",
+    provider: "r2",
+  });
+  assert.equal(isMatchVodPathForTeam(path, "team-456"), true);
+  assert.equal(isMatchVodPathForMatch(path, "team-456", "match-123"), true);
+  assert.deepEqual(
+    resolveMatchVodSource({
+      vod_storage_path: path,
+      vod_url: null,
+    }),
+    {
+      kind: "uploaded",
+      path,
+      provider: "r2",
     },
   );
 });
