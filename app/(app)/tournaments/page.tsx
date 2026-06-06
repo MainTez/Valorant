@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   AlertTriangle,
@@ -11,6 +12,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { EmptyState } from "@/components/common/empty-state";
 import { TeamMark } from "@/components/common/team-mark";
+import { TournamentMatchPrep } from "@/components/tournaments/tournament-match-prep";
 import { TournamentTables } from "@/components/tournaments/tournament-tables";
 import { TournamentOptInPanel } from "@/components/tournaments/tournament-opt-in";
 import { Badge } from "@/components/ui/badge";
@@ -23,8 +25,15 @@ import {
 } from "@/lib/ggarena/client";
 import {
   matchupDomId,
+  matchupLookupKey,
   matchupMatchesKey,
+  tournamentMatchupHref,
 } from "@/lib/ggarena/matchup-links";
+import {
+  TOURNAMENT_MATCH_PREP_OBJECT_TYPE,
+  TOURNAMENT_MATCH_PREP_VERBS,
+  buildTournamentMatchPrepSummary,
+} from "@/lib/tournaments/match-prep";
 import {
   ACTIVE_TOURNAMENT_OPT_IN_KEY,
   buildTournamentOptInSummary,
@@ -83,6 +92,30 @@ export default async function TournamentsPage({ searchParams }: TournamentsPageP
     >[],
     events: (optInEvents ?? []) as Pick<ActivityEventRow, "actor_id" | "verb" | "object_id" | "payload" | "created_at">[],
   });
+  const prepMatchup =
+    snapshot.status === "ready"
+      ? findPrepMatchup(snapshot, selectedMatchId)
+      : null;
+  const prepMatchupKey = prepMatchup ? matchupLookupKey(prepMatchup) : null;
+  const { data: prepEvents } = prepMatchupKey
+    ? await supabase
+        .from("activity_events")
+        .select("actor_id, verb, object_id, payload, created_at")
+        .eq("team_id", team.id)
+        .eq("object_type", TOURNAMENT_MATCH_PREP_OBJECT_TYPE)
+        .eq("object_id", prepMatchupKey)
+        .in("verb", [...TOURNAMENT_MATCH_PREP_VERBS])
+        .order("created_at", { ascending: false })
+        .limit(250)
+    : { data: [] };
+  const prepSummary =
+    prepMatchupKey && prepMatchup
+      ? buildTournamentMatchPrepSummary({
+          matchupKey: prepMatchupKey,
+          roster: optInSummary.activeRoster,
+          events: (prepEvents ?? []) as Pick<ActivityEventRow, "actor_id" | "verb" | "object_id" | "payload" | "created_at">[],
+        })
+      : null;
 
   return (
     <div className="flex max-w-[1400px] flex-col gap-5">
@@ -111,6 +144,9 @@ export default async function TournamentsPage({ searchParams }: TournamentsPageP
         <TournamentDashboard
           snapshot={snapshot}
           optInSummary={optInSummary}
+          prepMatchup={prepMatchup}
+          prepSummary={prepSummary}
+          currentUserId={user.id}
           selectedMatchId={selectedMatchId}
           canManageOptIn={user.role === "coach" || user.role === "admin"}
         />
@@ -124,11 +160,17 @@ export default async function TournamentsPage({ searchParams }: TournamentsPageP
 function TournamentDashboard({
   optInSummary,
   canManageOptIn,
+  currentUserId,
+  prepMatchup,
+  prepSummary,
   selectedMatchId,
   snapshot,
 }: {
   optInSummary: TournamentOptInSummary;
   canManageOptIn: boolean;
+  currentUserId: string;
+  prepMatchup: GGArenaMatchup | null;
+  prepSummary: ReturnType<typeof buildTournamentMatchPrepSummary> | null;
   selectedMatchId: string | null;
   snapshot: GGArenaSnapshot;
 }) {
@@ -154,6 +196,17 @@ function TournamentDashboard({
       </section>
 
       <TournamentOptInPanel initialSummary={optInSummary} canManage={canManageOptIn} />
+
+      {prepMatchup && prepSummary ? (
+        <TournamentMatchPrep
+          canManage={canManageOptIn}
+          currentUserId={currentUserId}
+          initialSummary={prepSummary}
+          matchup={prepMatchup}
+          optInSummary={optInSummary}
+          standings={snapshot.standings}
+        />
+      ) : null}
 
       <section className="grid grid-cols-1 gap-4 xl:grid-cols-[1.1fr_0.9fr]">
         <MatchupList
@@ -379,6 +432,14 @@ function MatchupList({
                     <MatchupResult matchup={matchup} />
                   </div>
                 </summary>
+                <div className="flex justify-end border-t border-white/8 px-3 py-2">
+                  <Link
+                    href={`${tournamentMatchupHref(matchup).split("#")[0]}#match-prep`}
+                    className="text-sm text-[color:var(--accent)] hover:underline"
+                  >
+                    Open prep
+                  </Link>
+                </div>
                 <MatchupKdaTable matchup={matchup} />
               </details>
             );
@@ -483,6 +544,18 @@ function formatMatchupResult(result: NonNullable<GGArenaMatchup["surfResult"]>) 
 function formatKillDeath(kills: number, deaths: number) {
   if (deaths === 0) return kills === 0 ? "0.00" : kills.toFixed(2);
   return (kills / deaths).toFixed(2);
+}
+
+function findPrepMatchup(snapshot: GGArenaSnapshot, selectedMatchId: string | null) {
+  const matchups = [...snapshot.nextMatchups, ...snapshot.recentMatchups];
+  return (
+    (selectedMatchId
+      ? matchups.find((matchup) => matchupMatchesKey(matchup, selectedMatchId))
+      : null) ??
+    snapshot.nextMatchups[0] ??
+    matchups[0] ??
+    null
+  );
 }
 
 function firstParam(value: string | string[] | undefined) {
