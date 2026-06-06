@@ -1,11 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import {
+  AlertTriangle,
   CheckCircle2,
   ClipboardCheck,
   ShieldCheck,
+  Sparkles,
   StickyNote,
   Users,
 } from "lucide-react";
@@ -17,6 +20,12 @@ import { matchupDomId } from "@/lib/ggarena/matchup-links";
 import { formatNorwayDateTime } from "@/lib/timezone";
 import type { GGArenaMatchup, GGArenaStandingRow } from "@/lib/ggarena/normalize";
 import type { TournamentOptInSummary } from "@/lib/tournaments/opt-in";
+import {
+  buildSuggestedAgentComp,
+  type AgentCompSuggestion,
+  type PlayerAgentPoolSummary,
+} from "@/lib/valorant/agent-pool";
+import { getAgentIcon } from "@/lib/valorant/assets";
 import type {
   TournamentMatchPrepChecklistItem,
   TournamentMatchPrepSummary,
@@ -24,6 +33,7 @@ import type {
 import { initials } from "@/lib/utils";
 
 interface Props {
+  agentPools: PlayerAgentPoolSummary[];
   canManage: boolean;
   currentUserId: string;
   matchup: GGArenaMatchup;
@@ -35,6 +45,7 @@ interface Props {
 export function TournamentMatchPrep({
   canManage,
   currentUserId,
+  agentPools,
   initialSummary,
   matchup,
   optInSummary,
@@ -53,6 +64,10 @@ export function TournamentMatchPrep({
   );
   const currentReady =
     currentRosterMember ? summary.readyByUserId[currentRosterMember.userId]?.ready ?? false : false;
+  const compSuggestion = buildSuggestedAgentComp({
+    agentPools,
+    roster: optInSummary.activeRoster,
+  });
 
   async function saveNotes() {
     await postPrepUpdate("notes", {
@@ -257,6 +272,8 @@ export function TournamentMatchPrep({
             ) : null}
           </section>
 
+          <AgentCompPanel suggestion={compSuggestion} />
+
           <section className="rounded-xl border border-white/8 bg-white/[0.025] p-4">
             <div className="mb-3">
               <div className="eyebrow inline-flex items-center gap-2">
@@ -300,6 +317,93 @@ export function TournamentMatchPrep({
         </div>
       </div>
     </section>
+  );
+}
+
+function AgentCompPanel({ suggestion }: { suggestion: AgentCompSuggestion }) {
+  return (
+    <section className="rounded-xl border border-white/8 bg-white/[0.025] p-4">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <div className="eyebrow inline-flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-[color:var(--accent)]" />
+            Suggested comp
+          </div>
+          <p className="mt-1 text-sm text-[color:var(--color-muted)]">
+            Built from the locked roster and each player&apos;s saved agent pool.
+          </p>
+        </div>
+        <Badge variant={suggestion.warnings.length === 0 ? "success" : "warning"}>
+          {suggestion.warnings.length === 0 ? "Playable" : `${suggestion.warnings.length} checks`}
+        </Badge>
+      </div>
+
+      {suggestion.assignments.length === 0 ? (
+        <div className="rounded-lg border border-dashed border-white/10 px-3 py-4 text-sm text-[color:var(--color-muted)]">
+          Lock five players before picking a comp.
+        </div>
+      ) : (
+        <div className="grid gap-2">
+          {suggestion.assignments.map((assignment) => (
+            <div
+              key={assignment.userId}
+              className="grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-lg border border-white/8 bg-white/[0.02] px-3 py-2"
+            >
+              <AgentThumb agent={assignment.agent} />
+              <div className="min-w-0">
+                <div className="truncate text-sm font-semibold">{assignment.displayName}</div>
+                <div className="mt-0.5 text-xs uppercase tracking-[0.14em] text-[color:var(--color-muted)]">
+                  {assignment.assignedRole ?? "No role"}
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="font-display text-lg tracking-wide">
+                  {assignment.agent ?? "No agent"}
+                </div>
+                <div className="text-[10px] uppercase tracking-[0.14em] text-[color:var(--color-muted)]">
+                  {assignment.poolSize > 0 ? `${assignment.poolSize} saved` : "Pool empty"}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {suggestion.warnings.length > 0 ? (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {suggestion.warnings.map((warning) => (
+            <span
+              key={warning}
+              className="inline-flex items-center gap-1.5 rounded-full border border-amber-300/25 bg-amber-400/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-amber-100"
+            >
+              <AlertTriangle className="h-3.5 w-3.5" />
+              {warning}
+            </span>
+          ))}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function AgentThumb({ agent }: { agent: string | null }) {
+  const icon = getAgentIcon(agent);
+  if (!agent || !icon) {
+    return (
+      <div className="grid h-10 w-10 place-items-center rounded-lg border border-white/8 bg-white/[0.04] text-xs text-[color:var(--color-muted)]">
+        ??
+      </div>
+    );
+  }
+
+  return (
+    <Image
+      src={icon}
+      alt=""
+      width={40}
+      height={40}
+      className="h-10 w-10 rounded-lg border border-white/8 bg-white/[0.04] object-contain"
+    />
   );
 }
 

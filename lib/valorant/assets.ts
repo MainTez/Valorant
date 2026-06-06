@@ -47,7 +47,9 @@ const MAP_ASSETS = {
 } as const;
 
 export type AgentAsset = (typeof AGENT_ASSETS)[keyof typeof AGENT_ASSETS];
+export type ValorantAgentName = keyof typeof AGENT_ASSETS;
 export type MapAsset = (typeof MAP_ASSETS)[keyof typeof MAP_ASSETS];
+export const VALORANT_AGENT_NAMES = Object.keys(AGENT_ASSETS) as ValorantAgentName[];
 
 function normalizeKey(value?: string | null) {
   return (value ?? "")
@@ -61,6 +63,16 @@ function normalizeKey(value?: string | null) {
 export function getAgentAsset(agent?: string | null): AgentAsset | null {
   const key = normalizeKey(agent) as keyof typeof AGENT_ASSETS;
   return AGENT_ASSETS[key] ?? null;
+}
+
+export function getAgentsForRole(role: AgentAsset["role"]): ValorantAgentName[] {
+  return VALORANT_AGENT_NAMES.filter((agent) => AGENT_ASSETS[agent].role === role).sort((a, b) =>
+    a.localeCompare(b),
+  );
+}
+
+export function isValorantAgent(agent: unknown): agent is ValorantAgentName {
+  return typeof agent === "string" && agent in AGENT_ASSETS;
 }
 
 export function getAgentIcon(agent?: string | null) {

@@ -41,6 +41,12 @@ import {
   TOURNAMENT_OPT_IN_VERBS,
   type TournamentOptInSummary,
 } from "@/lib/tournaments/opt-in";
+import {
+  AGENT_POOL_OBJECT_TYPE,
+  AGENT_POOL_UPDATED_VERB,
+  buildPlayerAgentPools,
+  type PlayerAgentPoolSummary,
+} from "@/lib/valorant/agent-pool";
 import type {
   GGArenaMatchup,
   GGArenaStandingRow,
@@ -61,7 +67,7 @@ export default async function TournamentsPage({ searchParams }: TournamentsPageP
   if (team.slug !== "surf-n-bulls") notFound();
 
   const supabase = await createSupabaseServerClient();
-  const [snapshot, { data: members }, { data: optInEvents }] = await Promise.all([
+  const [snapshot, { data: members }, { data: optInEvents }, { data: agentPoolEvents }] = await Promise.all([
     getCachedSurfBullsArenaSnapshot(),
     supabase
       .from("users")
@@ -77,20 +83,36 @@ export default async function TournamentsPage({ searchParams }: TournamentsPageP
       .in("verb", [...TOURNAMENT_OPT_IN_VERBS])
       .order("created_at", { ascending: false })
       .limit(250),
+    supabase
+      .from("activity_events")
+      .select("actor_id, verb, object_type, object_id, payload, created_at")
+      .eq("team_id", team.id)
+      .eq("object_type", AGENT_POOL_OBJECT_TYPE)
+      .eq("verb", AGENT_POOL_UPDATED_VERB)
+      .order("created_at", { ascending: false })
+      .limit(500),
   ]);
+  const typedMembers = (members ?? []) as Pick<
+    UserRow,
+    | "id"
+    | "display_name"
+    | "email"
+    | "avatar_url"
+    | "preferred_valorant_role"
+    | "secondary_valorant_roles"
+  >[];
   const optInSummary = buildTournamentOptInSummary({
     tournamentKey: ACTIVE_TOURNAMENT_OPT_IN_KEY,
     currentUserId: user.id,
-    members: (members ?? []) as Pick<
-      UserRow,
-      | "id"
-      | "display_name"
-      | "email"
-      | "avatar_url"
-      | "preferred_valorant_role"
-      | "secondary_valorant_roles"
-    >[],
+    members: typedMembers,
     events: (optInEvents ?? []) as Pick<ActivityEventRow, "actor_id" | "verb" | "object_id" | "payload" | "created_at">[],
+  });
+  const agentPools = buildPlayerAgentPools({
+    members: typedMembers,
+    events: (agentPoolEvents ?? []) as Pick<
+      ActivityEventRow,
+      "actor_id" | "verb" | "object_type" | "object_id" | "payload" | "created_at"
+    >[],
   });
   const prepMatchup =
     snapshot.status === "ready"
@@ -146,6 +168,7 @@ export default async function TournamentsPage({ searchParams }: TournamentsPageP
           optInSummary={optInSummary}
           prepMatchup={prepMatchup}
           prepSummary={prepSummary}
+          agentPools={agentPools}
           currentUserId={user.id}
           selectedMatchId={selectedMatchId}
           canManageOptIn={user.role === "coach" || user.role === "admin"}
@@ -159,6 +182,7 @@ export default async function TournamentsPage({ searchParams }: TournamentsPageP
 
 function TournamentDashboard({
   optInSummary,
+  agentPools,
   canManageOptIn,
   currentUserId,
   prepMatchup,
@@ -167,6 +191,7 @@ function TournamentDashboard({
   snapshot,
 }: {
   optInSummary: TournamentOptInSummary;
+  agentPools: PlayerAgentPoolSummary[];
   canManageOptIn: boolean;
   currentUserId: string;
   prepMatchup: GGArenaMatchup | null;
@@ -202,6 +227,7 @@ function TournamentDashboard({
           canManage={canManageOptIn}
           currentUserId={currentUserId}
           initialSummary={prepSummary}
+          agentPools={agentPools}
           matchup={prepMatchup}
           optInSummary={optInSummary}
           standings={snapshot.standings}

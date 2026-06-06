@@ -2,14 +2,21 @@ import Link from "next/link";
 import { ArrowLeft, LineChart, Sparkles } from "lucide-react";
 import { requireSession } from "@/lib/auth/get-session";
 import { AccountProfileForm } from "@/components/players/account-profile-form";
+import { AgentPoolForm } from "@/components/players/agent-pool-form";
 import { RiotProfileForm } from "@/components/players/riot-profile-form";
 import { ValorantRoleForm } from "@/components/players/valorant-role-form";
 import { RankBadge } from "@/components/common/rank-badge";
 import { SpotifyProfilePanel } from "@/components/spotify/spotify-profile-panel";
 import { defaultRegion, normalizeRegion } from "@/lib/henrik/regions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  AGENT_POOL_OBJECT_TYPE,
+  AGENT_POOL_UPDATED_VERB,
+  buildPlayerAgentPools,
+  emptyAgentPool,
+} from "@/lib/valorant/agent-pool";
 import { normalizeSecondaryValorantRoles } from "@/lib/valorant/roles";
-import type { PlayerProfileRow } from "@/types/domain";
+import type { ActivityEventRow, PlayerProfileRow } from "@/types/domain";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Profile" };
@@ -32,9 +39,25 @@ export default async function PlayerProfilePage({ searchParams }: Props) {
         .eq("riot_tag", user.riot_tag)
         .maybeSingle()
     : Promise.resolve({ data: null });
+  const agentPoolQuery = supabase
+    .from("activity_events")
+    .select("actor_id, verb, object_type, object_id, payload, created_at")
+    .eq("team_id", team.id)
+    .eq("object_type", AGENT_POOL_OBJECT_TYPE)
+    .eq("object_id", user.id)
+    .eq("verb", AGENT_POOL_UPDATED_VERB)
+    .order("created_at", { ascending: false })
+    .limit(25);
 
-  const { data } = await profileQuery;
+  const [{ data }, { data: agentPoolEvents }] = await Promise.all([profileQuery, agentPoolQuery]);
   const profile = data as PlayerProfileRow | null;
+  const [agentPoolSummary] = buildPlayerAgentPools({
+    members: [{ id: user.id, display_name: user.display_name, email: user.email }],
+    events: (agentPoolEvents ?? []) as Pick<
+      ActivityEventRow,
+      "actor_id" | "verb" | "object_type" | "object_id" | "payload" | "created_at"
+    >[],
+  });
   const region = normalizeRegion(user.riot_region ?? profile?.region ?? defaultRegion());
   const setupMode = sp.setup === "roles";
   const statsHref = user.riot_name && user.riot_tag
@@ -88,6 +111,7 @@ export default async function PlayerProfilePage({ searchParams }: Props) {
             )}
             setupMode={setupMode}
           />
+          <AgentPoolForm initialAgentPool={agentPoolSummary?.agentPool ?? emptyAgentPool()} />
           <AccountProfileForm
             email={user.email}
             initialAvatarUrl={user.avatar_url}
