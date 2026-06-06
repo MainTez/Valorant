@@ -5,11 +5,15 @@ import Image from "next/image";
 import Link from "next/link";
 import {
   AlertTriangle,
+  BookOpen,
   CheckCircle2,
+  ChevronDown,
   ClipboardCheck,
+  Crosshair,
   ShieldCheck,
   Sparkles,
   StickyNote,
+  Swords,
   Users,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -18,8 +22,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { TeamMark } from "@/components/common/team-mark";
 import { matchupDomId } from "@/lib/ggarena/matchup-links";
 import { formatNorwayDateTime } from "@/lib/timezone";
-import type { GGArenaMatchup, GGArenaStandingRow } from "@/lib/ggarena/normalize";
+import type { GGArenaMatchup } from "@/lib/ggarena/normalize";
 import type { TournamentOptInSummary } from "@/lib/tournaments/opt-in";
+import type { TournamentOpponentScoutSummary } from "@/lib/tournaments/opponent-scouting";
 import {
   buildSuggestedAgentComp,
   type AgentCompSuggestion,
@@ -38,8 +43,8 @@ interface Props {
   currentUserId: string;
   matchup: GGArenaMatchup;
   optInSummary: TournamentOptInSummary;
-  standings: GGArenaStandingRow[];
   initialSummary: TournamentMatchPrepSummary;
+  opponentScout: TournamentOpponentScoutSummary;
 }
 
 export function TournamentMatchPrep({
@@ -49,16 +54,16 @@ export function TournamentMatchPrep({
   initialSummary,
   matchup,
   optInSummary,
-  standings,
+  opponentScout,
 }: Props) {
   const [summary, setSummary] = useState(initialSummary);
   const [notes, setNotes] = useState(initialSummary.notes);
+  const [scoutOpen, setScoutOpen] = useState(true);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const opponentSide = matchup.sides.find((side) => !side.isSurfBulls) ?? null;
   const opponentName = opponentSide?.name ?? matchup.opponentName ?? matchup.name;
-  const opponentStanding = findStandingForOpponent(standings, matchup, opponentName);
-  const surfStanding = standings.find((row) => row.isSurfBulls) ?? null;
+  const opponentStanding = opponentScout.standing;
   const currentRosterMember = optInSummary.activeRoster.find(
     (member) => member.userId === currentUserId,
   );
@@ -73,7 +78,10 @@ export function TournamentMatchPrep({
     await postPrepUpdate("notes", {
       action: "notes",
       matchup_key: summary.matchupKey,
+      division_name: matchup.divisionName ?? matchup.competitionName ?? null,
+      matchup_starts_at: matchup.startsAt,
       notes,
+      opponent_name: opponentName,
     });
   }
 
@@ -157,18 +165,34 @@ export function TournamentMatchPrep({
       <div className="grid grid-cols-1 gap-5 p-5 xl:grid-cols-[1fr_1fr]">
         <div className="grid gap-5">
           <section className="rounded-xl border border-white/8 bg-white/[0.025] p-4">
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <div>
-                <div className="eyebrow">Opponent</div>
-                <div className="mt-1 font-display text-xl tracking-wide">{opponentName}</div>
-              </div>
-              <TeamMark name={opponentName} logoUrl={opponentSide?.logoUrl} size="sm" />
-            </div>
+            <button
+              type="button"
+              aria-expanded={scoutOpen}
+              onClick={() => setScoutOpen((open) => !open)}
+              className="mb-4 flex w-full items-center justify-between gap-3 rounded-lg border border-transparent p-0 text-left transition hover:border-white/8 hover:bg-white/[0.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--accent)]"
+            >
+              <span className="flex min-w-0 items-center gap-3">
+                <TeamMark name={opponentName} logoUrl={opponentSide?.logoUrl} size="sm" />
+                <span className="min-w-0">
+                  <span className="eyebrow block">Opponent</span>
+                  <span className="mt-1 block truncate font-display text-xl tracking-wide">
+                    {opponentName}
+                  </span>
+                </span>
+              </span>
+              <ChevronDown
+                className={
+                  scoutOpen
+                    ? "h-4 w-4 shrink-0 rotate-180 text-[color:var(--accent)] transition"
+                    : "h-4 w-4 shrink-0 text-[color:var(--color-muted)] transition"
+                }
+              />
+            </button>
             <div className="grid grid-cols-2 gap-2 text-sm">
               <StandingStat label="Their rank" value={formatStandingRank(opponentStanding)} />
               <StandingStat label="Their record" value={formatStandingRecord(opponentStanding)} />
-              <StandingStat label="Our rank" value={formatStandingRank(surfStanding)} />
-              <StandingStat label="Our record" value={formatStandingRecord(surfStanding)} />
+              <StandingStat label="Recent results" value={String(opponentScout.recentResults.length)} />
+              <StandingStat label="Roster rows" value={String(opponentScout.roster.length)} />
             </div>
             <Link
               href={`/tournaments?match=${encodeURIComponent(summary.matchupKey)}#${matchupDomId(matchup)}`}
@@ -176,6 +200,7 @@ export function TournamentMatchPrep({
             >
               Open GGarena match row
             </Link>
+            {scoutOpen ? <OpponentScoutPanel scout={opponentScout} /> : null}
           </section>
 
           <section className="rounded-xl border border-white/8 bg-white/[0.025] p-4">
@@ -317,6 +342,119 @@ export function TournamentMatchPrep({
         </div>
       </div>
     </section>
+  );
+}
+
+function OpponentScoutPanel({ scout }: { scout: TournamentOpponentScoutSummary }) {
+  return (
+    <div className="mt-4 grid gap-3 border-t border-white/8 pt-4">
+      <div>
+        <div className="mb-2 flex items-center gap-2 text-xs uppercase tracking-[0.14em] text-[color:var(--color-muted)]">
+          <Swords className="h-4 w-4 text-[color:var(--accent)]" />
+          Recent results
+        </div>
+        {scout.recentResults.length === 0 ? (
+          <EmptyScoutRow>No recent opponent results returned.</EmptyScoutRow>
+        ) : (
+          <div className="grid gap-2">
+            {scout.recentResults.map((result) => (
+              <div
+                key={result.key}
+                className="grid grid-cols-[1fr_auto] gap-3 rounded-lg border border-white/8 bg-white/[0.02] px-3 py-2 text-sm"
+              >
+                <div className="min-w-0">
+                  <div className="truncate font-semibold">
+                    vs {result.otherTeamName}
+                  </div>
+                  <div className="mt-1 truncate text-xs uppercase tracking-[0.12em] text-[color:var(--color-muted)]">
+                    {[result.divisionName, result.roundName].filter(Boolean).join(" · ") || "GGarena"}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="flex justify-end gap-1.5">
+                    {result.result ? (
+                      <Badge variant={result.result === "win" ? "success" : result.result === "loss" ? "danger" : "warning"}>
+                        {formatScoutResult(result.result)}
+                      </Badge>
+                    ) : null}
+                    {result.scoreline ? <Badge variant="outline">{result.scoreline}</Badge> : null}
+                  </div>
+                  <div className="mt-1 text-xs text-[color:var(--color-muted)]">
+                    {result.playedAt ? formatNorwayDateTime(result.playedAt) : "Date missing"}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div>
+        <div className="mb-2 flex items-center gap-2 text-xs uppercase tracking-[0.14em] text-[color:var(--color-muted)]">
+          <Crosshair className="h-4 w-4 text-[color:var(--accent)]" />
+          Roster
+        </div>
+        {scout.roster.length === 0 ? (
+          <EmptyScoutRow>No roster stats returned for this opponent.</EmptyScoutRow>
+        ) : (
+          <div className="grid gap-2 sm:grid-cols-2">
+            {scout.roster.map((player) => (
+              <div
+                key={player.key}
+                className="rounded-lg border border-white/8 bg-white/[0.02] px-3 py-2"
+              >
+                <div className="truncate font-semibold">{player.name}</div>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {player.metrics.map((metric) => (
+                    <span
+                      key={`${player.key}-${metric.key}`}
+                      className="rounded-full border border-white/8 bg-black/15 px-2 py-1 text-[11px] text-[color:var(--color-muted)]"
+                    >
+                      {shortMetricLabel(metric.label)} {formatMetricValue(metric.value)}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div>
+        <div className="mb-2 flex items-center gap-2 text-xs uppercase tracking-[0.14em] text-[color:var(--color-muted)]">
+          <BookOpen className="h-4 w-4 text-[color:var(--accent)]" />
+          Previous notes
+        </div>
+        {scout.previousNotes.length === 0 ? (
+          <EmptyScoutRow>No previous prep notes saved for this opponent.</EmptyScoutRow>
+        ) : (
+          <div className="grid gap-2">
+            {scout.previousNotes.map((note) => (
+              <article
+                key={`${note.key}-${note.updatedAt}`}
+                className="rounded-lg border border-white/8 bg-white/[0.02] px-3 py-2 text-sm"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2 text-xs uppercase tracking-[0.12em] text-[color:var(--color-muted)]">
+                  <span>{note.playedAt ? formatNorwayDateTime(note.playedAt) : note.matchupName}</span>
+                  <span>Updated {formatNorwayDateTime(note.updatedAt)}</span>
+                </div>
+                <p className="mt-2 whitespace-pre-wrap leading-5 text-[color:var(--color-text)]">
+                  {note.notes}
+                </p>
+              </article>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function EmptyScoutRow({ children }: { children: string }) {
+  return (
+    <div className="rounded-lg border border-dashed border-white/10 px-3 py-4 text-sm text-[color:var(--color-muted)]">
+      {children}
+    </div>
   );
 }
 
@@ -467,32 +605,12 @@ function StandingStat({ label, value }: { label: string; value: string }) {
   );
 }
 
-function findStandingForOpponent(
-  standings: GGArenaStandingRow[],
-  matchup: GGArenaMatchup,
-  opponentName: string,
-) {
-  const opponentSide = matchup.sides.find((side) => !side.isSurfBulls) ?? null;
-  const candidateIds = new Set(
-    [opponentSide?.teamId, opponentSide?.clubId, opponentSide?.id].filter(
-      (id): id is number => typeof id === "number",
-    ),
-  );
-  const normalizedOpponent = normalizeName(opponentName);
-
-  return (
-    standings.find((row) => row.id !== null && candidateIds.has(row.id)) ??
-    standings.find((row) => normalizeName(row.name) === normalizedOpponent) ??
-    null
-  );
-}
-
-function formatStandingRank(row: GGArenaStandingRow | null) {
+function formatStandingRank(row: TournamentOpponentScoutSummary["standing"]) {
   if (!row?.rank) return "Pending";
   return `#${row.rank}${row.points === null ? "" : ` · ${row.points} pts`}`;
 }
 
-function formatStandingRecord(row: GGArenaStandingRow | null) {
+function formatStandingRecord(row: TournamentOpponentScoutSummary["standing"]) {
   if (!row) return "Pending";
   const parts = [
     row.wins === null ? null : `${row.wins}W`,
@@ -502,6 +620,23 @@ function formatStandingRecord(row: GGArenaStandingRow | null) {
   return parts.join(" ") || (row.played === null ? "Pending" : `${row.played} played`);
 }
 
-function normalizeName(value: string) {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, "");
+function formatScoutResult(result: "win" | "loss" | "draw") {
+  if (result === "win") return "W";
+  if (result === "loss") return "L";
+  return "D";
+}
+
+function shortMetricLabel(label: string) {
+  const normalized = label.toLowerCase();
+  if (normalized.includes("assist")) return "A";
+  if (normalized.includes("death")) return "D";
+  if (normalized.includes("headshot")) return "HS";
+  if (normalized.includes("kill")) return "K";
+  if (normalized.includes("combat")) return "ACS";
+  return label;
+}
+
+function formatMetricValue(value: number) {
+  if (Number.isInteger(value)) return String(value);
+  return value.toFixed(1);
 }

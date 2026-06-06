@@ -43,6 +43,7 @@ export interface GGArenaSnapshot {
   competitions: GGArenaCompetition[];
   divisions: GGArenaDivision[];
   signups: GGArenaSignup[];
+  scoutingMatchups: GGArenaMatchup[];
   nextMatchups: GGArenaMatchup[];
   recentMatchups: GGArenaMatchup[];
   standings: GGArenaStandingRow[];
@@ -84,6 +85,7 @@ export async function getSurfBullsArenaSnapshot(): Promise<GGArenaSnapshot> {
       competitions: [],
       divisions: [],
       signups: [],
+      scoutingMatchups: [],
       nextMatchups: [],
       recentMatchups: [],
       standings: [],
@@ -120,6 +122,7 @@ export async function getSurfBullsArenaSnapshot(): Promise<GGArenaSnapshot> {
         competitions: [],
         divisions: [],
         signups: [],
+        scoutingMatchups: [],
         nextMatchups: [],
         recentMatchups: [],
         standings: [],
@@ -153,14 +156,14 @@ export async function getSurfBullsArenaSnapshot(): Promise<GGArenaSnapshot> {
       targetCompetitionIds.includes(competition.id ?? -1),
     );
 
-    const [matchups, standings, stats] = await Promise.all([
+    const [matchupBundle, standings, stats] = await Promise.all([
       fetchSurfMatchups(targetDivisionIds, targetCompetitionIds, lookupContext, warnings),
       fetchStandings(targetDivisions, targetCompetitions, lookupContext),
       fetchStats(targetDivisions, targetCompetitions, lookupContext),
     ]);
 
     const enrichedStats = await hydrateStatsWithTeamRosters(stats, standings, warnings);
-    const sorted = sortMatchups(matchups);
+    const sorted = sortMatchups(matchupBundle.surfMatchups);
     const upcoming = sorted.filter((matchup) => isUpcomingMatchup(matchup));
     const recent = sorted
       .filter((matchup) => !isUpcomingMatchup(matchup))
@@ -175,6 +178,7 @@ export async function getSurfBullsArenaSnapshot(): Promise<GGArenaSnapshot> {
       competitions: bundle.competitions,
       divisions: bundle.divisions,
       signups: bundle.signups,
+      scoutingMatchups: sortMatchups(matchupBundle.scoutingMatchups),
       nextMatchups: upcoming.slice(0, 6),
       recentMatchups: recent,
       standings: sortScopedRows(standings),
@@ -193,6 +197,7 @@ export async function getSurfBullsArenaSnapshot(): Promise<GGArenaSnapshot> {
       competitions: [],
       divisions: [],
       signups: [],
+      scoutingMatchups: [],
       nextMatchups: [],
       recentMatchups: [],
       standings: [],
@@ -204,7 +209,7 @@ export async function getSurfBullsArenaSnapshot(): Promise<GGArenaSnapshot> {
 
 export const getCachedSurfBullsArenaSnapshot = unstable_cache(
   getSurfBullsArenaSnapshot,
-  ["surf-bulls-ggarena-snapshot-v1"],
+  ["surf-bulls-ggarena-snapshot-v2"],
   { revalidate: 60 },
 );
 
@@ -472,7 +477,10 @@ async function fetchSurfMatchups(
     );
   }
 
-  return enrichMatchupDetails(surfMatchups, context, warnings);
+  return {
+    scoutingMatchups: normalized,
+    surfMatchups: await enrichMatchupDetails(surfMatchups, context, warnings),
+  };
 }
 
 async function enrichMatchupDetails(

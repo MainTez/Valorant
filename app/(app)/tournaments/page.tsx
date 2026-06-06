@@ -34,6 +34,7 @@ import {
   TOURNAMENT_MATCH_PREP_VERBS,
   buildTournamentMatchPrepSummary,
 } from "@/lib/tournaments/match-prep";
+import { buildTournamentOpponentScout } from "@/lib/tournaments/opponent-scouting";
 import {
   ACTIVE_TOURNAMENT_OPT_IN_KEY,
   buildTournamentOptInSummary,
@@ -119,17 +120,27 @@ export default async function TournamentsPage({ searchParams }: TournamentsPageP
       ? findPrepMatchup(snapshot, selectedMatchId)
       : null;
   const prepMatchupKey = prepMatchup ? matchupLookupKey(prepMatchup) : null;
-  const { data: prepEvents } = prepMatchupKey
-    ? await supabase
-        .from("activity_events")
-        .select("actor_id, verb, object_id, payload, created_at")
-        .eq("team_id", team.id)
-        .eq("object_type", TOURNAMENT_MATCH_PREP_OBJECT_TYPE)
-        .eq("object_id", prepMatchupKey)
-        .in("verb", [...TOURNAMENT_MATCH_PREP_VERBS])
-        .order("created_at", { ascending: false })
-        .limit(250)
-    : { data: [] };
+  const [{ data: prepEvents }, { data: prepNoteEvents }] = prepMatchupKey
+    ? await Promise.all([
+        supabase
+          .from("activity_events")
+          .select("actor_id, verb, object_id, payload, created_at")
+          .eq("team_id", team.id)
+          .eq("object_type", TOURNAMENT_MATCH_PREP_OBJECT_TYPE)
+          .eq("object_id", prepMatchupKey)
+          .in("verb", [...TOURNAMENT_MATCH_PREP_VERBS])
+          .order("created_at", { ascending: false })
+          .limit(250),
+        supabase
+          .from("activity_events")
+          .select("actor_id, verb, object_id, payload, created_at")
+          .eq("team_id", team.id)
+          .eq("object_type", TOURNAMENT_MATCH_PREP_OBJECT_TYPE)
+          .eq("verb", "tournament_prep_notes_updated")
+          .order("created_at", { ascending: false })
+          .limit(500),
+      ])
+    : [{ data: [] }, { data: [] }];
   const prepSummary =
     prepMatchupKey && prepMatchup
       ? buildTournamentMatchPrepSummary({
@@ -168,6 +179,7 @@ export default async function TournamentsPage({ searchParams }: TournamentsPageP
           optInSummary={optInSummary}
           prepMatchup={prepMatchup}
           prepSummary={prepSummary}
+          prepNoteEvents={(prepNoteEvents ?? []) as Pick<ActivityEventRow, "actor_id" | "verb" | "object_id" | "payload" | "created_at">[]}
           agentPools={agentPools}
           currentUserId={user.id}
           selectedMatchId={selectedMatchId}
@@ -186,6 +198,7 @@ function TournamentDashboard({
   canManageOptIn,
   currentUserId,
   prepMatchup,
+  prepNoteEvents,
   prepSummary,
   selectedMatchId,
   snapshot,
@@ -195,12 +208,14 @@ function TournamentDashboard({
   canManageOptIn: boolean;
   currentUserId: string;
   prepMatchup: GGArenaMatchup | null;
+  prepNoteEvents: Pick<ActivityEventRow, "actor_id" | "verb" | "object_id" | "payload" | "created_at">[];
   prepSummary: ReturnType<typeof buildTournamentMatchPrepSummary> | null;
   selectedMatchId: string | null;
   snapshot: GGArenaSnapshot;
 }) {
   const next = snapshot.nextMatchups[0] ?? null;
   const surfStanding = snapshot.standings.find((row) => row.isSurfBulls) ?? null;
+  const noteMatchups = [...snapshot.nextMatchups, ...snapshot.recentMatchups];
 
   return (
     <>
@@ -230,7 +245,14 @@ function TournamentDashboard({
           agentPools={agentPools}
           matchup={prepMatchup}
           optInSummary={optInSummary}
-          standings={snapshot.standings}
+          opponentScout={buildTournamentOpponentScout({
+            matchup: prepMatchup,
+            noteMatchups,
+            prepNoteEvents,
+            scoutingMatchups: snapshot.scoutingMatchups,
+            standings: snapshot.standings,
+            stats: snapshot.stats,
+          })}
         />
       ) : null}
 

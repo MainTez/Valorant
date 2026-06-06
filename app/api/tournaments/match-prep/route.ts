@@ -22,7 +22,10 @@ const MatchPrepPayload = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("notes"),
     matchup_key: z.string().min(1).max(220),
+    division_name: z.string().max(160).nullable().optional(),
+    matchup_starts_at: z.string().nullable().optional(),
     notes: z.string().max(4000),
+    opponent_name: z.string().max(160).optional(),
   }),
   z.object({
     action: z.literal("ready"),
@@ -88,7 +91,12 @@ export async function POST(request: NextRequest) {
 
     if (body.action === "notes") {
       verb = "tournament_prep_notes_updated";
-      payload = { notes: body.notes.trim() };
+      payload = {
+        division_name: body.division_name?.trim() || null,
+        matchup_starts_at: body.matchup_starts_at?.trim() || null,
+        notes: body.notes.trim(),
+        opponent_name: body.opponent_name?.trim() || null,
+      };
     } else if (body.action === "checklist") {
       verb = "tournament_prep_checklist_updated";
       payload = {
