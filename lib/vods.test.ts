@@ -6,12 +6,16 @@ import {
   assertValidMatchVodUpload,
   assertValidVodClipUpload,
   buildMatchVodObjectPath,
+  buildVodClipPlayerTag,
   buildVodClipObjectPath,
   canDeleteMatch,
   getReviewLinkProvider,
+  getVodClipPlayerTagId,
   isMatchVodPathForMatch,
   isMatchVodPathForTeam,
   isVodClipPathForTeam,
+  normalizeVodClipTag,
+  normalizeVodClipTags,
   resolveMatchVodSource,
   resolveVodClipSource,
   sanitizeMatchVodFileName,
@@ -196,6 +200,37 @@ test("buildVodClipObjectPath nests clips under the team clip folder", () => {
       uploadId: "clip-123",
     }),
     "team-456/clips/clip-123-round-18-retake.mp4",
+  );
+});
+
+test("normalizeVodClipTags slugifies, dedupes, and caps freeform clip tags", () => {
+  assert.deepEqual(
+    normalizeVodClipTags([
+      " Retake ",
+      "retake",
+      "Post Plant",
+      "COMMS!",
+      "",
+      "too-many".repeat(20),
+    ]),
+    ["retake", "post-plant", "comms", "too-manytoo-manytoo-manytoo"],
+  );
+
+  assert.equal(
+    normalizeVodClipTags(Array.from({ length: 20 }, (_, index) => `tag ${index}`)).length,
+    16,
+  );
+  assert.equal(normalizeVodClipTag("   "), null);
+});
+
+test("normalizeVodClipTags preserves player tags for filtering clips by player", () => {
+  const playerTag = buildVodClipPlayerTag("A0B1C2D3-1111-2222-3333-444455556666");
+
+  assert.equal(playerTag, "player:a0b1c2d3-1111-2222-3333-444455556666");
+  assert.equal(getVodClipPlayerTagId(playerTag), "a0b1c2d3-1111-2222-3333-444455556666");
+  assert.deepEqual(
+    normalizeVodClipTags([playerTag, "mistake", " Mistake "]),
+    [playerTag, "mistake"],
   );
 });
 

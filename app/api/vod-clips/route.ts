@@ -5,8 +5,10 @@ import { logActivity } from "@/lib/audit";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { deleteVodClipObject } from "@/lib/vods.server";
 import {
+  VOD_CLIP_MAX_TAGS,
   VOD_CLIP_MAX_FILE_BYTES,
   isVodClipPathForTeam,
+  normalizeVodClipTags,
 } from "@/lib/vods";
 
 export const runtime = "nodejs";
@@ -26,7 +28,7 @@ const CreateClipPayload = z.object({
   source_type: z.enum(["upload", "external"]),
   start_seconds: Seconds,
   storage_path: z.string().min(1).max(500).nullable().optional(),
-  tags: z.array(z.string().trim().min(1).max(28)).max(8).optional(),
+  tags: z.array(z.string().trim().min(1).max(80)).max(VOD_CLIP_MAX_TAGS).optional(),
   title: z.string().trim().min(1).max(100),
 });
 
@@ -68,6 +70,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Paste a clip URL or upload a file." }, { status: 400 });
     }
 
+    const tags = normalizeVodClipTags(body.tags ?? []);
     const supabase = await createSupabaseServerClient();
     const { data, error } = await supabase
       .from("vod_clips")
@@ -85,7 +88,7 @@ export async function POST(request: NextRequest) {
         source_type: body.source_type,
         start_seconds: body.start_seconds ?? null,
         storage_path: body.source_type === "upload" ? body.storage_path : null,
-        tags: body.tags ?? [],
+        tags,
         team_id: team.id,
         title: body.title,
       })

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireSession } from "@/lib/auth/get-session";
 import { logActivity } from "@/lib/audit";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { VOD_CLIP_MAX_TAGS, normalizeVodClipTags } from "@/lib/vods";
 import { deleteVodClipObject } from "@/lib/vods.server";
 
 export const runtime = "nodejs";
@@ -13,7 +14,7 @@ const UpdateClipPayload = z.object({
   map: z.string().trim().max(40).nullable().optional(),
   opponent: z.string().trim().max(80).nullable().optional(),
   start_seconds: z.number().int().min(0).max(24 * 60 * 60).nullable().optional(),
-  tags: z.array(z.string().trim().min(1).max(28)).max(8).optional(),
+  tags: z.array(z.string().trim().min(1).max(80)).max(VOD_CLIP_MAX_TAGS).optional(),
   title: z.string().trim().min(1).max(100).optional(),
 });
 
@@ -43,13 +44,16 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
       );
     }
 
+    const update = {
+      ...body,
+      tags: body.tags ? normalizeVodClipTags(body.tags) : undefined,
+      updated_at: new Date().toISOString(),
+    };
+
     const supabase = await createSupabaseServerClient();
     const { data, error } = await supabase
       .from("vod_clips")
-      .update({
-        ...body,
-        updated_at: new Date().toISOString(),
-      })
+      .update(update)
       .eq("id", id)
       .eq("team_id", team.id)
       .select("*")

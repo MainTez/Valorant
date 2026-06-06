@@ -6,7 +6,17 @@ export const MATCH_VOD_SUPABASE_FALLBACK_MAX_FILE_BYTES = 50 * 1024 * 1024;
 export const R2_VOD_STORAGE_PREFIX = "r2:";
 export const VOD_CLIP_BUCKET = "vod-clips";
 export const VOD_CLIP_MAX_FILE_BYTES = 1024 * 1024 * 1024;
+export const VOD_CLIP_MAX_TAGS = 16;
+export const VOD_CLIP_PLAYER_TAG_PREFIX = "player:";
 export const VOD_CLIP_SIGNED_URL_TTL_SECONDS = 60 * 60;
+export const VOD_CLIP_PROBLEM_TAGS = [
+  "retake",
+  "entry",
+  "utility",
+  "comms",
+  "clutch",
+  "mistake",
+] as const;
 
 const MP4_MIME_TYPES = new Set(["video/mp4", "application/mp4"]);
 export const VOD_CLIP_ALLOWED_MIME_TYPES = ["video/mp4", "video/webm"];
@@ -15,6 +25,7 @@ const DIRECT_VIDEO_EXTENSIONS = /\.(mp4|webm|ogg|ogv|m4v)(?:$|[?#])/i;
 export const REVIEW_LINK_PROVIDERS = ["Outplayed", "Ascent", "Medal"] as const;
 
 export type ReviewLinkProvider = (typeof REVIEW_LINK_PROVIDERS)[number] | "External";
+export type VodClipProblemTag = (typeof VOD_CLIP_PROBLEM_TAGS)[number];
 
 export interface MatchVodUploadInput {
   fileName: string;
@@ -85,6 +96,61 @@ export function sanitizeVodClipFileName(fileName: string): string {
     .slice(0, 120);
 
   return `${safeBase || "clip"}.${extension}`;
+}
+
+export function buildVodClipPlayerTag(userId: string): string {
+  return `${VOD_CLIP_PLAYER_TAG_PREFIX}${userId.trim().toLowerCase()}`;
+}
+
+export function getVodClipPlayerTagId(tag: string): string | null {
+  const normalized = tag.trim().toLowerCase();
+  if (!normalized.startsWith(VOD_CLIP_PLAYER_TAG_PREFIX)) return null;
+
+  const id = normalized.slice(VOD_CLIP_PLAYER_TAG_PREFIX.length).trim();
+  return id.length > 0 ? id : null;
+}
+
+export function isVodClipPlayerTag(tag: string): boolean {
+  return getVodClipPlayerTagId(tag) !== null;
+}
+
+export function normalizeVodClipTag(tag: string): string | null {
+  const trimmed = tag.trim();
+  if (!trimmed) return null;
+
+  const playerId = getVodClipPlayerTagId(trimmed);
+  if (playerId) {
+    return buildVodClipPlayerTag(playerId).slice(0, 80);
+  }
+
+  const normalized = trimmed
+    .normalize("NFKD")
+    .toLowerCase()
+    .replace(/['’]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 28)
+    .replace(/^-+|-+$/g, "");
+
+  return normalized || null;
+}
+
+export function normalizeVodClipTags(tags: string[] | string): string[] {
+  const rawTags = Array.isArray(tags) ? tags : tags.split(",");
+  const seen = new Set<string>();
+  const normalizedTags: string[] = [];
+
+  for (const rawTag of rawTags) {
+    const tag = normalizeVodClipTag(rawTag);
+    if (!tag || seen.has(tag)) continue;
+
+    seen.add(tag);
+    normalizedTags.push(tag);
+
+    if (normalizedTags.length >= VOD_CLIP_MAX_TAGS) break;
+  }
+
+  return normalizedTags;
 }
 
 export function assertValidMatchVodUpload(input: MatchVodUploadInput): void {

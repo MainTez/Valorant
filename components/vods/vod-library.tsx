@@ -1,20 +1,24 @@
 "use client";
 
 import Link from "next/link";
-import type { ReactNode } from "react";
-import { useRef, useState } from "react";
+import type { FormEvent, ReactNode } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Calendar,
+  Check,
   Clock,
   ExternalLink,
   Film,
+  Filter,
   Link2,
   Map as MapIcon,
   Plus,
   Scissors,
+  Tag,
   Swords,
   Trash2,
+  UserRound,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -28,20 +32,26 @@ import { createVodClip, uploadVodClip } from "@/lib/vods.client";
 import {
   REVIEW_LINK_PROVIDERS,
   VOD_CLIP_MAX_FILE_BYTES,
+  VOD_CLIP_PROBLEM_TAGS,
+  buildVodClipPlayerTag,
   formatVideoBytes,
   getReviewLinkProvider,
+  getVodClipPlayerTagId,
   isDirectVideoUrl,
+  normalizeVodClipTags,
   resolveMatchVodSource,
 } from "@/lib/vods";
 import { formatNorwayDateTime } from "@/lib/timezone";
 import type { MatchRow, Role, UserRow, VodClipRow } from "@/types/domain";
+
+type TeamMember = Pick<UserRow, "id" | "display_name" | "email" | "avatar_url">;
 
 interface Props {
   clips: VodClipRow[];
   currentUserId: string;
   currentUserRole: Role;
   matches: MatchRow[];
-  members: Array<Pick<UserRow, "id" | "display_name" | "email" | "avatar_url">>;
+  members: TeamMember[];
   teamName: string;
 }
 
@@ -51,6 +61,8 @@ interface MatchCreateResponse {
 }
 
 type LibraryTab = "vods" | "clips";
+const ALL_FILTER_VALUE = "__all";
+const VOD_CLIP_PROBLEM_TAG_SET = new Set<string>(VOD_CLIP_PROBLEM_TAGS);
 
 export function VodLibrary({
   clips,
@@ -60,12 +72,52 @@ export function VodLibrary({
   members,
   teamName,
 }: Props) {
+  const [clipProblemFilter, setClipProblemFilter] = useState(ALL_FILTER_VALUE);
+  const [clipPlayerFilter, setClipPlayerFilter] = useState(ALL_FILTER_VALUE);
+  const [clipMapFilter, setClipMapFilter] = useState(ALL_FILTER_VALUE);
+  const [clipSearch, setClipSearch] = useState("");
   const vodMatches = matches.filter((match) => resolveMatchVodSource(match).kind !== "missing");
   const totalVodBytes = vodMatches.reduce(
     (sum, match) => sum + (match.vod_size_bytes ?? 0),
     0,
   );
   const totalClipBytes = clips.reduce((sum, clip) => sum + (clip.size_bytes ?? 0), 0);
+  const memberOptions = useMemo(() => sortMembers(members), [members]);
+  const clipMapOptions = useMemo(() => {
+    const maps = new Set<string>();
+    for (const clip of clips) {
+      const map = clip.map?.trim();
+      if (map) maps.add(map);
+    }
+    return Array.from(maps).sort((a, b) => a.localeCompare(b));
+  }, [clips]);
+  const filteredClips = useMemo(
+    () =>
+      clips.filter((clip) =>
+        matchesClipFilters({
+          clip,
+          mapFilter: clipMapFilter,
+          members: memberOptions,
+          playerFilter: clipPlayerFilter,
+          problemFilter: clipProblemFilter,
+          search: clipSearch,
+        }),
+      ),
+    [clipMapFilter, clipPlayerFilter, clipProblemFilter, clipSearch, clips, memberOptions],
+  );
+  const activeClipFilterCount = [
+    clipProblemFilter !== ALL_FILTER_VALUE,
+    clipPlayerFilter !== ALL_FILTER_VALUE,
+    clipMapFilter !== ALL_FILTER_VALUE,
+    clipSearch.trim().length > 0,
+  ].filter(Boolean).length;
+
+  function clearClipFilters() {
+    setClipProblemFilter(ALL_FILTER_VALUE);
+    setClipPlayerFilter(ALL_FILTER_VALUE);
+    setClipMapFilter(ALL_FILTER_VALUE);
+    setClipSearch("");
+  }
 
   return (
     <Tabs defaultValue="vods" className="flex flex-col gap-5">
@@ -130,23 +182,50 @@ export function VodLibrary({
 
       <TabsContent value="clips" className="mt-0">
         <section className="grid grid-cols-1 gap-4 xl:grid-cols-[380px_1fr]">
-          <ClipForm matches={matches} />
+          <ClipForm matches={matches} members={memberOptions} />
           <div className="grid gap-4">
             <div>
               <div className="eyebrow">Clip desk</div>
-              <h2 className="mt-1 font-display text-2xl tracking-wide">
-                Review moments
-              </h2>
+              <div className="mt-1 flex flex-wrap items-end justify-between gap-3">
+                <h2 className="font-display text-2xl tracking-wide">Review moments</h2>
+                {clips.length > 0 ? (
+                  <div className="text-xs uppercase tracking-[0.16em] text-[color:var(--color-muted)]">
+                    {filteredClips.length}/{clips.length} showing
+                  </div>
+                ) : null}
+              </div>
             </div>
+            {clips.length > 0 ? (
+              <ClipFilters
+                activeFilterCount={activeClipFilterCount}
+                mapFilter={clipMapFilter}
+                maps={clipMapOptions}
+                onClear={clearClipFilters}
+                onMapFilterChange={setClipMapFilter}
+                onPlayerFilterChange={setClipPlayerFilter}
+                onProblemFilterChange={setClipProblemFilter}
+                onSearchChange={setClipSearch}
+                playerFilter={clipPlayerFilter}
+                players={memberOptions}
+                problemFilter={clipProblemFilter}
+                search={clipSearch}
+              />
+            ) : null}
             {clips.length === 0 ? (
               <EmptyPanel
                 icon={Scissors}
                 title="No clips saved yet"
                 description="Create a clip from an uploaded file or paste a direct video link."
               />
+            ) : filteredClips.length === 0 ? (
+              <EmptyPanel
+                icon={Filter}
+                title="No clips match those filters"
+                description="Clear a filter or tag the next Medal, Outplayed, or Ascent clip with this context."
+              />
             ) : (
               <div className="grid grid-cols-1 gap-4 2xl:grid-cols-2">
-                {clips.map((clip) => (
+                {filteredClips.map((clip) => (
                   <ClipCard
                     key={clip.id}
                     clip={clip}
@@ -175,7 +254,7 @@ function FullVodForm() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     const externalUrl = String(form.get("vod_url") ?? "").trim();
@@ -294,16 +373,18 @@ function FullVodForm() {
   );
 }
 
-function ClipForm({ matches }: { matches: MatchRow[] }) {
+function ClipForm({ matches, members }: { matches: MatchRow[]; members: TeamMember[] }) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [sourceType, setSourceType] = useState<"upload" | "external">("upload");
+  const [selectedProblemTags, setSelectedProblemTags] = useState<string[]>([]);
+  const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([]);
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     const fileValue = form.get("clip_file");
@@ -316,11 +397,12 @@ function ClipForm({ matches }: { matches: MatchRow[] }) {
     const description = String(form.get("description") ?? "").trim() || null;
     const map = String(form.get("map") ?? "").trim() || null;
     const opponent = String(form.get("opponent") ?? "").trim() || null;
-    const tags = String(form.get("tags") ?? "")
-      .split(",")
-      .map((tag) => tag.trim())
-      .filter(Boolean)
-      .slice(0, 8);
+    const manualTags = String(form.get("tags") ?? "").split(",");
+    const tags = normalizeVodClipTags([
+      ...selectedProblemTags,
+      ...selectedPlayerIds.map(buildVodClipPlayerTag),
+      ...manualTags,
+    ]);
 
     if (sourceType === "upload" && !file) {
       setError("Choose a clip file before saving.");
@@ -368,6 +450,8 @@ function ClipForm({ matches }: { matches: MatchRow[] }) {
         fileInputRef.current.value = "";
       }
       setSourceType("upload");
+      setSelectedProblemTags([]);
+      setSelectedPlayerIds([]);
       setMessage("Clip saved.");
       router.refresh();
     } catch (submitError) {
@@ -456,9 +540,52 @@ function ClipForm({ matches }: { matches: MatchRow[] }) {
         </Field>
       </div>
 
-      <Field label="Tags">
-        <Input name="tags" placeholder="eco, retake, comms" />
-      </Field>
+      <div className="grid gap-1.5">
+        <Label>Tags</Label>
+        <div className="grid gap-3">
+          <div>
+            <div className="mb-2 text-xs uppercase tracking-[0.16em] text-[color:var(--color-muted)]">
+              Problem
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {VOD_CLIP_PROBLEM_TAGS.map((tag) => (
+                <TagToggleButton
+                  key={tag}
+                  active={selectedProblemTags.includes(tag)}
+                  icon={Tag}
+                  onClick={() => setSelectedProblemTags((current) => toggleValue(current, tag))}
+                >
+                  {tag}
+                </TagToggleButton>
+              ))}
+            </div>
+          </div>
+
+          {members.length > 0 ? (
+            <div>
+              <div className="mb-2 text-xs uppercase tracking-[0.16em] text-[color:var(--color-muted)]">
+                Players
+              </div>
+              <div className="flex max-h-32 flex-wrap gap-2 overflow-y-auto pr-1">
+                {members.map((member) => (
+                  <TagToggleButton
+                    key={member.id}
+                    active={selectedPlayerIds.includes(member.id)}
+                    icon={UserRound}
+                    onClick={() =>
+                      setSelectedPlayerIds((current) => toggleValue(current, member.id))
+                    }
+                  >
+                    {formatMemberName(member)}
+                  </TagToggleButton>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          <Input name="tags" placeholder="eco, pistol, post-plant" />
+        </div>
+      </div>
 
       <Field label="Notes">
         <Textarea name="description" placeholder="What should the team notice?" />
@@ -475,6 +602,145 @@ function ClipForm({ matches }: { matches: MatchRow[] }) {
   );
 }
 
+function ClipFilters({
+  activeFilterCount,
+  mapFilter,
+  maps,
+  onClear,
+  onMapFilterChange,
+  onPlayerFilterChange,
+  onProblemFilterChange,
+  onSearchChange,
+  playerFilter,
+  players,
+  problemFilter,
+  search,
+}: {
+  activeFilterCount: number;
+  mapFilter: string;
+  maps: string[];
+  onClear: () => void;
+  onMapFilterChange: (value: string) => void;
+  onPlayerFilterChange: (value: string) => void;
+  onProblemFilterChange: (value: string) => void;
+  onSearchChange: (value: string) => void;
+  playerFilter: string;
+  players: TeamMember[];
+  problemFilter: string;
+  search: string;
+}) {
+  return (
+    <div className="grid gap-3 rounded-xl border border-white/8 bg-white/[0.025] p-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.16em] text-[color:var(--color-muted)]">
+          <Filter className="h-3.5 w-3.5 text-[color:var(--accent)]" />
+          Filters
+        </div>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={activeFilterCount === 0}
+          onClick={onClear}
+        >
+          Clear {activeFilterCount > 0 ? `(${activeFilterCount})` : ""}
+        </Button>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-1.5">
+          <Label htmlFor="clip-filter-problem">Problem</Label>
+          <select
+            id="clip-filter-problem"
+            className="vod-native-input"
+            value={problemFilter}
+            onChange={(event) => onProblemFilterChange(event.target.value)}
+          >
+            <option value={ALL_FILTER_VALUE}>All problems</option>
+            {VOD_CLIP_PROBLEM_TAGS.map((tag) => (
+              <option key={tag} value={tag}>
+                {tag}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="grid gap-1.5">
+          <Label htmlFor="clip-filter-player">Player</Label>
+          <select
+            id="clip-filter-player"
+            className="vod-native-input"
+            value={playerFilter}
+            onChange={(event) => onPlayerFilterChange(event.target.value)}
+          >
+            <option value={ALL_FILTER_VALUE}>All players</option>
+            {players.map((player) => (
+              <option key={player.id} value={player.id}>
+                {formatMemberName(player)}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="grid gap-1.5">
+          <Label htmlFor="clip-filter-map">Map</Label>
+          <select
+            id="clip-filter-map"
+            className="vod-native-input"
+            value={mapFilter}
+            onChange={(event) => onMapFilterChange(event.target.value)}
+          >
+            <option value={ALL_FILTER_VALUE}>All maps</option>
+            {maps.map((map) => (
+              <option key={map} value={map}>
+                {map}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="grid gap-1.5">
+          <Label htmlFor="clip-filter-search">Search</Label>
+          <Input
+            id="clip-filter-search"
+            value={search}
+            onChange={(event) => onSearchChange(event.target.value)}
+            placeholder="Title, team, tag"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TagToggleButton({
+  active,
+  children,
+  icon: Icon,
+  onClick,
+}: {
+  active: boolean;
+  children: ReactNode;
+  icon: LucideIcon;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={active}
+      onClick={onClick}
+      className={
+        active
+          ? "inline-flex h-8 max-w-full items-center gap-1.5 rounded-md border border-[color:var(--accent-soft)] bg-[color:var(--accent-dim)] px-2.5 text-xs font-bold uppercase tracking-[0.12em] text-[color:var(--accent)] transition"
+          : "inline-flex h-8 max-w-full items-center gap-1.5 rounded-md border border-white/8 bg-white/[0.025] px-2.5 text-xs font-bold uppercase tracking-[0.12em] text-[color:var(--color-muted)] transition hover:border-white/16 hover:text-[color:var(--color-text)]"
+      }
+    >
+      {active ? <Check className="h-3.5 w-3.5 shrink-0" /> : <Icon className="h-3.5 w-3.5 shrink-0" />}
+      <span className="truncate">{children}</span>
+    </button>
+  );
+}
+
 function VodLibraryCard({
   canCreateReviewAction,
   match,
@@ -482,7 +748,7 @@ function VodLibraryCard({
 }: {
   canCreateReviewAction: boolean;
   match: MatchRow;
-  members: Array<Pick<UserRow, "id" | "display_name" | "email" | "avatar_url">>;
+  members: TeamMember[];
 }) {
   const source = resolveMatchVodSource(match);
   const linkProvider =
@@ -561,13 +827,20 @@ function ClipCard({
   canCreateReviewAction: boolean;
   canManage: boolean;
   clip: VodClipRow;
-  members: Array<Pick<UserRow, "id" | "display_name" | "email" | "avatar_url">>;
+  members: TeamMember[];
 }) {
   const router = useRouter();
   const [deleting, setDeleting] = useState(false);
   const playable =
     clip.source_type === "upload" ||
     (clip.external_url ? isDirectVideoUrl(clip.external_url) : false);
+  const tagChips = getClipTagChips(clip.tags, members);
+  const taggedPlayers = tagChips
+    .filter((chip) => chip.kind === "player")
+    .map((chip) => chip.label);
+  const reviewProblems = tagChips
+    .filter((chip) => chip.kind === "problem")
+    .map((chip) => chip.label);
 
   async function onDelete() {
     setDeleting(true);
@@ -637,14 +910,20 @@ function ClipCard({
           <Meta icon={Film}>{clip.size_bytes ? formatVideoBytes(clip.size_bytes) : "Link"}</Meta>
         </div>
 
-        {clip.tags.length > 0 ? (
+        {tagChips.length > 0 ? (
           <div className="flex flex-wrap gap-1.5">
-            {clip.tags.map((tag) => (
+            {tagChips.map((tag) => (
               <span
-                key={tag}
-                className="rounded-md border border-white/8 bg-white/[0.025] px-2 py-1 text-[10px] uppercase tracking-[0.12em] text-[color:var(--color-muted)]"
+                key={tag.key}
+                className={
+                  tag.kind === "player"
+                    ? "rounded-md border border-sky-300/25 bg-sky-400/10 px-2 py-1 text-[10px] uppercase tracking-[0.12em] text-sky-100"
+                    : tag.kind === "problem"
+                      ? "rounded-md border border-[color:var(--accent-soft)] bg-[color:var(--accent-dim)] px-2 py-1 text-[10px] uppercase tracking-[0.12em] text-[color:var(--accent)]"
+                      : "rounded-md border border-white/8 bg-white/[0.025] px-2 py-1 text-[10px] uppercase tracking-[0.12em] text-[color:var(--color-muted)]"
+                }
               >
-                {tag}
+                {tag.label}
               </span>
             ))}
           </div>
@@ -672,6 +951,8 @@ function ClipCard({
                 clip.map ? `Map: ${clip.map}` : null,
                 clip.opponent ? `Opponent: ${clip.opponent}` : null,
                 `Window: ${formatClipWindow(clip)}`,
+                reviewProblems.length > 0 ? `Problems: ${reviewProblems.join(", ")}` : null,
+                taggedPlayers.length > 0 ? `Players: ${taggedPlayers.join(", ")}` : null,
               ].filter(Boolean) as string[],
               type: "clip",
             }}
@@ -781,6 +1062,95 @@ function nullableNumber(value: FormDataEntryValue | null) {
   if (!raw) return null;
   const parsed = Number(raw);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function toggleValue(values: string[], value: string) {
+  return values.includes(value)
+    ? values.filter((currentValue) => currentValue !== value)
+    : [...values, value];
+}
+
+function sortMembers(members: TeamMember[]) {
+  return [...members].sort((a, b) => formatMemberName(a).localeCompare(formatMemberName(b)));
+}
+
+function formatMemberName(member: TeamMember) {
+  return member.display_name?.trim() || member.email?.split("@")[0] || "Player";
+}
+
+function matchesClipFilters({
+  clip,
+  mapFilter,
+  members,
+  playerFilter,
+  problemFilter,
+  search,
+}: {
+  clip: VodClipRow;
+  mapFilter: string;
+  members: TeamMember[];
+  playerFilter: string;
+  problemFilter: string;
+  search: string;
+}) {
+  const tags = normalizeVodClipTags(clip.tags);
+
+  if (problemFilter !== ALL_FILTER_VALUE && !tags.includes(problemFilter)) {
+    return false;
+  }
+
+  if (
+    playerFilter !== ALL_FILTER_VALUE &&
+    !tags.includes(buildVodClipPlayerTag(playerFilter))
+  ) {
+    return false;
+  }
+
+  if (
+    mapFilter !== ALL_FILTER_VALUE &&
+    clip.map?.trim().toLowerCase() !== mapFilter.toLowerCase()
+  ) {
+    return false;
+  }
+
+  const query = search.trim().toLowerCase();
+  if (!query) return true;
+
+  const tagText = getClipTagChips(tags, members)
+    .map((tag) => tag.label)
+    .join(" ");
+  const haystack = [
+    clip.title,
+    clip.description,
+    clip.map,
+    clip.opponent,
+    tagText,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  return haystack.includes(query);
+}
+
+function getClipTagChips(tags: string[], members: TeamMember[]) {
+  return normalizeVodClipTags(tags).map((tag) => {
+    const playerId = getVodClipPlayerTagId(tag);
+    if (playerId) {
+      const member = members.find((candidate) => candidate.id.toLowerCase() === playerId);
+      return {
+        key: tag,
+        kind: "player" as const,
+        label: member ? formatMemberName(member) : "Player",
+      };
+    }
+
+    return {
+      key: tag,
+      kind: VOD_CLIP_PROBLEM_TAG_SET.has(tag) ? ("problem" as const) : ("extra" as const),
+      label: tag.replace(/-/g, " "),
+    };
+  });
 }
 
 function toDateTimeLocal(date: Date) {
