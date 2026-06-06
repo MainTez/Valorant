@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, ChevronRight, Plus, Trash2 } from "lucide-react";
+import { ArrowRight, ChevronLeft, ChevronRight, Plus, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,6 +25,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { cn, initials, relativeTime } from "@/lib/utils";
+import { parseReviewActionDescription } from "@/lib/review-actions";
 import type { TaskRow, UserRow } from "@/types/domain";
 
 interface Props {
@@ -177,6 +179,7 @@ export function TaskBoard({ tasks, members }: Props) {
                 ) : (
                   colTasks.map((t) => {
                     const assignee = members.find((m) => m.id === t.assignee_id);
+                    const reviewAction = parseReviewActionDescription(t.description);
                     return (
                       <div
                         key={t.id}
@@ -196,7 +199,27 @@ export function TaskBoard({ tasks, members }: Props) {
                             {t.priority}
                           </Badge>
                         </div>
-                        {t.description ? (
+                        {reviewAction ? (
+                          <div className="mt-2 rounded-lg border border-[color:var(--accent-soft)] bg-[color:var(--accent-dim)] px-3 py-2">
+                            <div className="text-[10px] uppercase tracking-[0.16em] text-[color:var(--accent)]">
+                              Review action
+                            </div>
+                            {reviewAction.body ? (
+                              <p className="mt-1 text-xs leading-5 text-[color:var(--color-muted)] line-clamp-3">
+                                {reviewAction.body}
+                              </p>
+                            ) : null}
+                            {reviewAction.href ? (
+                              <Link
+                                href={reviewAction.href}
+                                className="mt-2 inline-flex items-center gap-1 text-xs text-[color:var(--accent)] hover:underline"
+                              >
+                                {reviewAction.label ?? "Open source"}
+                                <ArrowRight className="h-3 w-3" />
+                              </Link>
+                            ) : null}
+                          </div>
+                        ) : t.description ? (
                           <p className="text-xs text-[color:var(--color-muted)] mt-1 line-clamp-3">
                             {t.description}
                           </p>

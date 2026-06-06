@@ -4,6 +4,7 @@ import { Calendar, ExternalLink, Map as MapIcon } from "lucide-react";
 import { DeleteMatchButton } from "@/components/matches/delete-match-button";
 import { MatchVodManager } from "@/components/matches/match-vod-manager";
 import { CoachNotesSection } from "@/components/matches/coach-notes-section";
+import { ReviewActionDialog } from "@/components/review/review-action-dialog";
 import { VodPlayer } from "@/components/vods/vod-player";
 import { requireSession } from "@/lib/auth/get-session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -41,15 +42,14 @@ export default async function MatchDetailPage({ params, searchParams }: Props) {
       .order("created_at", { ascending: false }),
     supabase
       .from("users")
-      .select("id, display_name, email")
+      .select("id, display_name, email, avatar_url")
       .eq("team_id", team.id),
   ]);
 
+  const memberList =
+    (members ?? []) as Array<Pick<UserRow, "id" | "display_name" | "email" | "avatar_url">>;
   const membersById = Object.fromEntries(
-    ((members ?? []) as Array<Pick<UserRow, "id" | "display_name" | "email">>).map((m) => [
-      m.id,
-      m,
-    ]),
+    memberList.map((member) => [member.id, member]),
   );
   const notes = ((notesRaw ?? []) as CoachNoteRow[]).map((n) => ({
     ...n,
@@ -103,6 +103,21 @@ export default async function MatchDetailPage({ params, searchParams }: Props) {
               {m.score_us} - {m.score_them}
             </div>
           </div>
+          <ReviewActionDialog
+            canCreate={user.role === "coach" || user.role === "admin"}
+            members={memberList}
+            source={{
+              href: `/matches/${m.id}`,
+              label: `Match vs ${m.opponent}`,
+              meta: [
+                `Map: ${m.map}`,
+                `Score: ${m.score_us}-${m.score_them}`,
+                `Result: ${m.result}`,
+                `Type: ${m.type}`,
+              ],
+              type: "match",
+            }}
+          />
           {canDelete ? (
             <DeleteMatchButton
               matchId={m.id}

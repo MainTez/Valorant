@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireSession } from "@/lib/auth/get-session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { logActivity } from "@/lib/audit";
+import { parseReviewActionDescription } from "@/lib/review-actions";
 
 export const runtime = "nodejs";
 
@@ -48,13 +49,17 @@ export async function POST(request: NextRequest) {
     if (error || !data) {
       return NextResponse.json({ error: error?.message ?? "Insert failed" }, { status: 400 });
     }
+    const reviewAction = parseReviewActionDescription(body.description);
     await logActivity({
       teamId: team.id,
       actorId: user.id,
-      verb: "updated_task",
+      verb: reviewAction ? "created_review_action" : "created_task",
       objectType: "task",
       objectId: data.id,
-      payload: { title: body.title },
+      payload: {
+        title: body.title,
+        reviewAction,
+      },
     });
     return NextResponse.json({ data });
   } catch (err) {

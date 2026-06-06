@@ -2,12 +2,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Calendar, Map as MapIcon } from "lucide-react";
 import { MatchVodManager } from "@/components/matches/match-vod-manager";
+import { ReviewActionDialog } from "@/components/review/review-action-dialog";
 import { VodPlayer } from "@/components/vods/vod-player";
 import { requireSession } from "@/lib/auth/get-session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { formatNorwayDateTime } from "@/lib/timezone";
 import { resolveMatchVodSource } from "@/lib/vods";
-import type { MatchRow } from "@/types/domain";
+import type { MatchRow, UserRow } from "@/types/domain";
 
 export const dynamic = "force-dynamic";
 
@@ -17,15 +18,21 @@ interface Props {
 
 export default async function VodDetailPage({ params }: Props) {
   const { id } = await params;
-  const { team } = await requireSession();
+  const { team, user } = await requireSession();
   const supabase = await createSupabaseServerClient();
 
-  const { data: match } = await supabase
-    .from("matches")
-    .select("*")
-    .eq("id", id)
-    .eq("team_id", team.id)
-    .maybeSingle();
+  const [{ data: match }, { data: members }] = await Promise.all([
+    supabase
+      .from("matches")
+      .select("*")
+      .eq("id", id)
+      .eq("team_id", team.id)
+      .maybeSingle(),
+    supabase
+      .from("users")
+      .select("id, display_name, email, avatar_url")
+      .eq("team_id", team.id),
+  ]);
 
   if (!match) notFound();
 
@@ -61,6 +68,24 @@ export default async function VodDetailPage({ params }: Props) {
           <Link href={`/matches/${m.id}`} className="text-[color:var(--accent)] hover:underline">
             Open match details
           </Link>
+          <div className="flex justify-end">
+            <ReviewActionDialog
+              canCreate={user.role === "coach" || user.role === "admin"}
+              members={
+                (members ?? []) as Array<Pick<UserRow, "id" | "display_name" | "email" | "avatar_url">>
+              }
+              source={{
+                href: `/vods/${m.id}`,
+                label: `VOD vs ${m.opponent}`,
+                meta: [
+                  `Map: ${m.map}`,
+                  `Score: ${m.score_us}-${m.score_them}`,
+                  `Result: ${m.result}`,
+                ],
+                type: "vod",
+              }}
+            />
+          </div>
         </div>
       </header>
 

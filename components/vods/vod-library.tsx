@@ -21,6 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ReviewActionDialog } from "@/components/review/review-action-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { createVodClip, uploadVodClip } from "@/lib/vods.client";
@@ -33,13 +34,14 @@ import {
   resolveMatchVodSource,
 } from "@/lib/vods";
 import { formatNorwayDateTime } from "@/lib/timezone";
-import type { MatchRow, Role, VodClipRow } from "@/types/domain";
+import type { MatchRow, Role, UserRow, VodClipRow } from "@/types/domain";
 
 interface Props {
   clips: VodClipRow[];
   currentUserId: string;
   currentUserRole: Role;
   matches: MatchRow[];
+  members: Array<Pick<UserRow, "id" | "display_name" | "email" | "avatar_url">>;
   teamName: string;
 }
 
@@ -55,6 +57,7 @@ export function VodLibrary({
   currentUserId,
   currentUserRole,
   matches,
+  members,
   teamName,
 }: Props) {
   const vodMatches = matches.filter((match) => resolveMatchVodSource(match).kind !== "missing");
@@ -112,7 +115,12 @@ export function VodLibrary({
             ) : (
               <div className="grid grid-cols-1 gap-4 2xl:grid-cols-2">
                 {vodMatches.map((match) => (
-                  <VodLibraryCard key={match.id} match={match} />
+                  <VodLibraryCard
+                    key={match.id}
+                    canCreateReviewAction={currentUserRole === "coach" || currentUserRole === "admin"}
+                    match={match}
+                    members={members}
+                  />
                 ))}
               </div>
             )}
@@ -142,11 +150,13 @@ export function VodLibrary({
                   <ClipCard
                     key={clip.id}
                     clip={clip}
+                    canCreateReviewAction={currentUserRole === "coach" || currentUserRole === "admin"}
                     canManage={
                       clip.created_by === currentUserId ||
                       currentUserRole === "coach" ||
                       currentUserRole === "admin"
                     }
+                    members={members}
                   />
                 ))}
               </div>
@@ -465,7 +475,15 @@ function ClipForm({ matches }: { matches: MatchRow[] }) {
   );
 }
 
-function VodLibraryCard({ match }: { match: MatchRow }) {
+function VodLibraryCard({
+  canCreateReviewAction,
+  match,
+  members,
+}: {
+  canCreateReviewAction: boolean;
+  match: MatchRow;
+  members: Array<Pick<UserRow, "id" | "display_name" | "email" | "avatar_url">>;
+}) {
   const source = resolveMatchVodSource(match);
   const linkProvider =
     source.kind === "external" ? getReviewLinkProvider(source.url) : null;
@@ -515,12 +533,36 @@ function VodLibraryCard({ match }: { match: MatchRow }) {
         <Button asChild size="sm" variant="ghost">
           <Link href={`/matches/${match.id}`}>Match details</Link>
         </Button>
+        <ReviewActionDialog
+          canCreate={canCreateReviewAction}
+          members={members}
+          source={{
+            href: `/vods/${match.id}`,
+            label: `VOD vs ${match.opponent}`,
+            meta: [
+              `Map: ${match.map}`,
+              `Score: ${match.score_us}-${match.score_them}`,
+              `Result: ${match.result}`,
+            ],
+            type: "vod",
+          }}
+        />
       </div>
     </article>
   );
 }
 
-function ClipCard({ canManage, clip }: { canManage: boolean; clip: VodClipRow }) {
+function ClipCard({
+  canCreateReviewAction,
+  canManage,
+  clip,
+  members,
+}: {
+  canCreateReviewAction: boolean;
+  canManage: boolean;
+  clip: VodClipRow;
+  members: Array<Pick<UserRow, "id" | "display_name" | "email" | "avatar_url">>;
+}) {
   const router = useRouter();
   const [deleting, setDeleting] = useState(false);
   const playable =
@@ -618,6 +660,23 @@ function ClipCard({ canManage, clip }: { canManage: boolean; clip: VodClipRow })
             Open source <ExternalLink className="h-3.5 w-3.5" />
           </a>
         ) : null}
+
+        <div>
+          <ReviewActionDialog
+            canCreate={canCreateReviewAction}
+            members={members}
+            source={{
+              href: clip.match_id ? `/matches/${clip.match_id}` : "/vods",
+              label: `Clip: ${clip.title}`,
+              meta: [
+                clip.map ? `Map: ${clip.map}` : null,
+                clip.opponent ? `Opponent: ${clip.opponent}` : null,
+                `Window: ${formatClipWindow(clip)}`,
+              ].filter(Boolean) as string[],
+              type: "clip",
+            }}
+          />
+        </div>
       </div>
     </article>
   );

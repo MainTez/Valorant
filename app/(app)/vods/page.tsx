@@ -1,7 +1,7 @@
 import { requireSession } from "@/lib/auth/get-session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { VodLibrary } from "@/components/vods/vod-library";
-import type { MatchRow, VodClipRow } from "@/types/domain";
+import type { MatchRow, UserRow, VodClipRow } from "@/types/domain";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "VOD Library" };
@@ -9,7 +9,7 @@ export const metadata = { title: "VOD Library" };
 export default async function VodsPage() {
   const { team, user } = await requireSession();
   const supabase = await createSupabaseServerClient();
-  const [{ data: matches }, { data: clips }] = await Promise.all([
+  const [{ data: matches }, { data: clips }, { data: members }] = await Promise.all([
     supabase
       .from("matches")
       .select("*")
@@ -22,6 +22,10 @@ export default async function VodsPage() {
       .eq("team_id", team.id)
       .order("created_at", { ascending: false })
       .limit(200),
+    supabase
+      .from("users")
+      .select("id, display_name, email, avatar_url")
+      .eq("team_id", team.id),
   ]);
 
   return (
@@ -41,6 +45,9 @@ export default async function VodsPage() {
         currentUserId={user.id}
         currentUserRole={user.role}
         matches={(matches ?? []) as MatchRow[]}
+        members={
+          (members ?? []) as Array<Pick<UserRow, "id" | "display_name" | "email" | "avatar_url">>
+        }
         teamName={team.name}
       />
     </div>

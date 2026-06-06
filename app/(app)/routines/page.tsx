@@ -1,5 +1,6 @@
 import { requireSession } from "@/lib/auth/get-session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { ReviewActionRoutineList } from "@/components/routines/review-action-routine-list";
 import { RoutineChecklist } from "@/components/routines/routine-checklist";
 import { EmptyState } from "@/components/common/empty-state";
 import {
@@ -7,7 +8,7 @@ import {
   personalizeRoutineForUser,
 } from "@/lib/routines/player-routines";
 import { ListChecks } from "lucide-react";
-import type { RoutineProgressRow, RoutineRow } from "@/types/domain";
+import type { RoutineProgressRow, RoutineRow, TaskRow } from "@/types/domain";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Routines" };
@@ -17,7 +18,7 @@ export default async function RoutinesPage() {
   const supabase = await createSupabaseServerClient();
   const today = new Date().toISOString().slice(0, 10);
 
-  const [{ data: routines }, { data: progressRows }] = await Promise.all([
+  const [{ data: routines }, { data: progressRows }, { data: reviewTasks }] = await Promise.all([
     supabase
       .from("routines")
       .select("*")
@@ -28,6 +29,14 @@ export default async function RoutinesPage() {
       .select("*")
       .eq("user_id", user.id)
       .eq("date", today),
+    supabase
+      .from("tasks")
+      .select("*")
+      .eq("team_id", team.id)
+      .eq("assignee_id", user.id)
+      .neq("status", "done")
+      .ilike("description", "%[review-action]%")
+      .order("created_at", { ascending: false }),
   ]);
 
   const rawList = (routines ?? []) as RoutineRow[];
@@ -60,6 +69,8 @@ export default async function RoutinesPage() {
           compounded.
         </p>
       </header>
+
+      <ReviewActionRoutineList tasks={(reviewTasks ?? []) as TaskRow[]} />
 
       {list.length === 0 ? (
         <EmptyState

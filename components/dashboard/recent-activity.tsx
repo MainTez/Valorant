@@ -8,6 +8,8 @@ interface Props {
 }
 
 const VERB_LABEL: Record<string, string> = {
+  created_review_action: "assigned a review action",
+  created_task: "created a task",
   linked_match_vod: "linked a VOD",
   uploaded_match_vod: "uploaded a VOD",
   removed_match_vod: "removed a VOD",
