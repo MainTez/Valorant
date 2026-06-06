@@ -35,6 +35,10 @@ import {
 } from "recharts";
 import { Badge } from "@/components/ui/badge";
 import { TrackerScoreBadge } from "@/components/stats/tracker-score-badge";
+import {
+  buildPlayerImprovementCards,
+  type PlayerImprovementCard,
+} from "@/lib/stats/player-improvements";
 import { buildTrackerScore } from "@/lib/stats/tracker-score";
 import { formatNorway } from "@/lib/timezone";
 import { getAgentAsset, getAgentIcon, getMapAsset } from "@/lib/valorant/assets";
@@ -60,8 +64,10 @@ interface Props {
   history: NormalizedMmrHistoryEntry[];
   region: string;
   onTeam?: boolean;
+  coachNoteBodies?: string[];
   insightsHref: string;
   playerHrefBase: string;
+  reviewActionBodies?: string[];
 }
 
 const tooltipStyle = {
@@ -80,8 +86,10 @@ export function PlayerStatsDashboard({
   history,
   region,
   onTeam,
+  coachNoteBodies = [],
   insightsHref,
   playerHrefBase,
+  reviewActionBodies = [],
 }: Props) {
   const [matchPage, setMatchPage] = useState(1);
   const [selectedActKey, setSelectedActKey] = useState<string | null>(null);
@@ -139,6 +147,11 @@ export function PlayerStatsDashboard({
     agents,
     maps,
     history,
+  });
+  const improvementCards = buildPlayerImprovementCards(actMatches, {
+    actLabel: activeAct?.label ?? "Current Act",
+    coachNotes: coachNoteBodies,
+    reviewActions: reviewActionBodies,
   });
 
   const metricTiles = [
@@ -315,6 +328,12 @@ export function PlayerStatsDashboard({
               />
             ))}
           </div>
+
+          <ImprovementCardsPanel
+            actLabel={activeAct?.label ?? "Current Act"}
+            cards={improvementCards}
+            coachContextCount={coachNoteBodies.length + reviewActionBodies.length}
+          />
 
           <div className="grid gap-5 2xl:grid-cols-[minmax(0,1fr)_minmax(320px,0.95fr)]">
             <ChartPanel title="ACS Trend" subtitle={`${trendData.length} ${activeAct?.label ?? "stored"} matches`}>
@@ -616,6 +635,68 @@ function ActSelector({
   );
 }
 
+function ImprovementCardsPanel({
+  actLabel,
+  cards,
+  coachContextCount,
+}: {
+  actLabel: string;
+  cards: PlayerImprovementCard[];
+  coachContextCount: number;
+}) {
+  return (
+    <section className={PANEL_CLASS}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="font-display text-3xl leading-none text-white">
+            Current ACT improvements
+          </div>
+          <div className="mt-1 text-sm text-white/48">
+            Three deterministic fixes from {actLabel} stats, match history, and coach context
+          </div>
+        </div>
+        <Badge variant={coachContextCount > 0 ? "default" : "outline"}>
+          {coachContextCount > 0 ? `${coachContextCount} coach signals` : "stats only"}
+        </Badge>
+      </div>
+      <div className="mt-4 grid gap-3 lg:grid-cols-3">
+        {cards.map((card) => (
+          <div
+            key={card.id}
+            className="rounded-[22px] border border-white/8 bg-white/[0.03] p-4"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#d6a74a]/18 bg-[#d6a74a]/10 text-[#f0c462]">
+                <Target className="h-5 w-5" />
+              </div>
+              <Badge variant={priorityVariant(card.priority)}>
+                {card.priority}
+              </Badge>
+            </div>
+            <h3 className="mt-4 font-display text-2xl leading-none text-white">
+              {card.title}
+            </h3>
+            <p className="mt-2 text-sm leading-6 text-white/70">
+              {card.focus}
+            </p>
+            <div className="mt-4 rounded-2xl border border-white/8 bg-black/16 px-3 py-2">
+              <div className="text-[0.65rem] uppercase tracking-[0.18em] text-white/38">
+                Evidence
+              </div>
+              <p className="mt-1 text-sm leading-5 text-white/58">
+                {card.evidence}
+              </p>
+            </div>
+            <div className="mt-3 text-sm font-semibold leading-6 text-[#f0c462]">
+              {card.drill}
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function ChartPanel({
   title,
   subtitle,
@@ -634,6 +715,12 @@ function ChartPanel({
       <div className="mt-4 h-[252px]">{children}</div>
     </section>
   );
+}
+
+function priorityVariant(priority: PlayerImprovementCard["priority"]) {
+  if (priority === "high") return "danger";
+  if (priority === "medium") return "warning";
+  return "outline";
 }
 
 function Panel({

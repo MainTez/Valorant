@@ -17,6 +17,7 @@ import {
 } from "@/lib/henrik/normalize";
 import { defaultRegion, normalizeRegion } from "@/lib/henrik/regions";
 import { filterCoreStatsMatches } from "@/lib/stats/match-filters";
+import { parseReviewActionDescription } from "@/lib/review-actions";
 import { EmptyState } from "@/components/common/empty-state";
 import { PlayerStatsDashboard } from "@/components/stats/player-stats-dashboard";
 import type { NormalizedMatch } from "@/types/domain";
@@ -97,6 +98,36 @@ export default async function PlayerStatsPage({ params, searchParams }: Props) {
     .eq("riot_name", account.name)
     .eq("riot_tag", account.tag)
     .maybeSingle();
+  let coachNoteBodies: string[] = [];
+  let reviewActionBodies: string[] = [];
+
+  if (rosterUser?.id) {
+    const [{ data: coachNotes }, { data: reviewTasks }] = await Promise.all([
+      supabase
+        .from("coach_notes")
+        .select("body, created_at")
+        .eq("team_id", team.id)
+        .order("created_at", { ascending: false })
+        .limit(8),
+      supabase
+        .from("tasks")
+        .select("description, created_at")
+        .eq("team_id", team.id)
+        .eq("assignee_id", rosterUser.id)
+        .neq("status", "done")
+        .ilike("description", "%[review-action]%")
+        .order("created_at", { ascending: false })
+        .limit(6),
+    ]);
+
+    coachNoteBodies = ((coachNotes ?? []) as Array<{ body: string | null }>).flatMap((note) =>
+      note.body ? [note.body] : [],
+    );
+    reviewActionBodies = ((reviewTasks ?? []) as Array<{ description: string | null }>).flatMap((task) => {
+      const reviewAction = parseReviewActionDescription(task.description);
+      return reviewAction?.body ? [reviewAction.body] : [];
+    });
+  }
 
   try {
     const admin = createSupabaseAdminClient();
@@ -165,6 +196,8 @@ export default async function PlayerStatsPage({ params, searchParams }: Props) {
         history={history}
         region={region}
         onTeam={Boolean(rosterUser)}
+        coachNoteBodies={coachNoteBodies}
+        reviewActionBodies={reviewActionBodies}
         insightsHref={`/insights/${encodeURIComponent(decodedName)}/${encodeURIComponent(decodedTag)}?region=${region}`}
         playerHrefBase={`/stats/${encodeURIComponent(decodedName)}/${encodeURIComponent(decodedTag)}`}
       />
