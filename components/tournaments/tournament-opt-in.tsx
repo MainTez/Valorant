@@ -507,11 +507,15 @@ function buildOptInNotice(
       : member?.status === "waitlist"
         ? `and joined waitlist #${member.waitlistPosition ?? "-"}`
         : "for the tournament";
+  const rosterJustLocked =
+    member?.status === "active" && summary.activeCount >= summary.rosterLimit;
 
   return {
     id: row.id,
-    title: "Tournament opt-in",
-    body: `${name} opted in ${statusCopy}.`,
+    title: rosterJustLocked ? "Roster locked" : "Tournament opt-in",
+    body: rosterJustLocked
+      ? `${name} opted in and locked the roster at ${summary.activeCount}/${summary.rosterLimit}.`
+      : `${name} opted in ${statusCopy}.`,
     tone: member?.status === "waitlist" ? "warning" : "success",
   };
 }

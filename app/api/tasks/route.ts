@@ -57,6 +57,7 @@ export async function POST(request: NextRequest) {
       objectType: "task",
       objectId: data.id,
       payload: {
+        assignee_id: body.assignee_id ?? null,
         title: body.title,
         reviewAction,
       },

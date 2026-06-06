@@ -7,6 +7,7 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
 import { ChatRail } from "@/components/layout/chat-rail";
 import { MatchMomentNotifier } from "@/components/layout/match-moment-notifier";
+import { ActivityToastNotifier } from "@/components/layout/activity-toast-notifier";
 import {
   ACTIVE_TOURNAMENT_OPT_IN_KEY,
   buildTournamentOptInSummary,
@@ -154,6 +155,14 @@ export default async function AppLayout({
         />
       </div>
       <MatchMomentNotifier teamId={session.team.id} />
+      <ActivityToastNotifier
+        teamId={session.team.id}
+        members={(members ?? []).map((member) => ({
+          id: member.id,
+          display_name: member.display_name,
+          email: member.email,
+        }))}
+      />
     </div>
   );
 }
